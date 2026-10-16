@@ -8,8 +8,8 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 
 - **Napi étlap:** dátumonként kiválasztott à la carte ételek; a napi leves és A/B menü a heti szerkesztőből kerül a rögzített méretű felső blokkba.
 - **Akciók:** a napi étellistán pipáld be az ételt, majd dupla kattintással vagy az **Akció beállítása…** gombbal nyisd meg az akciós szerkesztőt. Az akció jelölőnégyzete aktiválja az akciós ár mezőjét. Az árnak a normál árnál kisebbnek kell lennie. Az akció **csak a kiválasztott dátumra** vonatkozik. Az étlapon az eredeti ár áthúzva, az új ár pirossal és **AKCIÓ** felirattal látszik.
-- **Heti menü:** hétfőtől péntekig önálló leves, A és B menü; nem kell szerepelniük az à la carte adatbázisban.
-- **Ételadatbázis:** kategóriák, alapárak, keresés, felvétel, szerkesztés, törlés. Az új telepítés üres adatbázissal indul.
+- **Heti menü:** hétfőtől péntekig önálló leves, A és B menü. A mezők gépelés közben javaslatokat adnak a külön **Menü** kategóriából; szabadon új fogás is beírható. A Menü kategória tételei nem jelennek meg a napi à la carte pipálható listában.
+- **Ételadatbázis:** 328 induló tétel a feltöltött 2026. július–októberi étlapképek alapján, kategóriák, árak, keresés, felvétel, szerkesztés, törlés. Új adatbázisba automatikusan betöltődik. Meglévő adatbázisban az **Ételek → Alapadatbázis hiányzó ételeinek betöltése** gomb egészíti ki; ez nem írja felül a saját neveket, árakat vagy törölt tételeket.
 - **Mentett étlapok:** napi és heti étlapok dátum szerint listázva. A kiválasztott mentés az előnézetben megnyitható és a mentéskori nevekkel, árakkal, akciókkal újra exportálható. Egy típushoz és dátumhoz a legutóbbi mentés tartozik.
 - **Megjelenés:** hét beépített téma; egyedi és importált SVG/PNG díszítő elemek; PNG/JPG háttér; vezetőjelek; külön betűválasztás öt szövegtípushoz. A betűválasztók az operációs rendszer által elérhető telepített fontokat sorolják fel, Windows alatt a Windows fontjait.
 - **Export:** 1440 × 1800 képpontos, 4:5 arányú Facebook PNG és A4 PDF. A napi étlap mindig egy kép: a fejléc és a napi menüblokk helye fix, az à la carte rész szükség esetén kisebb betűvel tördelődik.
@@ -35,7 +35,7 @@ python qt_app.pyw
 ## Használat
 
 1. A **Beállítások** fülön add meg az étterem nevét, címét, telefonszámát.
-2. Az **Ételek és árak** fülön vedd fel az à la carte ételeket és alapárukat.
+2. Az **Ételek** fülön ellenőrizd az alapárakat, és szerkeszd vagy bővítsd az ételadatbázist.
 3. A **Heti menü** fülön add meg a leveseket és az A/B menüket; kattints a mentésre.
 4. A **Napi étlap** fülön válaszd ki a dátumot, pipáld be az ételeket. Akció esetén nyisd meg a kijelölt étel akciós szerkesztőjét, jelöld be az akciót és add meg az árat. Kattints a **Napi étlap mentése** gombra.
 5. A **Megjelenés** fülön válassz témát, fontokat, hátteret, színeket és vezetőjelet. A jobb oldali előnézet a változásokat követi.
@@ -44,6 +44,12 @@ python qt_app.pyw
 Az adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlban van. A saját témák a `themes`, a háttérképek a `backgrounds` almappában. A biztonsági másolat az adatbázist menti; a saját importált grafikákat külön másold le. A meglévő Tkinter verzió adatbázisát az új program helyben bővíti az akciók táblájával. A már korábban dátumozott kiválasztások és heti menük első indításkor mentett bejegyzéssé is válnak az akkori aktuális árakkal.
 
 A telepített rendszerfontok megjelennek a választókban. Egy font tényleges PDF-megjelenése a font és a Qt PDF motorjának támogatásától függ; a végleges exportot a PDF-ben is érdemes ellenőrizni. A választott saját betűtípus másik gépen csak akkor lesz ugyanolyan, ha azon is telepítve van.
+
+## A feltöltött étlapokból készült alapadatbázis
+
+A szerkeszthető [CSV fájl](data/alap_eteladatbazis.csv) 213 à la carte és 115 Menü kategóriájú tételt tartalmaz. A Menü kategóriában az üres ármező azt jelenti, hogy a fogáshoz nem volt külön ár: a korábbi lapokon látható **2800 Ft a levesből és főételből álló napi menü csomagára**, így ezt nem rendeltük hozzá egyik összetevőhöz sem. Az à la carte árak a legutóbbi jól olvasható **nem akciós** árak; a bizonytalan árakat üresen hagytuk, ezek az alkalmazásban „—” jellel szerepelnek. A CSV `megjegyzes` oszlopa jelzi a hiányzó árakat. A névírás OCR utáni kézi javítást és egységesítést kapott; a betöltött alapadatokat használat előtt érdemes az aktuális kínálathoz igazítani.
+
+A menüfogások akkor is önálló Menü rekordok, ha ugyanaz az étel az à la carte kínálatban szerepel. Az első indítás adatbázisba másolja a CSV-t; későbbi CSV frissítésnél a gomb csak a hiányzó neveket veszi fel, meglévő árakat nem módosít. A korábban elmentett napi és heti étlapok tartalma változatlan.
 
 ## Saját grafikák
 
@@ -55,6 +61,8 @@ A beépített témák a `themes_builtin/` mappában vannak. A **Megjelenés → 
 | --- | --- |
 | `qt_app.pyw` | Qt6 szerkesztő és élő előnézet |
 | `menu_core.py` | SQLite adatbázis, napi akciók, mentett étlapok |
+| `data/alap_eteladatbazis.csv` | A felismert ételnevek és legutóbbi olvasható normál árak |
+| `catalog_seed.py` | A CSV betöltése új vagy meglévő adatbázisba |
 | `menu_render.py` | Közös Qt előnézet, A4 PDF és Facebook PNG rajzolás |
 | `themes.py` | SVG/PNG témacsomagok ellenőrzése és importja |
 | `themes_builtin/`, `backgrounds/` | Beépített grafikai elemek |

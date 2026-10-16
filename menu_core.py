@@ -2,13 +2,15 @@
 from __future__ import annotations
 import json
 import sqlite3
+import unicodedata
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from catalog_seed import starter_dishes
 
 APP_NAME = "ÉtlapStúdió"
 CATEGORIES = [
     "Levesek", "Főzelékek", "Feltétek", "Köretek", "Savanyúságok",
-    "Készételek", "Frissensültek", "Tészták, desszertek", "Mártások, öntetek", "Egyéb",
+    "Készételek", "Frissensültek", "Tészták, desszertek", "Mártások, öntetek", "Egyéb", "Menü",
 ]
 WEEKDAYS = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek"]
 GREEN = "#1D6B50"
@@ -30,7 +32,11 @@ def display_date(day: date) -> str:
 
 
 def price(amount: int) -> str:
-    return f"{amount:,}".replace(",", " ") + " Ft"
+    return f"{amount:,}".replace(",", " ") + " Ft" if amount else "—"
+
+
+def normalized_name(name: str) -> str:
+    return unicodedata.normalize("NFKC", name).casefold().strip()
 
 
 class Store:
@@ -78,6 +84,22 @@ class Store:
             if "promo_price" not in columns:
                 self.db.execute("ALTER TABLE dishes ADD COLUMN promo_price INTEGER")
         self._archive_existing()
+        if not self.db.execute("SELECT 1 FROM dishes LIMIT 1").fetchone():
+            self.import_starter_catalogue()
+
+    def import_starter_catalogue(self) -> int:
+        """Add missing starter dishes; preserve all existing names, prices and deletions."""
+        existing = {(row[0], normalized_name(row[1])) for row in
+                    self.db.execute("SELECT category,name FROM dishes")}
+        additions = []
+        for dish in starter_dishes():
+            key = (dish.category, normalized_name(dish.name))
+            if key not in existing:
+                additions.append((dish.name, dish.category, dish.price))
+                existing.add(key)
+        with self.db:
+            self.db.executemany("INSERT INTO dishes(name,category,price) VALUES(?,?,?)", additions)
+        return len(additions)
 
     def dishes(self, query: str = ""):
         return self.db.execute(
@@ -85,6 +107,14 @@ class Store:
             "ORDER BY category, name COLLATE NOCASE, id",
             (f"%{query}%", f"%{query}%"),
         ).fetchall()
+
+    def daily_dishes(self, query: str = ""):
+        return [row for row in self.dishes(query) if row["category"] != "Menü"]
+
+    def menu_suggestions(self):
+        return [row[0] for row in self.db.execute(
+            "SELECT name FROM dishes WHERE active=1 AND category='Menü' "
+            "ORDER BY name COLLATE NOCASE")]
 
     def add_dish(self, name: str, category: str, amount: int, dish_id=None,
                  promo_enabled=False, promo_price=None):

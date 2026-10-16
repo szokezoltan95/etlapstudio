@@ -9,7 +9,7 @@ from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt
 from PyQt6.QtGui import QColor, QFont, QPixmap
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QColorDialog, QComboBox, QDateEdit, QDialog,
+    QApplication, QCheckBox, QColorDialog, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QHBoxLayout, QLabel, QLineEdit, QListWidget, QMainWindow, QMessageBox,
     QPushButton, QScrollArea, QSlider, QSpinBox, QSplitter, QTabWidget,
@@ -44,6 +44,8 @@ class DishDialog(QDialog):
         form.addRow("Kategória",self.category)
         self.amount=QSpinBox();self.amount.setRange(0,1_000_000);self.amount.setSuffix(" Ft")
         self.amount.setValue(row["price"] if row else 0);form.addRow("Ár",self.amount)
+        self.amount_label=QLabel("A Menü kategóriában a 0 Ft azt jelenti, hogy nincs külön feltüntetett ár.")
+        self.amount_label.setWordWrap(True);layout.addWidget(self.amount_label)
         hint=QLabel("A napi akciós árat a Napi étlap fülön, az adott dátumhoz állíthatod be.")
         hint.setWordWrap(True);layout.addWidget(hint)
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
@@ -149,13 +151,17 @@ class MainWindow(QMainWindow):
             innerbox.addWidget(heading);form=QFormLayout();group=[]
             for field in ("Leves","A menü","B menü"):
                 edit=QLineEdit();edit.textChanged.connect(self.schedule_week_save)
+                completer=QCompleter(self.store.menu_suggestions(),edit)
+                completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+                completer.setFilterMode(Qt.MatchFlag.MatchContains)
+                edit.setCompleter(completer)
                 form.addRow(field,edit);group.append(edit)
             self.week_fields.append(group);innerbox.addLayout(form)
         innerbox.addStretch();scroll.setWidget(inner);box.addWidget(scroll,1)
         box.addWidget(button("Heti menü mentése",self.save_week))
 
     def build_catalog(self):
-        page,box=self.pane("À la carte ételadatbázis")
+        page,box=self.pane("Ételadatbázis · à la carte és külön Menü kategória")
         self.tabs.addTab(page,"Ételek")
         self.catalog_search=QLineEdit();self.catalog_search.setPlaceholderText("Keresés név vagy kategória szerint…")
         self.catalog_search.textChanged.connect(self.refresh_catalog);box.addWidget(self.catalog_search)
@@ -166,6 +172,7 @@ class MainWindow(QMainWindow):
         for label,callback in (("Új étel",self.new_dish),("Szerkesztés",self.edit_dish),("Törlés",self.delete_dish)):
             row.addWidget(button(label,callback))
         row.addStretch();box.addLayout(row)
+        box.addWidget(button("Alapadatbázis hiányzó ételeinek betöltése",self.import_starter))
 
     def build_archive(self):
         page,box=self.pane("Mentett étlapok · a mentéskori nevekkel és árakkal")
@@ -232,7 +239,7 @@ class MainWindow(QMainWindow):
                                    "Mai menü: a Heti menü fülön szerkeszthető")
         selected={r["id"]:r for r in self.store.selection(day)}
         self._loading=True;self.daily_tree.clear()
-        available=list(self.store.dishes(self.search.text()))
+        available=list(self.store.daily_dishes(self.search.text()))
         active_ids={dish["id"] for dish in available}
         # Soft-deleted catalogue entries may still occur on an older dated menu.
         available.extend(row for row in selected.values()
@@ -304,6 +311,16 @@ class MainWindow(QMainWindow):
             item=QTreeWidgetItem([row["name"],row["category"],price(row["price"])])
             item.setData(0,Qt.ItemDataRole.UserRole,row["id"]);self.catalog.addTopLevelItem(item)
 
+    def refresh_menu_suggestions(self):
+        suggestions=self.store.menu_suggestions()
+        for group in self.week_fields:
+            for edit in group:edit.completer().model().setStringList(suggestions)
+
+    def import_starter(self):
+        count=self.store.import_starter_catalogue()
+        self.refresh_catalog();self.refresh_daily();self.refresh_menu_suggestions()
+        QMessageBox.information(self,APP_NAME,f"{count} hiányzó étel bekerült az adatbázisba.")
+
     def current_catalog_row(self):
         item=self.catalog.currentItem()
         if not item:return None
@@ -320,12 +337,12 @@ class MainWindow(QMainWindow):
         name=dialog.name.text().strip()
         if not name:QMessageBox.warning(self,APP_NAME,"Add meg az étel nevét.");return
         self.store.add_dish(name,dialog.category.currentText(),dialog.amount.value(),row["id"] if row else None)
-        self.refresh_catalog();self.refresh_daily()
+        self.refresh_catalog();self.refresh_daily();self.refresh_menu_suggestions()
     def delete_dish(self):
         row=self.current_catalog_row()
         if not row:return
         if QMessageBox.question(self,APP_NAME,"Töröljük ezt az ételt az aktuális kínálatból?")==QMessageBox.StandardButton.Yes:
-            self.store.delete_dish(row["id"]);self.refresh_catalog();self.refresh_daily()
+            self.store.delete_dish(row["id"]);self.refresh_catalog();self.refresh_daily();self.refresh_menu_suggestions()
 
     def refresh_archive(self):
         if not hasattr(self,"archive"):return

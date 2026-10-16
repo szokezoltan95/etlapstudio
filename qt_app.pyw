@@ -232,10 +232,17 @@ class MainWindow(QMainWindow):
                                    "Mai menü: a Heti menü fülön szerkeszthető")
         selected={r["id"]:r for r in self.store.selection(day)}
         self._loading=True;self.daily_tree.clear()
-        for dish in self.store.dishes(self.search.text()):
+        available=list(self.store.dishes(self.search.text()))
+        active_ids={dish["id"] for dish in available}
+        # Soft-deleted catalogue entries may still occur on an older dated menu.
+        available.extend(row for row in selected.values()
+                         if row["id"] not in active_ids and not row["active"]
+                         and self.search.text().casefold() in row["name"].casefold())
+        for dish in available:
             saved=selected.get(dish["id"])
             promo=bool(saved and saved["promo_enabled"] and saved["promo_price"] is not None)
-            item=QTreeWidgetItem(["",dish["name"],dish["category"],price(dish["price"]),
+            label=dish["name"]+(" (törölt az adatbázisból)" if not dish["active"] else "")
+            item=QTreeWidgetItem(["",label,dish["category"],price(dish["price"]),
                                   price(saved["promo_price"]) if promo else ""])
             item.setData(0,Qt.ItemDataRole.UserRole,dish["id"])
             item.setFlags(item.flags()|Qt.ItemFlag.ItemIsUserCheckable)

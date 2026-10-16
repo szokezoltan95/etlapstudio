@@ -340,9 +340,11 @@ class MainWindow(QMainWindow):
 
     def reload_themes(self):
         self.theme_packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
+        self.theme.blockSignals(True)
         self.theme.clear();self.theme_keys=list(self.theme_packs)
         for key in self.theme_keys:self.theme.addItem(self.theme_packs[key][0]["name"],key)
         index=self.theme.findData(self.store.setting("theme","classic"));self.theme.setCurrentIndex(max(index,0))
+        self.theme.blockSignals(False)
 
     def save_appearance(self,*_):
         if not hasattr(self,"opacity"):return

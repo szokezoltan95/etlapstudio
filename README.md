@@ -9,6 +9,7 @@ Asztali program napi étlapok és heti menük készítésére. Az à la carte é
 - **Napi étlap:** dátumválasztás, aznapi à la carte kínálat kijelölése, automatikus leves és A/B menü a heti tervből.
 - **Heti menü:** hétfő–péntek, naponként leves, A és B menü. Az ételnevek nem az à la carte adatbázisból származnak; a B menü üresen hagyható.
 - **Ételadatbázis:** kategóriák, árak, keresés, hozzáadás, szerkesztés, törlés. Az alkalmazás üres adatbázissal indul.
+- **Étlap-adatbázis:** a napi étlap külön Mentés gombbal, a heti menü a meglévő Mentés gombbal kerül az archívumba. A **Mentett étlapok** fül dátum szerint listázza az összes mentett napi és heti étlapot. Dupla kattintással újranyithatók, és a mentett változatból PDF vagy Facebook PNG készülhet. Azonos típus és dátum ismételt mentése az archív bejegyzést frissíti.
 - **Megjelenés:** hét téma, állítható színek és díszítések, külön betűválasztás az étterem nevéhez, főcímhez, alcímekhez, heti/A-B menühöz és étel/ár sorokhoz. Az étel és az ár között kérhető pontozott, szaggatott vagy folytonos vezetőjel, illetve kikapcsolható. Importálható PNG/JPG háttér, állítható erősséggel; beépített botanikus PNG minta is van.
 - **Export:** A4 PDF nyomtatáshoz és 4:5 arányú, 1440 × 1800 képpontos PNG közösségi megosztáshoz. A napi étlap mindig egy PNG: a fejléc és a napi menü blokk fix méretű, az à la carte rész betűmérete a tételek számához igazodik.
 - **Adatok:** helyi SQLite, kézi biztonsági mentés. Nincs fiók és szerverkapcsolat.
@@ -39,13 +40,16 @@ Linuxon a Tkinter rendszerfüggőséget külön is telepíteni kellhet. A progra
 1. Az **Étterem adatai** fülön írd be a nevet, címet, telefonszámot és az alsó megjegyzést.
 2. Az **Ételek és árak** fülön vedd fel az à la carte kínálatot.
 3. A **Heti menü** fülön szerkeszd a hétfőtől péntekig tartó tervet. A Mentés gombbal vagy másik fülre lépve mentődik.
-4. A **Napi étlap** fülön naponta válaszd ki az elérhető à la carte ételeket.
-5. A **Megjelenés** fülön állítsd be a témát, az öt betűtípust, a vezetőjelet és szükség esetén a háttérképet. A napi és heti export azonos beállításokat használ.
-6. Ments PDF-et vagy Facebook PNG-t. A PNG-ket az alkalmazás nem tölti fel automatikusan a Facebookra.
+4. A **Napi étlap** fülön naponta válaszd ki az elérhető à la carte ételeket, majd kattints a **Napi étlap mentése** gombra. A heti szerkesztőben a **Heti menü mentése** gomb rögzíti az adott hetet.
+5. A **Mentett étlapok** fülön egy régebbi étlapot dupla kattintással megnyithatsz, és újra exportálhatsz.
+6. A **Megjelenés** fülön állítsd be a témát, az öt betűtípust, a vezetőjelet és szükség esetén a háttérképet. A napi és heti export azonos beállításokat használ.
+7. Ments PDF-et vagy Facebook PNG-t. A PNG-ket az alkalmazás nem tölti fel automatikusan a Facebookra.
 
 A helyi adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlba kerül. Az importált témák a `themes`, a saját háttérképek a `backgrounds` mappában vannak. A biztonsági másolat az **Étterem adatai** fülön készíthető; a saját háttérképeket és témákat külön másold le, ha másik gépre költözöl. A program könyvtárában nincs éles ételadatbázis.
 
-> Az árak az ételadatbázis aktuális értékei. Ha később módosítasz egy árat, egy régi dátum újraexportált PDF/PNG fájlján már az új ár szerepel. A korábban elmentett fájlok természetesen nem változnak.
+> A **Mentett étlapok** fülön újraexportált étlap a mentéskori ételneveket, árakat, heti szövegeket és megjelenési beállításokat használja. Ha viszont egy régi dátumot közvetlenül a Napi étlap szerkesztőjében exportálsz újra, ott továbbra is az aktuális à la carte adatbázis adatai érvényesek. Az importált egyedi grafikák fájljait is őrizd meg: az archívum ezekre hivatkozik, nem másolja be őket az SQLite-ba.
+
+Korábbi telepítés első indításakor a már dátumozott napi kiválasztások és heti menük bekerülnek az archívumba a **migráláskor aktuális** ételárakkal. A korábbi árváltozatok nem állíthatók helyre, ha azok nem voltak mentve.
 
 ## Témák és saját grafikák
 
@@ -70,4 +74,4 @@ Egy csomag négy fájlja: `manifest.json` és a `header`, `divider`, `corner` el
 
 ## Jelenlegi korlátok
 
-A heti menü hétfőtől péntekig jelenik meg. Az app egyetlen gépen, helyi adatbázissal dolgozik. A grafikai előnézet a téma színeit és fejlécdíszét mutatja; a teljes végleges tördelés a PDF/PNG exportban látszik. Nagyon sok vagy különösen hosszú à la carte tételnél az egyetlen napi PNG betűi kicsik lehetnek. A korábbi árváltozatokat az adatbázis jelenleg nem tárolja.
+A heti menü hétfőtől péntekig jelenik meg. Az app egyetlen gépen, helyi adatbázissal dolgozik. A grafikai előnézet a téma színeit és fejlécdíszét mutatja; a teljes végleges tördelés a PDF/PNG exportban látszik. Nagyon sok vagy különösen hosszú à la carte tételnél az egyetlen napi PNG betűi kicsik lehetnek. Az archívum típusonként és dátumonként a legutóbbi mentést őrzi; korábbi verziókat ugyanarra a dátumra nem tart meg.

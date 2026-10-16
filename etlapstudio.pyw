@@ -7,6 +7,7 @@ import sys
 import tempfile
 import base64
 import io
+import json
 import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -120,7 +121,16 @@ class Store:
                 CREATE TABLE IF NOT EXISTS settings (
                     key TEXT PRIMARY KEY, value TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS saved_menus (
+                    id INTEGER PRIMARY KEY,
+                    kind TEXT NOT NULL CHECK(kind IN ('daily','weekly')),
+                    menu_date TEXT NOT NULL,
+                    saved_at TEXT NOT NULL,
+                    definition TEXT NOT NULL,
+                    UNIQUE(kind,menu_date)
+                );
             """)
+        self._archive_existing()
 
     def dishes(self, query: str = ""):
         return self.db.execute(
@@ -178,6 +188,74 @@ class Store:
                 INSERT INTO settings(key,value) VALUES(?,?)
                 ON CONFLICT(key) DO UPDATE SET value=excluded.value
             """, list(values.items()))
+
+    def menu_settings(self):
+        return {row["key"]:row["value"] for row in
+                self.db.execute("SELECT key,value FROM settings")}
+
+    def snapshot(self, kind: str, day: date):
+        if kind == "daily":
+            soup,a,b=self.week_entry(day)
+            return {"settings":self.menu_settings(),"special":{"soup":soup,"menu_a":a,"menu_b":b},
+                    "dishes":[{key:row[key] for key in ("id","name","category","price")}
+                              for row in self.selection(day)]}
+        mon=monday(day)
+        return {"settings":self.menu_settings(),"days":[
+            dict(zip(("soup","menu_a","menu_b"),self.week_entry(mon+timedelta(days=i))))
+            for i in range(5)]}
+
+    def save_menu(self, kind: str, day: date):
+        if kind not in ("daily","weekly"):raise ValueError("Ismeretlen étlaptípus.")
+        day=monday(day) if kind=="weekly" else day
+        definition=self.snapshot(kind,day)
+        now=datetime.now().astimezone().isoformat(timespec="seconds")
+        with self.db:
+            self.db.execute("""INSERT INTO saved_menus(kind,menu_date,saved_at,definition)
+                VALUES(?,?,?,?) ON CONFLICT(kind,menu_date) DO UPDATE SET
+                saved_at=excluded.saved_at,definition=excluded.definition""",
+                (kind,day.isoformat(),now,json.dumps(definition,ensure_ascii=False)))
+
+    def saved_menus(self):
+        return self.db.execute("SELECT id,kind,menu_date,saved_at FROM saved_menus "
+                               "ORDER BY menu_date DESC,kind,id DESC").fetchall()
+
+    def saved_menu(self, menu_id: int):
+        row=self.db.execute("SELECT * FROM saved_menus WHERE id=?",(menu_id,)).fetchone()
+        if row is None:raise ValueError("A mentett étlap nem található.")
+        return row, json.loads(row["definition"])
+
+    def _archive_existing(self):
+        # Old installations already contain dated selections, but no snapshots.
+        dates=self.db.execute("SELECT DISTINCT day FROM daily_selection").fetchall()
+        weeks=self.db.execute("SELECT DISTINCT day FROM weekly_menu WHERE "
+                              "soup<>'' OR menu_a<>'' OR menu_b<>''").fetchall()
+        for (raw,) in dates:
+            if not self.db.execute("SELECT 1 FROM saved_menus WHERE kind='daily' AND menu_date=?",(raw,)).fetchone():
+                self.save_menu("daily",date.fromisoformat(raw))
+        for mon in {monday(date.fromisoformat(row[0])) for row in weeks}:
+            if not self.db.execute("SELECT 1 FROM saved_menus WHERE kind='weekly' AND menu_date=?",(mon.isoformat(),)).fetchone():
+                self.save_menu("weekly",mon)
+
+
+class ArchivedMenu:
+    """Read-only Store interface for PDF/PNG export of an exact saved definition."""
+    def __init__(self, kind, menu_date, definition):
+        self.kind,self.menu_date,self.definition=kind,menu_date,definition
+
+    def setting(self,key,default=""):
+        return self.definition.get("settings",{}).get(key,default)
+
+    def selection(self,day):
+        return self.definition.get("dishes",[]) if self.kind=="daily" and day==self.menu_date else []
+
+    def week_entry(self,day):
+        if self.kind=="daily":
+            data=self.definition.get("special",{}) if day==self.menu_date else {}
+        else:
+            offset=(day-self.menu_date).days
+            days=self.definition.get("days",[])
+            data=days[offset] if 0<=offset<len(days) else {}
+        return tuple(data.get(key,"") for key in ("soup","menu_a","menu_b"))
 
 
 def fonts():
@@ -581,16 +659,19 @@ class App(tk.Tk):
         self.tabs.pack(fill="both", expand=True, padx=18, pady=17)
         self.daily = ttk.Frame(self.tabs, padding=18)
         self.weekly = ttk.Frame(self.tabs, padding=18)
+        self.archive = ttk.Frame(self.tabs, padding=18)
         self.catalog = ttk.Frame(self.tabs, padding=18)
         self.appearance = ttk.Frame(self.tabs, padding=18)
         self.settings_tab = ttk.Frame(self.tabs, padding=18)
         self.tabs.add(self.daily, text="  Napi étlap  ")
         self.tabs.add(self.weekly, text="  Heti menü  ")
+        self.tabs.add(self.archive, text="  Mentett étlapok  ")
         self.tabs.add(self.catalog, text="  Ételek és árak  ")
         self.tabs.add(self.appearance, text="  Megjelenés  ")
         self.tabs.add(self.settings_tab, text="  Étterem adatai  ")
         self.build_daily()
         self.build_weekly()
+        self.build_archive()
         self.build_catalog()
         self.build_appearance()
         self.build_settings()
@@ -624,6 +705,7 @@ class App(tk.Tk):
         self.day_label.pack(side="left", padx=18)
         ttk.Button(row, text="▶", command=lambda:self.change_day(1)).pack(side="left")
         ttk.Button(row, text="Ma", command=self.today).pack(side="left", padx=10)
+        ttk.Button(row, text="Napi étlap mentése", command=self.save_daily).pack(side="left",padx=5)
         ttk.Button(row, text="PDF készítése", style="Accent.TButton",
                    command=lambda:self.export_pdf("daily")).pack(side="right")
         ttk.Button(row, text="Facebook PNG", command=lambda:self.export_png("daily")).pack(side="right",padx=8)
@@ -690,6 +772,20 @@ class App(tk.Tk):
             self.week_inputs.append(vars)
         ttk.Button(self.weekly,text="Heti menü mentése",style="Accent.TButton",
                    command=self.save_week).pack(anchor="e",pady=(14,0))
+
+    def build_archive(self):
+        self.title_block(self.archive,"Mentett étlapok",
+                         "A mentett napi és heti étlapok az akkori ételeket, árakat és megjelenést őrzik.")
+        self.archive_tree=ttk.Treeview(self.archive,columns=("kind","date","saved"),show="headings",selectmode="browse")
+        for key,label,width in (("kind","Típus",170),("date","Étlap dátuma / hét kezdete",260),
+                                ("saved","Utoljára mentve",260)):
+            self.archive_tree.heading(key,text=label)
+            self.archive_tree.column(key,width=width,anchor="w")
+        self.archive_tree.pack(fill="both",expand=True)
+        self.archive_tree.bind("<Double-1>",lambda _:self.open_saved_menu())
+        row=ttk.Frame(self.archive);row.pack(fill="x",pady=(12,0))
+        ttk.Button(row,text="Megnyitás",style="Accent.TButton",command=self.open_saved_menu).pack(side="left")
+        ttk.Button(row,text="Lista frissítése",command=self.refresh_archive).pack(side="left",padx=8)
 
     def build_catalog(self):
         self.title_block(self.catalog, "Ételek és árak", "Ez az à la carte kínálat adatbázisa. Kezdetben üres.")
@@ -933,7 +1029,84 @@ class App(tk.Tk):
     def refresh_all(self):
         self.refresh_week()
         self.refresh_daily()
+        self.refresh_archive()
         self.refresh_catalog()
+
+    def refresh_archive(self):
+        if not hasattr(self,"archive_tree"):return
+        for item in self.archive_tree.get_children():self.archive_tree.delete(item)
+        for row in self.store.saved_menus():
+            label="Napi étlap" if row["kind"]=="daily" else "Heti menü"
+            self.archive_tree.insert("","end",iid=str(row["id"]),
+                                     values=(label,row["menu_date"],row["saved_at"].replace("T","  ")[:19]))
+
+    def save_daily(self,notice=True):
+        self.store.set_settings({key:var.get().strip() for key,var in self.setting_vars.items()})
+        self.store.save_menu("daily",self.day)
+        self.refresh_archive()
+        if notice:messagebox.showinfo(APP_NAME,"A napi étlap mentve az étlap-adatbázisba.",parent=self)
+
+    def open_saved_menu(self):
+        selected=self.archive_tree.selection()
+        if not selected:return
+        row,definition=self.store.saved_menu(int(selected[0]))
+        target=date.fromisoformat(row["menu_date"])
+        kind=row["kind"]
+        window=tk.Toplevel(self);window.title(("Napi étlap" if kind=="daily" else "Heti menü")+" – "+display_date(target))
+        window.geometry("720x610");window.minsize(560,400)
+        panel=ttk.Frame(window,padding=18);panel.pack(fill="both",expand=True)
+        ttk.Label(panel,text=("Napi étlap" if kind=="daily" else "Heti menü")+" · "+display_date(target),
+                  style="Title.TLabel").pack(anchor="w",pady=(0,8))
+        ttk.Label(panel,text="Mentve: "+row["saved_at"].replace("T","  ")[:19],style="Hint.TLabel").pack(anchor="w",pady=(0,12))
+        viewer=tk.Text(panel,wrap="word",font=("Segoe UI",11),relief="flat",padx=12,pady=12)
+        viewer.pack(fill="both",expand=True)
+        if kind=="daily":
+            special=definition.get("special",{})
+            lines=["Leves: "+special.get("soup",""),"A menü: "+special.get("menu_a",""),
+                   "B menü: "+special.get("menu_b",""),"","À LA CARTE"]
+            last=None
+            for dish in definition.get("dishes",[]):
+                if dish["category"]!=last:
+                    last=dish["category"];lines.extend(("",last))
+                lines.append(f"{dish['name']}  ·  {price(dish['price'])}")
+        else:
+            lines=[]
+            for i,entry in enumerate(definition.get("days",[])):
+                lines.extend((WEEKDAYS[i]+" · "+display_date(target+timedelta(days=i)),
+                              "Leves: "+entry.get("soup",""),"A menü: "+entry.get("menu_a",""),
+                              "B menü: "+entry.get("menu_b",""),""))
+        viewer.insert("1.0","\n".join(lines));viewer.config(state="disabled")
+        row_buttons=ttk.Frame(panel);row_buttons.pack(fill="x",pady=(12,0))
+        ttk.Button(row_buttons,text="PDF készítése",style="Accent.TButton",
+                   command=lambda:self.export_saved(int(selected[0]),"pdf",window)).pack(side="left")
+        ttk.Button(row_buttons,text="Facebook PNG",command=lambda:self.export_saved(int(selected[0]),"png",window)).pack(side="left",padx=8)
+        ttk.Button(row_buttons,text="Bezárás",command=window.destroy).pack(side="right")
+
+    def export_saved(self,menu_id,extension,parent):
+        row,definition=self.store.saved_menu(menu_id)
+        kind=row["kind"];target=date.fromisoformat(row["menu_date"])
+        stem=("napi_etlap_" if kind=="daily" else "heti_menu_")+target.isoformat()
+        path=filedialog.asksaveasfilename(parent=parent,defaultextension="."+extension,
+              initialfile=stem+"."+extension,filetypes=[("PDF dokumentum","*.pdf")] if extension=="pdf" else [("PNG kép","*.png")])
+        if not path:return
+        archived=ArchivedMenu(kind,target,definition)
+        try:
+            if extension=="pdf":make_pdf(path,archived,kind,target)
+            else:
+                import fitz
+                with tempfile.TemporaryDirectory() as folder:
+                    intermediate=str(Path(folder)/"menu.pdf")
+                    make_pdf(intermediate,archived,kind,target,social=True)
+                    with fitz.open(intermediate) as document:
+                        base=Path(path)
+                        for index,page in enumerate(document):
+                            pix=page.get_pixmap(matrix=fitz.Matrix(1440/page.rect.width,
+                                                                    1800/page.rect.height),alpha=False)
+                            output=base if len(document)==1 else base.with_name(f"{base.stem}_{index+1:02d}.png")
+                            pix.save(str(output))
+            messagebox.showinfo(APP_NAME,"A mentett étlap exportja elkészült.",parent=parent)
+        except Exception as exc:
+            messagebox.showerror(APP_NAME,"Az export sikertelen:\n"+str(exc),parent=parent)
 
     def refresh_daily(self):
         self.day_label.config(text=display_date(self.day))
@@ -992,6 +1165,9 @@ class App(tk.Tk):
             self.store.set_week_entry(self.week_start+timedelta(days=i),
                                       *(var.get() for var in group))
         self.refresh_daily()
+        if notice or any(var.get().strip() for group in self.week_inputs for var in group):
+            self.store.save_menu("weekly",self.week_start)
+        self.refresh_archive()
         if notice: messagebox.showinfo(APP_NAME,"A heti menü mentve.",parent=self)
 
     def refresh_catalog(self):

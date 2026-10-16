@@ -11,6 +11,9 @@ SCHEMA = 1
 FILES = {"header": ("header.svg", "0 0 600 100"),
          "divider": ("divider.svg", "0 0 600 100"),
          "corner": ("corner.svg", "0 0 145 145")}
+PNG_FILES = {"header": ("header.png", (1200, 200)),
+             "divider": ("divider.png", (1200, 200)),
+             "corner": ("corner.png", (290, 290))}
 SAFE_TAGS = {"svg", "g", "path", "circle", "ellipse", "line", "rect", "polygon", "polyline"}
 SAFE_ATTRS = {"xmlns", "viewBox", "width", "height", "d", "fill", "stroke",
               "stroke-width", "stroke-linecap", "stroke-linejoin", "opacity", "transform",
@@ -51,15 +54,35 @@ def validate_manifest(manifest: dict) -> None:
     if not isinstance(p, dict) or any(not isinstance(p.get(k), str) or not HEX.fullmatch(p[k])
                                       for k in ("primary", "accent", "background")):
         raise ValueError("A téma színei #RRGGBB formátumúak legyenek.")
-    if manifest.get("assets") != {key: spec[0] for key, spec in FILES.items()}:
-        raise ValueError("A csomagban header.svg, divider.svg és corner.svg szükséges.")
+    assets=manifest.get("assets")
+    if not isinstance(assets,dict) or set(assets)!=set(FILES):
+        raise ValueError("A csomagban header, divider és corner grafika szükséges.")
+    for key,filename in assets.items():
+        if filename not in (FILES[key][0],PNG_FILES[key][0]):
+            raise ValueError("Hibás grafikai fájlnév; SVG vagy PNG használható.")
+
+
+def validate_png(data: bytes, size: tuple[int,int]) -> None:
+    from PIL import Image
+    from io import BytesIO
+    if len(data)>6_000_000:
+        raise ValueError("Egy PNG legfeljebb 6 MB lehet.")
+    try:
+        with Image.open(BytesIO(data)) as image:
+            if image.format!="PNG" or image.size!=size:
+                raise ValueError(f"Hibás PNG méret: {size[0]} × {size[1]} px szükséges.")
+            image.load()
+    except (OSError, Image.DecompressionBombError) as exc:
+        raise ValueError("Hibás PNG állomány.") from exc
 
 
 def validate_pack(folder: Path) -> dict:
     manifest=json.loads((folder/"manifest.json").read_text(encoding="utf-8"))
     validate_manifest(manifest)
-    for filename, viewbox in FILES.values():
-        validate_svg((folder/filename).read_bytes(), viewbox)
+    for key,filename in manifest["assets"].items():
+        raw=(folder/filename).read_bytes()
+        if filename.endswith(".png"):validate_png(raw,PNG_FILES[key][1])
+        else:validate_svg(raw,FILES[key][1])
     return manifest
 
 
@@ -82,16 +105,18 @@ def load_themes(builtin: Path, user: Path) -> dict[str, tuple[dict, Path]]:
 def import_theme(zip_path: Path, destination: Path, existing: set[str]) -> str:
     with zipfile.ZipFile(zip_path) as archive:
         names=set(archive.namelist())
-        required={"manifest.json", *(v[0] for v in FILES.values())}
-        if not required.issubset(names) or len(names)>12:
-            raise ValueError("A ZIP gyökerében manifest.json és a három SVG szükséges.")
-        if sum(archive.getinfo(n).file_size for n in required)>1_600_000:
-            raise ValueError("A csomag túl nagy.")
+        if "manifest.json" not in names or len(names)>12:
+            raise ValueError("A ZIP gyökerében manifest.json és három grafika szükséges.")
+        manifest=json.loads(archive.read("manifest.json").decode("utf-8"))
+        validate_manifest(manifest)
+        required={"manifest.json",*manifest["assets"].values()}
+        if not required.issubset(names) or sum(archive.getinfo(n).file_size for n in required)>18_500_000:
+            raise ValueError("Hiányzó grafika vagy túl nagy csomag.")
         raw={n:archive.read(n) for n in required}
-    manifest=json.loads(raw["manifest.json"].decode("utf-8"))
     validate_manifest(manifest)
-    for _key,(filename,viewbox) in FILES.items():
-        validate_svg(raw[filename],viewbox)
+    for key,filename in manifest["assets"].items():
+        if filename.endswith(".png"):validate_png(raw[filename],PNG_FILES[key][1])
+        else:validate_svg(raw[filename],FILES[key][1])
     original=manifest["id"]
     slug=original
     number=2
@@ -102,7 +127,7 @@ def import_theme(zip_path: Path, destination: Path, existing: set[str]) -> str:
     folder=destination/slug
     folder.mkdir(parents=True,exist_ok=False)
     try:
-        for filename,_viewbox in FILES.values():
+        for filename in manifest["assets"].values():
             (folder/filename).write_bytes(raw[filename])
         (folder/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
     except Exception:

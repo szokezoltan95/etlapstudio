@@ -49,11 +49,11 @@ A helyi adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3
 
 ## Témák és saját grafikák
 
-A beépített SVG-k a `themes_builtin/` könyvtárban vannak. A **Megjelenés → Témacsomag importálása** gombbal új ZIP tölthető be. A szerződés és méretek: [TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md). A [`TEMA_SABLON.zip`](TEMA_SABLON.zip) másolható kiindulópont. A [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) teljes, modellfüggetlen promptot tartalmaz új grafikai készlet létrehozásához.
+A beépített SVG-k a `themes_builtin/` könyvtárban vannak. A **Megjelenés → Témacsomag importálása** gombbal új ZIP tölthető be SVG vagy PNG díszítő elemekkel, akár vegyesen. A szerződés és méretek: [TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md). A [`TEMA_SABLON.zip`](TEMA_SABLON.zip) másolható SVG kiindulópont. A [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) teljes, modellfüggetlen promptot tartalmaz új grafikai készlet létrehozásához.
 
 Háttérképhez nem kell SVG vagy ZIP: az AI-val készített PNG-t vagy JPG-t a **Megjelenés → PNG/JPG importálása** gomb tölti be. Ajánlott méret **1440 × 1800 px**, álló **4:5** arányban, a kép közepén nagy üres hellyel. Legalább 800 × 1000 px, legfeljebb 20 MB és 36 megapixel megengedett. Az átlátszó PNG finom szegélymotívumokhoz különösen hasznos. A kép az oldal teljes felületére nyúlik; A4 PDF esetén az eltérő oldalarány miatt kissé torzulhat. A betűk olvashatósága érdekében az erősséget alacsonyan érdemes tartani. A beépített botanikus minta a `backgrounds/botanical.png` fájl.
 
-Egy csomag négy fájlja: `manifest.json`, `header.svg` (600 × 100), `divider.svg` (600 × 100), `corner.svg` (145 × 145). Az app a fájlokat betöltés előtt ellenőrzi. Az SVG-k vektorként kerülnek a PDF-be; a Facebook PNG ugyanabból az elrendezésből készül.
+Egy csomag négy fájlja: `manifest.json` és a `header`, `divider`, `corner` elemek. SVG méretek: 600 × 100, 600 × 100, 145 × 145 viewBox; PNG méretek: 1200 × 200, 1200 × 200, 290 × 290 px. A `manifest.json` az egyes elemek `.svg` vagy `.png` fájlnevére hivatkozik. Az app a fájlokat betöltés előtt ellenőrzi. Az SVG-k vektorként, a PNG-k áttetszőséggel kerülnek a PDF-be; a Facebook PNG ugyanabból az elrendezésből készül. A színválasztó az SVG motívumokat is átszínezi, a PNG motívumok saját színeiket megtartják.
 
 ## Projektfájlok
 

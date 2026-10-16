@@ -34,3 +34,7 @@ Az `id` kisbetűből, számból, `_` vagy `-` karakterből áll, 2–32 karakter
 Az app a grafikákat méretarányosan helyezi a PDF-be és a Facebook PNG-be. A saját alapszín és kiegészítő szín a grafikákban is lecseréli a téma palettájának megfelelő színeket. A szövegek mindig az alkalmazásból kerülnek a grafika fölé: az SVG nem tartalmaz ételneveket.
 
 A képexport 4:5 képarányú PNG, 1440 × 1800 képponttal. A nyomtatható PDF A4 méretű. A napi PNG mindig egy kép: a felső menüblokk mérete fix, az à la carte rész betűi a tartalomhoz igazodnak. A kész `TEMA_SABLON.zip` fájlt másold le, alakítsd át a grafikákat és a manifestet, majd az app „Megjelenés” fülén importáld.
+# PNG díszítő elemek
+
+A `header`, `divider`, `corner` grafika külön-külön lehet SVG vagy átlátszó PNG. PNG használatakor a fájlnevek kizárólag `header.png`, `divider.png`, `corner.png` lehetnek; a `manifest.json` `assets` értékei ezekre hivatkozzanak. Kötelező pixelméretek sorrendben **1200 × 200**, **1200 × 200**, **290 × 290**. Egy PNG legfeljebb 6 MB, a teljes ZIP legfeljebb 18,5 MB kicsomagolt kötelező tartalommal. Az SVG szabályok továbbra is érvényesek a választott SVG fájlokra. A PNG színei rögzítettek, míg az SVG színei a paletta alapján átállíthatók. Teljes oldalas háttérképet a Megjelenés fül külön PNG/JPG importgombjával tölthetsz be.
+

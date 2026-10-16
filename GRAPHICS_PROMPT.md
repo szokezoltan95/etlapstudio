@@ -22,6 +22,10 @@ egyetlen lapos, teljes oldalas képfájlt kérek.
 
 ## SVG díszítő témacsomag készítése
 
+### PNG alternatíva a három díszhez
+
+Képgeneráló AI esetén kérj három külön **átlátszó PNG** képet: `header.png` pontosan **1200 × 200 px** (szabad középpel), `divider.png` pontosan **1200 × 200 px** (vékony vízszintes elválasztó) és `corner.png` pontosan **290 × 290 px** (egy sarokdísz). Ne legyen rajtuk szöveg. A `manifest.json` szerkezete marad ugyanaz, de az `assets` alatt a megfelelő `.png` neveket írd. A fájlokat ZIP gyökerébe csomagold. SVG és PNG egy témában is keverhető. A PNG-k rögzített színekkel jelennek meg; a program színválasztója csak az SVG-k palettaszíneit cseréli. A PNG díszek különállnak a teljes oldalas háttértől.
+
 Az alábbi szöveget bármely olyan AI modellnek odaadhatod, amely képes szabványos SVG kódot írni. A szögletes zárójelben lévő részeket cseréld ki. Ha a modell nem tud ZIP-fájlt készíteni, a négy fájl tartalmát külön kódblokkokban kérd, és csomagold őket egy ZIP gyökerébe.
 
 ```text

@@ -221,6 +221,10 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
     c.setTitle("Napi étlap – "+display_date(target))
 
     def vector(name,x,y,w,h):
+        if manifest["assets"][name].endswith(".png"):
+            from reportlab.lib.utils import ImageReader
+            c.drawImage(ImageReader(str(artdir/manifest["assets"][name])),x,y,w,h,mask="auto")
+            return
         svg=(artdir/manifest["assets"][name]).read_text(encoding="utf-8")
         svg=svg.replace(palette["primary"],primary).replace(palette["accent"],accent)
         picture=svg2rlg(io.BytesIO(svg.encode("utf-8")))
@@ -381,21 +385,24 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
     accent_color = colors.HexColor(accent)
     decorated=store.setting("decorations","1") == "1"
 
-    def vector(name):
+    def art(canvas,name,x,y,w,h):
+        if manifest["assets"][name].endswith(".png"):
+            from reportlab.lib.utils import ImageReader
+            canvas.drawImage(ImageReader(str(artdir/manifest["assets"][name])),x,y,w,h,mask="auto")
+            return
         source=(artdir/manifest["assets"][name]).read_text(encoding="utf-8")
         source=source.replace(palette["primary"],primary).replace(palette["accent"],accent)
-        return svg2rlg(io.BytesIO(source.encode("utf-8")))
+        picture=svg2rlg(io.BytesIO(source.encode("utf-8")))
+        canvas.saveState();canvas.translate(x,y)
+        canvas.scale(w/picture.width,h/picture.height)
+        renderPDF.draw(picture,canvas,0,0);canvas.restoreState()
 
     class Ornament(Flowable):
         def __init__(self, name, width, height):
             Flowable.__init__(self)
             self.name, self.width, self.height=name,width,height
         def draw(self):
-            picture=vector(self.name)
-            self.canv.saveState()
-            self.canv.scale(self.width/picture.width,self.height/picture.height)
-            renderPDF.draw(picture,self.canv,0,0)
-            self.canv.restoreState()
+            art(self.canv,self.name,0,0,self.width,self.height)
     class DishTable(Table):
         def draw(self):
             super().draw()
@@ -426,18 +433,8 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
         canvas.rect(0,0,page_w,page_h,stroke=0,fill=1)
         draw_background(canvas,store,page_w,page_h)
         if decorated:
-            picture=vector("header")
-            canvas.saveState()
-            canvas.translate(left, page_h-42*mm)
-            canvas.scale(body_width/picture.width,28*mm/picture.height)
-            renderPDF.draw(picture,canvas,0,0)
-            canvas.restoreState()
-            corner=vector("corner")
-            canvas.saveState()
-            canvas.translate(7*mm,8*mm)
-            canvas.scale(14*mm/corner.width,14*mm/corner.height)
-            renderPDF.draw(corner,canvas,0,0)
-            canvas.restoreState()
+            art(canvas,"header",left,page_h-42*mm,body_width,28*mm)
+            art(canvas,"corner",7*mm,8*mm,14*mm,14*mm)
         else:
             canvas.setStrokeColor(green)
             canvas.setLineWidth(1.2)
@@ -867,19 +864,28 @@ class App(tk.Tk):
         c.create_text(width/2,152,text=manifest["name"]+" téma",font=("Segoe UI",9),fill=accent)
         if self.deco_var.get():
             try:
-                import fitz
-                svg=(folder/"header.svg").read_text(encoding="utf-8")
-                svg=svg.replace(palette["primary"],primary).replace(palette["accent"],accent)
-                document=fitz.open(stream=svg.encode("utf-8"),filetype="svg")
-                pix=document[0].get_pixmap(matrix=fitz.Matrix(.55,.55),alpha=True)
-                self._preview_image=tk.PhotoImage(data=base64.b64encode(pix.tobytes("png")).decode())
+                header=manifest["assets"]["header"]
+                if header.endswith(".png"):
+                    from PIL import Image
+                    with Image.open(folder/header) as source:
+                        im=source.convert("RGBA").resize((330,55))
+                    stream=io.BytesIO();im.save(stream,format="PNG")
+                    content=stream.getvalue()
+                else:
+                    import fitz
+                    svg=(folder/header).read_text(encoding="utf-8")
+                    svg=svg.replace(palette["primary"],primary).replace(palette["accent"],accent)
+                    document=fitz.open(stream=svg.encode("utf-8"),filetype="svg")
+                    pix=document[0].get_pixmap(matrix=fitz.Matrix(.55,.55),alpha=True)
+                    content=pix.tobytes("png")
+                    document.close()
+                self._preview_image=tk.PhotoImage(data=base64.b64encode(content).decode())
                 c.create_image(width/2,18,image=self._preview_image)
-                document.close()
             except Exception:
                 pass
 
     def import_theme_file(self):
-        filename=filedialog.askopenfilename(parent=self,title="SVG témacsomag importálása",
+        filename=filedialog.askopenfilename(parent=self,title="Témacsomag importálása",
                                             filetypes=[("Témacsomag ZIP","*.zip")])
         if not filename:return
         try:

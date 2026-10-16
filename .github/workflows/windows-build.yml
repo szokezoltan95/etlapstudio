@@ -20,7 +20,7 @@ jobs:
       - name: Build app
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --add-data "fonts;fonts" --add-data "themes_builtin;themes_builtin" --add-data "backgrounds;backgrounds" etlapstudio.pyw
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --add-data "themes_builtin;themes_builtin" --add-data "backgrounds;backgrounds" qt_app.pyw
       - uses: actions/upload-artifact@v4
         with:
           name: EtlapStudio-Windows

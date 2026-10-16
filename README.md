@@ -9,7 +9,7 @@ Asztali program napi étlapok és heti menük készítésére. Az à la carte é
 - **Napi étlap:** dátumválasztás, aznapi à la carte kínálat kijelölése, automatikus leves és A/B menü a heti tervből.
 - **Heti menü:** hétfő–péntek, naponként leves, A és B menü. Az ételnevek nem az à la carte adatbázisból származnak; a B menü üresen hagyható.
 - **Ételadatbázis:** kategóriák, árak, keresés, hozzáadás, szerkesztés, törlés. Az alkalmazás üres adatbázissal indul.
-- **Megjelenés:** klasszikus, tavasz, nyár, ősz, tél, karácsony és húsvét téma; állítható alap- és kiegészítő szín; díszítések ki- és bekapcsolása; új SVG témacsomag importja.
+- **Megjelenés:** hét téma, állítható színek és díszítések, külön betűválasztás az étterem nevéhez, főcímhez, alcímekhez, heti/A-B menühöz és étel/ár sorokhoz. Az étel és az ár között kérhető pontozott, szaggatott vagy folytonos vezetőjel, illetve kikapcsolható. Importálható PNG/JPG háttér, állítható erősséggel; beépített botanikus PNG minta is van.
 - **Export:** A4 PDF nyomtatáshoz és 4:5 arányú, 1440 × 1800 képpontos PNG közösségi megosztáshoz. A napi étlap mindig egy PNG: a fejléc és a napi menü blokk fix méretű, az à la carte rész betűmérete a tételek számához igazodik.
 - **Adatok:** helyi SQLite, kézi biztonsági mentés. Nincs fiók és szerverkapcsolat.
 
@@ -40,16 +40,18 @@ Linuxon a Tkinter rendszerfüggőséget külön is telepíteni kellhet. A progra
 2. Az **Ételek és árak** fülön vedd fel az à la carte kínálatot.
 3. A **Heti menü** fülön szerkeszd a hétfőtől péntekig tartó tervet. A Mentés gombbal vagy másik fülre lépve mentődik.
 4. A **Napi étlap** fülön naponta válaszd ki az elérhető à la carte ételeket.
-5. A **Megjelenés** fülön állítsd be a témát. A napi és heti export azonos megjelenést használ.
+5. A **Megjelenés** fülön állítsd be a témát, az öt betűtípust, a vezetőjelet és szükség esetén a háttérképet. A napi és heti export azonos beállításokat használ.
 6. Ments PDF-et vagy Facebook PNG-t. A PNG-ket az alkalmazás nem tölti fel automatikusan a Facebookra.
 
-A helyi adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlba kerül. Importált témák ugyanitt, a `themes` mappában vannak. A biztonsági másolat az **Étterem adatai** fülön készíthető. A program könyvtárában nincs éles ételadatbázis.
+A helyi adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlba kerül. Az importált témák a `themes`, a saját háttérképek a `backgrounds` mappában vannak. A biztonsági másolat az **Étterem adatai** fülön készíthető; a saját háttérképeket és témákat külön másold le, ha másik gépre költözöl. A program könyvtárában nincs éles ételadatbázis.
 
 > Az árak az ételadatbázis aktuális értékei. Ha később módosítasz egy árat, egy régi dátum újraexportált PDF/PNG fájlján már az új ár szerepel. A korábban elmentett fájlok természetesen nem változnak.
 
 ## Témák és saját grafikák
 
 A beépített SVG-k a `themes_builtin/` könyvtárban vannak. A **Megjelenés → Témacsomag importálása** gombbal új ZIP tölthető be. A szerződés és méretek: [TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md). A [`TEMA_SABLON.zip`](TEMA_SABLON.zip) másolható kiindulópont. A [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) teljes, modellfüggetlen promptot tartalmaz új grafikai készlet létrehozásához.
+
+Háttérképhez nem kell SVG vagy ZIP: az AI-val készített PNG-t vagy JPG-t a **Megjelenés → PNG/JPG importálása** gomb tölti be. Ajánlott méret **1440 × 1800 px**, álló **4:5** arányban, a kép közepén nagy üres hellyel. Legalább 800 × 1000 px, legfeljebb 20 MB és 36 megapixel megengedett. Az átlátszó PNG finom szegélymotívumokhoz különösen hasznos. A kép az oldal teljes felületére nyúlik; A4 PDF esetén az eltérő oldalarány miatt kissé torzulhat. A betűk olvashatósága érdekében az erősséget alacsonyan érdemes tartani. A beépített botanikus minta a `backgrounds/botanical.png` fájl.
 
 Egy csomag négy fájlja: `manifest.json`, `header.svg` (600 × 100), `divider.svg` (600 × 100), `corner.svg` (145 × 145). Az app a fájlokat betöltés előtt ellenőrzi. Az SVG-k vektorként kerülnek a PDF-be; a Facebook PNG ugyanabból az elrendezésből készül.
 
@@ -62,6 +64,7 @@ Egy csomag négy fájlja: `manifest.json`, `header.svg` (600 × 100), `divider.s
 | `themes_builtin/` | Hét beépített témacsomag |
 | `generate_assets.py` | A beépített vektordíszek forrásgenerátora |
 | `fonts/` | PDF-be ágyazott DejaVu betűk és licencük |
+| `backgrounds/botanical.png` | Beépített, átlátszó botanikus háttér |
 | `Inditas_Windows.bat` | Helyi Python környezet létrehozása és indítás |
 | `.github/workflows/windows-build.yml` | Windows `.exe` csomag készítése |
 

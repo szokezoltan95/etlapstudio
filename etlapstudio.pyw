@@ -7,6 +7,7 @@ import sys
 import tempfile
 import base64
 import io
+import shutil
 from datetime import date, datetime, timedelta
 from pathlib import Path
 import tkinter as tk
@@ -25,6 +26,57 @@ GREEN = "#1D6B50"
 DEEP = "#123F32"
 PAPER = "#F7F8F4"
 TEXT = "#21342D"
+FONT_OPTIONS = {"Modern sans": "DejaVu", "Klasszikus talpas": "DejaVuSerif"}
+LEADERS = {"Nincs": "none", "Pontozott": "dots", "Szaggatott": "dashes", "Folytonos vonal": "line"}
+
+
+def chosen_font(store, role, bold=False):
+    family = FONT_OPTIONS.get(store.setting("font_" + role, "Modern sans"), "DejaVu")
+    return family + ("-Bold" if bold else "")
+
+
+def draw_leader(canvas, x1, x2, y, mode, color, size=8):
+    if mode not in LEADERS.values() or mode == "none" or x2 <= x1 + 2:
+        return
+    canvas.saveState()
+    canvas.setStrokeColor(color)
+    canvas.setFillColor(color)
+    if mode == "dots":
+        step = max(2.3, size * .42)
+        x = x1 + step / 2
+        while x < x2:
+            canvas.circle(x, y, max(.24, size * .035), stroke=0, fill=1)
+            x += step
+    else:
+        canvas.setLineWidth(.38)
+        if mode == "dashes": canvas.setDash(max(1.5, size * .28), max(1.5, size * .25))
+        canvas.line(x1, y, x2, y)
+    canvas.restoreState()
+
+
+def background_path(store):
+    name = store.setting("background_file")
+    if name and Path(name).name == name:
+        path = data_dir() / "backgrounds" / name
+        if path.is_file(): return path
+    if store.setting("background_builtin", "0") == "1":
+        path = Path(__file__).resolve().parent / "backgrounds" / "botanical.png"
+        if path.is_file(): return path
+    return None
+
+
+def draw_background(canvas, store, width, height):
+    path = background_path(store)
+    if not path or store.setting("background_enabled", "0") != "1": return
+    from PIL import Image
+    from reportlab.lib.utils import ImageReader
+    with Image.open(path) as source:
+        if source.width * source.height > 36_000_000:
+            raise ValueError("A háttérkép túl nagy (legfeljebb 36 megapixel).")
+        im = source.convert("RGBA")
+        opacity = max(0, min(100, int(store.setting("background_opacity", "30")))) / 100
+        im.putalpha(im.getchannel("A").point(lambda a: int(a * opacity)))
+        canvas.drawImage(ImageReader(im), 0, 0, width, height, mask="auto")
 
 
 def data_dir() -> Path:
@@ -135,6 +187,9 @@ def fonts():
     pdfmetrics.registerFont(TTFont("DejaVu", str(folder / "DejaVuSans.ttf")))
     pdfmetrics.registerFont(TTFont("DejaVu-Bold", str(folder / "DejaVuSans-Bold.ttf")))
     pdfmetrics.registerFontFamily("DejaVu", normal="DejaVu", bold="DejaVu-Bold")
+    pdfmetrics.registerFont(TTFont("DejaVuSerif", str(folder / "DejaVuSerif.ttf")))
+    pdfmetrics.registerFont(TTFont("DejaVuSerif-Bold", str(folder / "DejaVuSerif-Bold.ttf")))
+    pdfmetrics.registerFontFamily("DejaVuSerif", normal="DejaVuSerif", bold="DejaVuSerif-Bold")
 
 
 def make_social_daily_pdf(path: str, store: Store, target: date):
@@ -173,17 +228,18 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
         renderPDF.draw(picture,c,0,0);c.restoreState()
 
     c.setFillColor(colors.white);c.rect(0,0,page_w,page_h,stroke=0,fill=1)
+    draw_background(c,store,page_w,page_h)
     c.setStrokeColor(green);c.setLineWidth(.7)
     c.rect(7*mm,7*mm,page_w-14*mm,page_h-14*mm,stroke=1,fill=0)
     if decorated:vector("header",left,page_h-42*mm,body_width,28*mm)
     else:c.line(left,page_h-32*mm,page_w-right,page_h-32*mm)
-    c.setFillColor(dark);c.setFont("DejaVu-Bold",14)
+    c.setFillColor(dark);c.setFont(chosen_font(store,"restaurant",True),14)
     c.drawCentredString(page_w/2,page_h-20*mm,(store.setting("restaurant") or "Étterem")[:48])
     c.setFont("DejaVu",8)
     address=store.setting("address");phone=store.setting("phone")
     c.drawCentredString(page_w/2,page_h-26*mm,
                          (address+("  •  " if address and phone else "")+phone)[:95])
-    c.setFont("DejaVu-Bold",20);c.drawCentredString(page_w/2,page_h-54*mm,"Napi étlap")
+    c.setFont(chosen_font(store,"title",True),20);c.drawCentredString(page_w/2,page_h-54*mm,"Napi étlap")
     c.setFont("DejaVu",9);c.drawCentredString(page_w/2,page_h-62*mm,display_date(target))
 
     # The specials block occupies the same rectangle on every daily image.
@@ -192,7 +248,7 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
     c.setFillColor(colors.HexColor(palette["background"]))
     c.setStrokeColor(green)
     c.roundRect(left,special_bottom,body_width,39*mm,5*mm,stroke=1,fill=1)
-    c.setFillColor(green);c.setFont("DejaVu-Bold",10)
+    c.setFillColor(green);c.setFont(chosen_font(store,"heading",True),10)
     c.drawString(left+5*mm,special_top-6.5*mm,"MAI MENÜ")
     soup,menu_a,menu_b=store.week_entry(target)
     fields=[("Leves",soup),("A menü",menu_a),("B menü",menu_b)]
@@ -201,7 +257,7 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
     max_special_h=29*mm
     size=9.0
     while True:
-        style=ParagraphStyle("special",fontName="DejaVu",fontSize=size,leading=size*1.35,textColor=dark)
+        style=ParagraphStyle("special",fontName=chosen_font(store,"special"),fontSize=size,leading=size*1.35,textColor=dark)
         measured=[]
         for label,value in fields:
             p=Paragraph(escape(value or "—"),style)
@@ -213,7 +269,7 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
             raise ValueError("A napi menü szövege túl hosszú a fix fejlécmezőhöz.")
     y=special_top-10*mm
     for label,p,h in measured:
-        c.setFillColor(dark);c.setFont("DejaVu-Bold",max(4,size))
+        c.setFillColor(dark);c.setFont(chosen_font(store,"heading",True),max(4,size))
         c.drawString(left+5*mm,y-max(4,size),label)
         p.drawOn(c,right_x,y-h)
         y-=h+2
@@ -227,7 +283,7 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
     gap=9*mm;col_w=(body_width-gap)/2
     name_w=col_w-23*mm
     def layout(font_size):
-        normal=ParagraphStyle("dish",fontName="DejaVu",fontSize=font_size,
+        normal=ParagraphStyle("dish",fontName=chosen_font(store,"dish"),fontSize=font_size,
                               leading=font_size*1.3,textColor=dark)
         result=[];column=0;y=body_top;last_category=None
         for category in CATEGORIES:
@@ -270,13 +326,19 @@ def make_social_daily_pdf(path: str, store: Store, target: date):
             x=left+column*(col_w+gap)
             if kind=="heading":
                 category,size=rest
-                c.setFillColor(green);c.setFont("DejaVu-Bold",size*1.13)
+                c.setFillColor(green);c.setFont(chosen_font(store,"heading",True),size*1.13)
                 c.drawString(x,y-size*1.2,category)
             else:
                 paragraph,h,amount,size=rest
                 paragraph.drawOn(c,x,y-h+size*.35)
-                c.setFillColor(dark);c.setFont("DejaVu",size)
-                c.drawRightString(x+col_w,y-size*1.25,price(amount))
+                baseline=y-size*1.25
+                c.setFillColor(dark);c.setFont(chosen_font(store,"dish"),size)
+                amount_text=price(amount)
+                c.drawRightString(x+col_w,baseline,amount_text)
+                from reportlab.pdfbase.pdfmetrics import stringWidth
+                amount_width=stringWidth(amount_text,chosen_font(store,"dish"),size)
+                draw_leader(c,x+name_w+size*.4,x+col_w-amount_width-size*.5,
+                            baseline+size*.12,store.setting("leader","none"),line,size)
     else:
         c.setFillColor(dark);c.setFont("DejaVu",9)
         c.drawCentredString(page_w/2,body_top-12*mm,"Még nincs à la carte kínálat kiválasztva.")
@@ -290,7 +352,7 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
     if social and mode=="daily":
         return make_social_daily_pdf(path,store,target)
     from reportlab.lib import colors
-    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.enums import TA_CENTER, TA_RIGHT
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
     from reportlab.lib.units import mm
@@ -334,15 +396,25 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
             self.canv.scale(self.width/picture.width,self.height/picture.height)
             renderPDF.draw(picture,self.canv,0,0)
             self.canv.restoreState()
+    class DishTable(Table):
+        def draw(self):
+            super().draw()
+            if store.setting("leader","none") != "none":
+                for index in range(len(self._rowHeights)):
+                    y=sum(self._rowHeights[index+1:])+self._rowHeights[index]/2
+                    draw_leader(self.canv,col_width-34*mm+1,col_width-26*mm-1,
+                                y,store.setting("leader","none"),accent_color,9)
     restaurant = store.setting("restaurant", "Étterem") or "Étterem"
     address = store.setting("address", "")
     phone = store.setting("phone", "")
     note = store.setting("note", "")
     small = ParagraphStyle("small", fontName="DejaVu", fontSize=8.5, leading=12, textColor=dark)
-    food = ParagraphStyle("food", fontName="DejaVu", fontSize=9.3, leading=13, textColor=dark)
-    heading = ParagraphStyle("heading", fontName="DejaVu-Bold", fontSize=11.5,
+    food = ParagraphStyle("food", fontName=chosen_font(store,"special"), fontSize=9.3, leading=13, textColor=dark)
+    dish_style = ParagraphStyle("dish", fontName=chosen_font(store,"dish"), fontSize=9.3, leading=13, textColor=dark)
+    price_style = ParagraphStyle("price", parent=dish_style, alignment=TA_RIGHT)
+    heading = ParagraphStyle("heading", fontName=chosen_font(store,"heading",True), fontSize=11.5,
                              leading=16, textColor=green, spaceBefore=9, spaceAfter=5)
-    title = ParagraphStyle("title", fontName="DejaVu-Bold", fontSize=21,
+    title = ParagraphStyle("title", fontName=chosen_font(store,"title",True), fontSize=21,
                            leading=27, alignment=TA_CENTER, textColor=dark, spaceAfter=5)
     subtitle = ParagraphStyle("subtitle", parent=small, alignment=TA_CENTER, spaceAfter=14)
     col_gap = 12*mm
@@ -352,6 +424,7 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
         canvas.saveState()
         canvas.setFillColor(colors.white)
         canvas.rect(0,0,page_w,page_h,stroke=0,fill=1)
+        draw_background(canvas,store,page_w,page_h)
         if decorated:
             picture=vector("header")
             canvas.saveState()
@@ -373,7 +446,7 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
         canvas.setLineWidth(.7)
         canvas.rect(7*mm,7*mm,page_w-14*mm,page_h-14*mm,stroke=1,fill=0)
         canvas.setFillColor(dark)
-        canvas.setFont("DejaVu-Bold", 14)
+        canvas.setFont(chosen_font(store,"restaurant",True), 14)
         canvas.drawCentredString(page_w/2, page_h-20*mm, restaurant[:48])
         canvas.setFont("DejaVu", 8)
         canvas.drawCentredString(page_w/2, page_h-26*mm,
@@ -461,12 +534,12 @@ def make_pdf(path: str, store: Store, mode: str, target: date, social: bool = Fa
                 dishes = [x for x in chosen if x["category"] == category]
                 if not dishes:
                     continue
-                rows = [[Paragraph(escape(x["name"]), food),
-                         Paragraph(price(x["price"]), food)] for x in dishes]
-                table = Table(rows, colWidths=[col_width-26*mm,26*mm], hAlign="LEFT")
+                rows = [[Paragraph(escape(x["name"]), dish_style), "",
+                         Paragraph(price(x["price"]), price_style)] for x in dishes]
+                table = DishTable(rows, colWidths=[col_width-34*mm,8*mm,26*mm], hAlign="LEFT")
                 table.setStyle(TableStyle([
                     ("VALIGN",(0,0),(-1,-1),"TOP"),
-                    ("ALIGN",(1,0),(1,-1),"RIGHT"),
+                    ("ALIGN",(2,0),(2,-1),"RIGHT"),
                     ("LEFTPADDING",(0,0),(-1,-1),0),
                     ("RIGHTPADDING",(0,0),(-1,-1),1),
                     ("TOPPADDING",(0,0),(-1,-1),3),
@@ -665,7 +738,7 @@ class App(tk.Tk):
 
     def build_appearance(self):
         self.title_block(self.appearance,"Megjelenés és témák",
-                         "Válassz kész témát, módosítsd a színeket, vagy importálj új SVG témacsomagot.")
+                         "Állítsd be a betűket és a grafikai hátteret, vagy importálj új témacsomagot.")
         self.theme_packs={}
         self.theme_display={}
         row=ttk.Frame(self.appearance);row.pack(fill="x",pady=(4,14))
@@ -683,12 +756,44 @@ class App(tk.Tk):
         ttk.Button(palette_row,text="Téma eredeti színei",command=self.reset_colors).pack(side="left")
         self.deco_var=tk.BooleanVar(value=self.store.setting("decorations","1")=="1")
         ttk.Checkbutton(self.appearance,text="Grafikai díszek és elválasztók megjelenítése",
-                        variable=self.deco_var,command=self.save_appearance).pack(anchor="w",pady=(0,12))
+                        variable=self.deco_var,command=self.save_appearance).pack(anchor="w",pady=(0,5))
+        ttk.Label(self.appearance,text="Betűtípusok",style="Title.TLabel").pack(anchor="w",pady=(3,3))
+        font_row=ttk.Frame(self.appearance);font_row.pack(fill="x")
+        self.font_vars={}
+        for role,label in [("restaurant","Étterem neve"),("title","Főcím"),
+                           ("heading","Alcímek"),("special","Heti / A-B menü"),
+                           ("dish","Ételek és árak")]:
+            box=ttk.Frame(font_row);box.pack(side="left",padx=(0,12))
+            ttk.Label(box,text=label).pack(anchor="w")
+            var=tk.StringVar(value=self.store.setting("font_"+role,"Modern sans"))
+            combo=ttk.Combobox(box,textvariable=var,values=list(FONT_OPTIONS),state="readonly",width=17)
+            combo.pack(anchor="w");combo.bind("<<ComboboxSelected>>",lambda _:self.save_appearance())
+            self.font_vars[role]=var
+        leader_row=ttk.Frame(self.appearance);leader_row.pack(fill="x",pady=(8,5))
+        ttk.Label(leader_row,text="Étel és ár között:").pack(side="left")
+        current=next((name for name,key in LEADERS.items() if key==self.store.setting("leader","none")),"Nincs")
+        self.leader_var=tk.StringVar(value=current)
+        leader_combo=ttk.Combobox(leader_row,textvariable=self.leader_var,values=list(LEADERS),state="readonly",width=19)
+        leader_combo.pack(side="left",padx=9)
+        leader_combo.bind("<<ComboboxSelected>>",lambda _:self.save_appearance())
+        bg_row=ttk.Frame(self.appearance);bg_row.pack(fill="x",pady=(4,5))
+        self.bg_enabled=tk.BooleanVar(value=self.store.setting("background_enabled","0")=="1")
+        ttk.Checkbutton(bg_row,text="Háttérgrafika",variable=self.bg_enabled,
+                        command=self.save_appearance).pack(side="left")
+        ttk.Button(bg_row,text="Botanikus minta",command=self.use_sample_background).pack(side="left",padx=8)
+        ttk.Button(bg_row,text="PNG/JPG importálása…",command=self.import_background).pack(side="left")
+        ttk.Button(bg_row,text="Eltávolítás",command=self.clear_background).pack(side="left",padx=8)
+        ttk.Label(bg_row,text="Erősség:").pack(side="left",padx=(13,3))
+        self.bg_opacity=tk.IntVar(value=int(self.store.setting("background_opacity","30")))
+        ttk.Scale(bg_row,from_=0,to=100,variable=self.bg_opacity,orient="horizontal",
+                  length=110,command=lambda _value:self.save_appearance()).pack(side="left")
+        ttk.Label(self.appearance,text="AI háttér készítéséhez: GRAPHICS_PROMPT.md → PNG háttér; a kapott fájlt itt importálhatod.",
+                  style="Hint.TLabel").pack(anchor="w",pady=(0,5))
         ttk.Label(self.appearance,text="Téma előnézete",style="Title.TLabel").pack(anchor="w",pady=(6,8))
-        self.theme_preview=tk.Canvas(self.appearance,height=270,bg="white",highlightthickness=0)
+        self.theme_preview=tk.Canvas(self.appearance,height=170,bg="white",highlightthickness=0)
         self.theme_preview.pack(fill="x",pady=(0,12))
         self.theme_preview.bind("<Configure>",lambda _:self.draw_theme_preview())
-        ttk.Label(self.appearance,text="Import: ZIP a manifest.json, header.svg (600×100), divider.svg (600×100) és corner.svg (145×145) fájlokkal.",
+        ttk.Label(self.appearance,text="Díszítő témacsomag: ZIP manifest.json és SVG elemekkel; háttér: külön PNG vagy JPG.",
                   style="Hint.TLabel",wraplength=900).pack(anchor="w")
         self.reload_themes()
 
@@ -726,7 +831,11 @@ class App(tk.Tk):
         key,_pack=self.current_theme()
         self.store.set_settings({"theme":key,"theme_primary":self.primary_var.get(),
                                  "theme_accent":self.accent_var.get(),
-                                 "decorations":"1" if self.deco_var.get() else "0"})
+                                 "decorations":"1" if self.deco_var.get() else "0",
+                                 "leader":LEADERS[self.leader_var.get()],
+                                 "background_enabled":"1" if self.bg_enabled.get() else "0",
+                                 "background_opacity":str(round(self.bg_opacity.get())),
+                                 **{"font_"+role:var.get() for role,var in self.font_vars.items()}})
         self.draw_theme_preview()
 
     def draw_theme_preview(self):
@@ -737,15 +846,25 @@ class App(tk.Tk):
         accent=self.accent_var.get() or palette["accent"]
         width=max(self.theme_preview.winfo_width(),600)
         c=self.theme_preview;c.delete("all")
-        c.create_rectangle(12,8,width-12,262,fill="white",outline=primary,width=2)
-        c.create_text(width/2,79,text=self.store.setting("restaurant") or "AZ ÉTTEREM NEVE",
+        c.create_rectangle(12,8,width-12,162,fill="white",outline=primary,width=2)
+        if self.bg_enabled.get() and background_path(self.store):
+            try:
+                from PIL import Image
+                with Image.open(background_path(self.store)) as source:
+                    bg=source.convert("RGBA").resize((min(width-28,800),154))
+                bg.putalpha(bg.getchannel("A").point(lambda a:int(a*self.bg_opacity.get()/100)))
+                stream=io.BytesIO();bg.save(stream,format="PNG")
+                self._background_preview=tk.PhotoImage(data=base64.b64encode(stream.getvalue()).decode())
+                c.create_image(width/2,85,image=self._background_preview)
+            except Exception:pass
+        c.create_text(width/2,59,text=self.store.setting("restaurant") or "AZ ÉTTEREM NEVE",
                       font=("Georgia",18,"bold"),fill=primary)
-        c.create_text(width/2,112,text="Heti menü  ·  Napi étlap",
+        c.create_text(width/2,85,text="Heti menü  ·  Napi étlap",
                       font=("Georgia",15,"bold"),fill="#263A30")
-        c.create_rectangle(65,148,width-65,206,fill=palette["background"],outline="")
-        c.create_text(width/2,169,text="Leves  •  A menü  •  B menü",font=("Segoe UI",11),fill=primary)
-        c.create_line(100,223,width-100,223,fill=accent,width=2)
-        c.create_text(width/2,239,text=manifest["name"]+" téma",font=("Segoe UI",9),fill=accent)
+        c.create_rectangle(65,106,width-65,132,fill=palette["background"],outline="")
+        c.create_text(width/2,119,text="Leves  •  A menü  •  B menü",font=("Segoe UI",11),fill=primary)
+        c.create_line(100,141,width-100,141,fill=accent,width=2)
+        c.create_text(width/2,152,text=manifest["name"]+" téma",font=("Segoe UI",9),fill=accent)
         if self.deco_var.get():
             try:
                 import fitz
@@ -754,7 +873,7 @@ class App(tk.Tk):
                 document=fitz.open(stream=svg.encode("utf-8"),filetype="svg")
                 pix=document[0].get_pixmap(matrix=fitz.Matrix(.55,.55),alpha=True)
                 self._preview_image=tk.PhotoImage(data=base64.b64encode(pix.tobytes("png")).decode())
-                c.create_image(width/2,32,image=self._preview_image)
+                c.create_image(width/2,18,image=self._preview_image)
                 document.close()
             except Exception:
                 pass
@@ -771,6 +890,39 @@ class App(tk.Tk):
             messagebox.showinfo(APP_NAME,"A téma importálva, és kiválasztva.",parent=self)
         except Exception as exc:
             messagebox.showerror(APP_NAME,"A téma nem importálható:\n"+str(exc),parent=self)
+
+    def use_sample_background(self):
+        self.store.set_settings({"background_builtin":"1","background_file":""})
+        self.bg_enabled.set(True);self.save_appearance()
+
+    def clear_background(self):
+        self.bg_enabled.set(False)
+        self.store.set_settings({"background_builtin":"0","background_file":""})
+        self.save_appearance()
+
+    def import_background(self):
+        filename=filedialog.askopenfilename(parent=self,title="Háttérgrafika importálása",
+                                            filetypes=[("PNG vagy JPEG","*.png *.jpg *.jpeg")])
+        if not filename:return
+        try:
+            from PIL import Image
+            source=Path(filename)
+            if source.stat().st_size>20_000_000:raise ValueError("A kép legfeljebb 20 MB lehet.")
+            with Image.open(source) as image:
+                if image.format not in ("PNG","JPEG") or image.width<800 or image.height<1000:
+                    raise ValueError("PNG/JPEG képet válassz, legalább 800 × 1000 képponttal.")
+                if image.width*image.height>36_000_000:
+                    raise ValueError("A kép legfeljebb 36 megapixeles lehet.")
+                image.load()
+                suffix=".png" if image.format=="PNG" else ".jpg"
+            folder=data_dir()/"backgrounds";folder.mkdir(exist_ok=True)
+            import hashlib
+            name=hashlib.sha256(source.read_bytes()).hexdigest()[:20]+suffix
+            shutil.copyfile(source,folder/name)
+            self.store.set_settings({"background_file":name,"background_builtin":"0"})
+            self.bg_enabled.set(True);self.save_appearance()
+        except Exception as exc:
+            messagebox.showerror(APP_NAME,"A háttér nem importálható:\n"+str(exc),parent=self)
 
     def refresh_all(self):
         self.refresh_week()

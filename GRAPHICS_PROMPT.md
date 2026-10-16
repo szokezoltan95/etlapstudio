@@ -1,5 +1,27 @@
 # Másolható prompt új ÉtlapStúdió grafikákhoz
 
+## PNG háttér készítése képgeneráló AI-val
+
+Az alábbi szöveg különálló háttérképet kér. A kész PNG/JPG a **Megjelenés → PNG/JPG importálása…** gombbal tölthető be. Nem kell hozzá témacsomag vagy SVG. A beépített `backgrounds/botanical.png` egy ilyen minta.
+
+```text
+Készíts elegáns, nyomdai minőségű ÉTLAP HÁTTÉRGRAFIKÁT, portré 4:5 arányban,
+lehetőleg 1440 × 1800 px vagy nagyobb felbontásban, PNG formátumban.
+Téma: [ÉVSZAK / ÜNNEP / STÍLUS]. Színvilág: [SZÍNEK].
+A dekoráció kizárólag a külső szegélyeken és sarkokban legyen. Az oldal középső
+legalább 75–80%-a, különösen a felső cím, a napi A/B menü és a két hasábnyi
+étellista helye maradjon üres és világos. Sűrű, kis méretű fekete étlapfelirat
+kerül majd fölé, ezért ne legyen mögötte erős kontraszt vagy tömör minta.
+Finom, igényes, részletgazdag motívumokat használj. Ne írj rá semmilyen szöveget,
+ételnevet, árat, dátumot vagy logót. Ne helyezz el látszólagos szövegsorokat.
+Ha képes vagy valódi átlátszó PNG-t készíteni, a dekoráción kívüli részek
+legyenek átlátszók. Ellenkező esetben tiszta, világos háttérrel add vissza.
+Ne készíts perspektivikus mockupot, asztalra fektetett lapot vagy fényképet:
+egyetlen lapos, teljes oldalas képfájlt kérek.
+```
+
+## SVG díszítő témacsomag készítése
+
 Az alábbi szöveget bármely olyan AI modellnek odaadhatod, amely képes szabványos SVG kódot írni. A szögletes zárójelben lévő részeket cseréld ki. Ha a modell nem tud ZIP-fájlt készíteni, a négy fájl tartalmát külön kódblokkokban kérd, és csomagold őket egy ZIP gyökerébe.
 
 ```text

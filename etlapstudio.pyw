@@ -751,7 +751,7 @@ class App(tk.Tk):
                 import fitz
                 svg=(folder/"header.svg").read_text(encoding="utf-8")
                 svg=svg.replace(palette["primary"],primary).replace(palette["accent"],accent)
-                document=fitz.open(stream=svg,filetype="svg")
+                document=fitz.open(stream=svg.encode("utf-8"),filetype="svg")
                 pix=document[0].get_pixmap(matrix=fitz.Matrix(.55,.55),alpha=True)
                 self._preview_image=tk.PhotoImage(data=base64.b64encode(pix.tobytes("png")).decode())
                 c.create_image(width/2,32,image=self._preview_image)

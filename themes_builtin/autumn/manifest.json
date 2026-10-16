@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "autumn",
+  "name": "Ősz",
+  "palette": {
+    "primary": "#935437",
+    "accent": "#C39349",
+    "background": "#FBF3E9"
+  },
+  "assets": {
+    "header": "header.svg",
+    "divider": "divider.svg",
+    "corner": "corner.svg"
+  }
+}

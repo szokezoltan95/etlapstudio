@@ -1,0 +1,32 @@
+ÉTLAPSTÚDIÓ – asztali étlapkészítő
+
+Windows: csomagold ki a ZIP-et egy mappába, majd kattints kétszer az
+Inditas_Windows.bat fájlra. Python 3.10 vagy újabb szükséges. Az első
+indításkor a PDF és PNG készítéshez szükséges modulok települnek.
+A további indításokhoz ugyanazt a fájlt használd.
+
+Használat:
+1. Az „Étterem adatai” fülön add meg a nevet, címet és telefonszámot.
+2. Az „Ételek és árak” fülön vedd fel az à la carte ételeket.
+3. A „Heti menü” fülön írd be a hétfő–pénteki levest, A és B menüt.
+   Ezek külön szövegek: nem szerepelnek az à la carte adatbázisban.
+4. A „Napi étlap” fülön válaszd ki az aznapi à la carte kínálatot.
+   Az adott nap heti menüje automatikusan a napi étlap tetején jelenik meg.
+5. A „Megjelenés” fülön válassz hét beépített téma közül, állíts színeket,
+   vagy importálj egy új témacsomagot.
+6. A PDF gombok A4 nyomtatványt, a Facebook PNG gombok 4:5 arányú,
+   1440 × 1800 képpontos képet készítenek. A napi étlap mindig egy képre
+   kerül; a fejléc fix méretű, az à la carte rész betűmérete igazodik.
+
+Az alkalmazás üres ételadatbázissal és üres heti menüvel indul.
+Az adatok a Dokumentumok/EtlapStudio/etlapstudio.sqlite3 fájlba kerülnek.
+A biztonsági másolat az „Étterem adatai” fülön készíthető.
+Az importált témák a Dokumentumok/EtlapStudio/themes mappában maradnak.
+A témacsomag formátumát a TEMACSOMAG_FORMATUM.md írja le. A csomagban
+TEMA_SABLON.zip is található, amiből új téma készíthető.
+
+A meglévő ételek árának módosítása a korábbi dátumok PDF/PNG exportjára is
+kihat, ha azokat később újra készíted. A már elmentett fájlok nem változnak.
+
+macOS/Linux: Python 3 és Tkinter, valamint `pip install reportlab svglib PyMuPDF`
+szükséges, majd indítás: python3 etlapstudio.pyw

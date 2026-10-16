@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "summer",
+  "name": "Nyár",
+  "palette": {
+    "primary": "#157A8A",
+    "accent": "#E3A543",
+    "background": "#FFF8E7"
+  },
+  "assets": {
+    "header": "header.svg",
+    "divider": "divider.svg",
+    "corner": "corner.svg"
+  }
+}

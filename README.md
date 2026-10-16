@@ -10,7 +10,7 @@ Asztali program napi étlapok és heti menük készítésére. Az à la carte é
 - **Heti menü:** hétfő–péntek, naponként leves, A és B menü. Az ételnevek nem az à la carte adatbázisból származnak; a B menü üresen hagyható.
 - **Ételadatbázis:** kategóriák, árak, keresés, hozzáadás, szerkesztés, törlés. Az alkalmazás üres adatbázissal indul.
 - **Megjelenés:** klasszikus, tavasz, nyár, ősz, tél, karácsony és húsvét téma; állítható alap- és kiegészítő szín; díszítések ki- és bekapcsolása; új SVG témacsomag importja.
-- **Export:** A4 PDF nyomtatáshoz és 4:5 arányú, 1440 × 1800 képpontos PNG közösségi megosztáshoz. A több oldalra törő étlap számozott PNG-fájlokba kerül.
+- **Export:** A4 PDF nyomtatáshoz és 4:5 arányú, 1440 × 1800 képpontos PNG közösségi megosztáshoz. A napi étlap mindig egy PNG: a fejléc és a napi menü blokk fix méretű, az à la carte rész betűmérete a tételek számához igazodik.
 - **Adatok:** helyi SQLite, kézi biztonsági mentés. Nincs fiók és szerverkapcsolat.
 
 ## Indítás Windows alatt
@@ -67,4 +67,4 @@ Egy csomag négy fájlja: `manifest.json`, `header.svg` (600 × 100), `divider.s
 
 ## Jelenlegi korlátok
 
-A heti menü hétfőtől péntekig jelenik meg. Az app egyetlen gépen, helyi adatbázissal dolgozik. A grafikai előnézet a téma színeit és fejlécdíszét mutatja; a teljes végleges tördelés a PDF/PNG exportban látszik. A hosszú napi étlap több PNG-re kerül. A korábbi árváltozatokat az adatbázis jelenleg nem tárolja.
+A heti menü hétfőtől péntekig jelenik meg. Az app egyetlen gépen, helyi adatbázissal dolgozik. A grafikai előnézet a téma színeit és fejlécdíszét mutatja; a teljes végleges tördelés a PDF/PNG exportban látszik. Nagyon sok vagy különösen hosszú à la carte tételnél az egyetlen napi PNG betűi kicsik lehetnek. A korábbi árváltozatokat az adatbázis jelenleg nem tárolja.

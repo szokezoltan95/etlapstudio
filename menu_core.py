@@ -156,6 +156,29 @@ class Store:
                                 ",".join("?"*len(dish_ids))+")",(day.isoformat(),*dish_ids))
             else:self.db.execute("DELETE FROM daily_promotions WHERE day=?",(day.isoformat(),))
 
+    def copy_previous_daily(self, day: date) -> bool:
+        """Use the most recent saved working selection as the starting point for a new day."""
+        current=day.isoformat()
+        if self.db.execute("SELECT 1 FROM saved_menus WHERE kind='daily' AND menu_date=?",(current,)).fetchone():
+            return False
+        if self.db.execute("SELECT 1 FROM daily_selection WHERE day=? LIMIT 1",(current,)).fetchone():
+            return False
+        previous=self.db.execute("SELECT MAX(day) FROM daily_selection WHERE day<?",(current,)).fetchone()[0]
+        if previous:
+            with self.db:
+                rows=self.db.execute("SELECT dish_id FROM daily_selection WHERE day=?",(previous,)).fetchall()
+                self.db.executemany("INSERT OR IGNORE INTO daily_selection(day,dish_id) VALUES(?,?)",
+                                    [(current,row[0]) for row in rows])
+                promos=self.db.execute("SELECT dish_id,promo_price FROM daily_promotions WHERE day=?",(previous,)).fetchall()
+                self.db.executemany("INSERT OR IGNORE INTO daily_promotions(day,dish_id,promo_price) VALUES(?,?,?)",
+                                    [(current,row[0],row[1]) for row in promos])
+        prior_day=day-timedelta(days=1)
+        prior_special=self.week_entry(prior_day)
+        current_special=self.week_entry(day)
+        if any(prior_special) and not any(current_special):
+            self.set_week_entry(day,*prior_special)
+        return bool(previous or any(prior_special))
+
     def set_daily_promotion(self, day: date, dish_id: int, enabled: bool, amount=None):
         regular=self.db.execute("SELECT price FROM dishes WHERE id=?",(dish_id,)).fetchone()
         if regular is None:raise ValueError("Az étel nem található.")

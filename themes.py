@@ -109,6 +109,8 @@ def import_theme(zip_path: Path, destination: Path, existing: set[str]) -> str:
             raise ValueError("A ZIP gyökerében manifest.json és három grafika szükséges.")
         manifest=json.loads(archive.read("manifest.json").decode("utf-8"))
         validate_manifest(manifest)
+        if any(not name.endswith(".png") for name in manifest["assets"].values()):
+            raise ValueError("Témacsomagban csak teljes színű PNG grafikák használhatók.")
         required={"manifest.json",*manifest["assets"].values()}
         if not required.issubset(names) or sum(archive.getinfo(n).file_size for n in required)>18_500_000:
             raise ValueError("Hiányzó grafika vagy túl nagy csomag.")

@@ -4,10 +4,9 @@ from __future__ import annotations
 import io
 from datetime import timedelta
 from pathlib import Path
-from PyQt6.QtCore import QByteArray, QRectF, Qt
+from PyQt6.QtCore import QMarginsF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter, QPageSize,
                          QPdfWriter, QPen)
-from PyQt6.QtSvg import QSvgRenderer
 from themes import load_themes, HEX
 from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, monday, price
 
@@ -20,7 +19,9 @@ def setting(source,key,default=""):
 
 
 def font(source,role,size,bold=False):
-    family=setting(source,"font_"+role,"Segoe UI")
+    defaults={"restaurant":"Georgia","title":"Georgia","heading":"Georgia",
+              "special":"Segoe UI","dish":"Segoe UI"}
+    family=setting(source,"font_"+role,defaults.get(role,"Segoe UI"))
     family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
     f=QFont(family);f.setPixelSize(max(1,round(size)));f.setBold(bold)
     return f
@@ -51,11 +52,20 @@ def artwork(p,folder,manifest,palette,primary,accent,key,rect):
     if name.endswith(".png"):
         image=QImage(str(path))
         if not image.isNull():p.drawImage(rect,image)
-    else:
-        svg=path.read_text(encoding="utf-8")
-        svg=svg.replace(palette["primary"],primary).replace(palette["accent"],accent)
-        renderer=QSvgRenderer(QByteArray(svg.encode("utf-8")))
-        if renderer.isValid():renderer.render(p,rect)
+
+
+def seasonal_asset(source,role):
+    season=setting(source,"seasonal_background","autumn")
+    if season not in ("spring","summer","autumn","winter"):return None
+    path=BASE/"design_assets"/f"{season}_{role}.jpg"
+    return path if path.is_file() else None
+
+
+def draw_raster(p,path,rect,opacity=1.0):
+    if not path:return
+    image=QImage(str(path))
+    if image.isNull():return
+    p.save();p.setOpacity(max(0.0,min(1.0,opacity)));p.drawImage(rect,image);p.restore()
 
 
 def draw_menu(p,source,kind,target):
@@ -73,16 +83,23 @@ def draw_menu(p,source,kind,target):
     dark="#263A30";decorated=setting(source,"decorations","1")=="1"
     bgname=setting(source,"background_file")
     bgpath=data_dir()/"backgrounds"/bgname if bgname and Path(bgname).name==bgname else None
+    season=setting(source,"seasonal_background","autumn")
+    if not bgpath or not bgpath.is_file():
+        bgpath=seasonal_asset(source,"background")
     if not bgpath or not bgpath.is_file():
         bgpath=BASE/"backgrounds"/"botanical.png" if setting(source,"background_builtin") == "1" else None
     if bgpath and bgpath.is_file() and setting(source,"background_enabled") == "1":
         image=QImage(str(bgpath))
         if not image.isNull():
-            p.save();p.setOpacity(max(0,min(100,int(setting(source,"background_opacity","30"))))/100)
+            p.save();p.setOpacity(max(0,min(100,int(setting(source,"background_opacity","78"))))/100)
             p.drawImage(QRectF(0,0,W,H),image);p.restore()
     p.setPen(QPen(QColor(primary),2));p.setBrush(Qt.BrushStyle.NoBrush)
     p.drawRect(QRectF(46,46,W-92,H-92))
     if decorated:
+        # The generated background already carries a full botanical frame;
+        # keep this banner translucent so it does not repeat the illustration.
+        p.setPen(QPen(QColor(primary),1.5));p.setBrush(QColor(palette["background"]))
+        p.drawRoundedRect(QRectF(155,78,W-310,174),22,22)
         artwork(p,folder,manifest,palette,primary,accent,"header",QRectF(120,62,W-240,200))
     else:
         p.drawLine(120,260,W-120,260)
@@ -92,6 +109,9 @@ def draw_menu(p,source,kind,target):
     text(p,source,"special",21,dark,120,177,W-240,35,
          address+("  •  " if address and phone else "")+phone,align=Qt.AlignmentFlag.AlignHCenter)
     title="Napi étlap" if kind=="daily" else "Heti menü"
+    if decorated:
+        p.setPen(QPen(QColor(accent),1.4));p.setBrush(QColor(palette["background"]))
+        p.drawRoundedRect(QRectF(235,292,W-470,124),22,22)
     text(p,source,"title",60,dark,120,307,W-240,92,title,True,Qt.AlignmentFlag.AlignHCenter)
     stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     text(p,source,"special",27,dark,120,399,W-240,47,stamp,align=Qt.AlignmentFlag.AlignHCenter)
@@ -118,7 +138,9 @@ def draw_daily(p,source,target,folder,manifest,palette,primary,accent,dark,decor
         text(p,source,"heading",special_size,primary,152,y,180,height,label,True)
         text(p,source,"special",special_size,dark,360,y,870,height,value)
         y+=height
-    if decorated:artwork(p,folder,manifest,palette,primary,accent,"divider",QRectF(120,725,W-240,76))
+    if decorated:
+        draw_raster(p,seasonal_asset(source,"divider"),QRectF(120,725,W-240,76),.95)
+        artwork(p,folder,manifest,palette,primary,accent,"divider",QRectF(120,725,W-240,76))
     else:
         p.setPen(QPen(QColor(accent),2));p.drawLine(120,775,W-120,775)
     dishes=[dict(d) for d in source.selection(target)]
@@ -155,6 +177,9 @@ def draw_daily(p,source,target,folder,manifest,palette,primary,accent,dark,decor
     for item in placements:
         kind,col,y,value,size,*rest=item;x=col_x[col]
         if kind=="heading":
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(palette["background"]))
+            p.drawRoundedRect(QRectF(x-8,y-3,column_width-20,size*1.8),8,8)
+            draw_raster(p,seasonal_asset(source,"category"),QRectF(x-8,y-3,column_width-20,size*1.8),.20)
             text(p,source,"heading",size*1.23,primary,x,y,column_width,size*1.8,value,True)
             continue
         d=value;row_h=rest[0];promo=bool(d.get("promo_enabled") and d.get("promo_price") is not None)
@@ -176,11 +201,16 @@ def draw_daily(p,source,target,folder,manifest,palette,primary,accent,dark,decor
 
 def draw_weekly(p,source,target,folder,manifest,palette,primary,accent,dark,decorated):
     mon=monday(target)
-    if decorated:artwork(p,folder,manifest,palette,primary,accent,"divider",QRectF(120,462,W-240,76))
+    if decorated:
+        draw_raster(p,seasonal_asset(source,"divider"),QRectF(120,462,W-240,76),.95)
+        artwork(p,folder,manifest,palette,primary,accent,"divider",QRectF(120,462,W-240,76))
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=548+i*222
         p.setPen(QPen(QColor(accent),1));p.drawLine(140,y+201,W-140,y+201)
+        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(palette["background"]))
+        p.drawRoundedRect(QRectF(138,y-4,248,61),8,8)
+        draw_raster(p,seasonal_asset(source,"category"),QRectF(138,y-4,248,61),.20)
         text(p,source,"heading",31,primary,145,y,235,52,label,True)
         values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
         size=25
@@ -208,10 +238,14 @@ def export_png(path,source,kind,target):
 
 
 def export_pdf(path,source,kind,target):
-    writer=QPdfWriter(str(path));writer.setPageSize(QPageSize(QPageSize.PageSizeId.A4))
+    from PyQt6.QtGui import QPageLayout
+    writer=QPdfWriter(str(path))
+    writer.setPageLayout(QPageLayout(QPageSize(QPageSize.PageSizeId.A4),
+                                    QPageLayout.Orientation.Portrait,QMarginsF(0,0,0,0),
+                                    QPageLayout.Unit.Millimeter))
     writer.setResolution(300);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü")+" – "+display_date(target))
     p=QPainter(writer)
     area=writer.pageLayout().paintRectPixels(writer.resolution())
-    scale=min(area.width()/W,area.height()/H)
-    p.translate(area.x()+(area.width()-W*scale)/2,area.y()+(area.height()-H*scale)/2)
-    p.scale(scale,scale);draw_menu(p,source,kind,target);p.end()
+    p.translate(area.x(),area.y())
+    p.scale(area.width()/W,area.height()/H)
+    draw_menu(p,source,kind,target);p.end()

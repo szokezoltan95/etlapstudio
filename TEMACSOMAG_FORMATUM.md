@@ -1,40 +1,34 @@
-# ÉtlapStúdió témacsomag – 1. verzió
+# ÉtlapStúdió grafikai csomag – PNG formátum
 
-A téma egy ZIP-fájl, amelynek gyökerében négy fájl van:
+A csomag ZIP-fájl, benne közvetlenül a gyökérben lévő fájlokkal. A grafikák teljes színű, átlátszó hátterű PNG-k. Az alkalmazás SVG grafikát nem rajzol.
 
-| Fájl | Méret és `viewBox` | Felhasználás |
-| --- | --- | --- |
-| `header.svg` | 600 × 100, `0 0 600 100` | Címsor; a középső 330 egységben maradjon hely az étterem nevének. |
-| `divider.svg` | 600 × 100, `0 0 600 100` | Elválasztó a cím és a menü között. |
-| `corner.svg` | 145 × 145, `0 0 145 145` | Kis sarokdísz az oldal alján. |
-| `manifest.json` | UTF-8 szöveg | Név, színek és fájlnevek. |
+| Fájl | Méret | Helye az étlapon |
+| --- | ---: | --- |
+| `header.png` | 1200 × 200 px | Étteremnév és fejléc körüli dísz |
+| `divider.png` | 1200 × 200 px | Napi menü és étellista közötti elválasztó |
+| `corner.png` | 290 × 290 px | Alsó sarokdísz |
+| `manifest.json` | UTF-8 | Témacímke, színek és fájlnevek |
 
 Példa `manifest.json`:
 
 ```json
 {
   "schema_version": 1,
-  "id": "nyari_citrom",
-  "name": "Nyári citrom",
+  "id": "oszi_level",
+  "name": "Őszi levelek",
   "palette": {
-    "primary": "#157A8A",
-    "accent": "#E3A543",
-    "background": "#FFF8E7"
+    "primary": "#315747",
+    "accent": "#B66A36",
+    "background": "#F7F2E9"
   },
   "assets": {
-    "header": "header.svg",
-    "divider": "divider.svg",
-    "corner": "corner.svg"
+    "header": "header.png",
+    "divider": "divider.png",
+    "corner": "corner.png"
   }
 }
 ```
 
-Az `id` kisbetűből, számból, `_` vagy `-` karakterből áll, 2–32 karakter hosszú. A három szín hatjegyű hexadecimális kód. Az SVG átlátszó hátterű, csak egyszerű vektorelemekből állhat (`path`, `g`, `circle`, `ellipse`, `line`, `rect`, `polygon`, `polyline`). Külső képek, hivatkozások, betűtípusok, szkriptek és beágyazott stíluslapok nem használhatók. Egy SVG legfeljebb 500 kB.
+Az `id` 2–32 karakteres kisbetűs azonosító; használható benne szám, `_` és `-`. A grafika legyen légies, és hagyjon üres helyet a rákerülő szövegnek. Ne legyen rajta felirat, dátum, ár, logó vagy vízjel. A háttérgrafikát külön, 4:5 álló kép formájában importáld; ehhez ajánlott méret 1440 × 1800 px vagy nagyobb.
 
-Az app a grafikákat méretarányosan helyezi a PDF-be és a Facebook PNG-be. A saját alapszín és kiegészítő szín a grafikákban is lecseréli a téma palettájának megfelelő színeket. A szövegek mindig az alkalmazásból kerülnek a grafika fölé: az SVG nem tartalmaz ételneveket.
-
-A képexport 4:5 képarányú PNG, 1440 × 1800 képponttal. A nyomtatható PDF A4 méretű. A napi PNG mindig egy kép: a felső menüblokk mérete fix, az à la carte rész betűi a tartalomhoz igazodnak. A kész `TEMA_SABLON.zip` fájlt másold le, alakítsd át a grafikákat és a manifestet, majd az app „Megjelenés” fülén importáld.
-# PNG díszítő elemek
-
-A `header`, `divider`, `corner` grafika külön-külön lehet SVG vagy átlátszó PNG. PNG használatakor a fájlnevek kizárólag `header.png`, `divider.png`, `corner.png` lehetnek; a `manifest.json` `assets` értékei ezekre hivatkozzanak. Kötelező pixelméretek sorrendben **1200 × 200**, **1200 × 200**, **290 × 290**. Egy PNG legfeljebb 6 MB, a teljes ZIP legfeljebb 18,5 MB kicsomagolt kötelező tartalommal. Az SVG szabályok továbbra is érvényesek a választott SVG fájlokra. A PNG színei rögzítettek, míg az SVG színei a paletta alapján átállíthatók. Teljes oldalas háttérképet a Megjelenés fül külön PNG/JPG importgombjával tölthetsz be.
-
+A témacsomagot a **Dizájn → Témacsomag importálása…** gombbal lehet betölteni. Teljes oldalas hátteret a **Dizájn → Háttér vagy díszítőelem importálása…** gomb fogad.

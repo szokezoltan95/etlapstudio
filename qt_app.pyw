@@ -6,13 +6,13 @@ import textwrap
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt
-from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
-    QSpinBox, QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
+    QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
     QVBoxLayout, QWidget,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
@@ -34,6 +34,12 @@ def button(label,callback):
     b=QPushButton(label);b.clicked.connect(callback);return b
 
 
+def price_edit(value=0):
+    edit=QLineEdit(str(value));edit.setValidator(QIntValidator(0,1_000_000,edit))
+    edit.setPlaceholderText("Ár forintban");edit.setClearButtonEnabled(True)
+    return edit
+
+
 class DishDialog(QDialog):
     def __init__(self,parent,row=None):
         super().__init__(parent);self.setWindowTitle("Étel szerkesztése" if row else "Új étel")
@@ -42,30 +48,46 @@ class DishDialog(QDialog):
         self.category=QComboBox();self.category.addItems(CATEGORIES)
         if row:self.category.setCurrentText(row["category"])
         form.addRow("Kategória",self.category)
-        self.amount=QSpinBox();self.amount.setRange(0,1_000_000);self.amount.setSuffix(" Ft")
-        self.amount.setValue(row["price"] if row else 0);form.addRow("Ár",self.amount)
+        self.amount=price_edit(row["price"] if row else 0);form.addRow("Ár (Ft)",self.amount)
         self.amount_label=QLabel("A Menü kategóriában a 0 Ft azt jelenti, hogy nincs külön feltüntetett ár.")
         self.amount_label.setWordWrap(True);layout.addWidget(self.amount_label)
         hint=QLabel("A napi akciós árat a Napi étlap fülön, az adott dátumhoz állíthatod be.")
         hint.setWordWrap(True);layout.addWidget(hint)
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
-        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+        controls.accepted.connect(self.validate_accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
         self.setMinimumWidth(440)
+
+    def validate_accept(self):
+        if not self.name.text().strip():
+            QMessageBox.warning(self,APP_NAME,"Add meg az étel nevét.");return
+        try:int(self.amount.text())
+        except ValueError:
+            QMessageBox.warning(self,APP_NAME,"Az ár mezőbe számot írj.");return
+        self.accept()
 
 
 class PromotionDialog(QDialog):
     def __init__(self,parent,dish):
         super().__init__(parent);self.setWindowTitle("Napi akció · "+dish["name"])
+        self.parent_dish_price=dish["price"]
         layout=QVBoxLayout(self);layout.addWidget(QLabel("Normál ár: "+price(dish["price"])))
         self.enabled=QCheckBox("Akciós ár alkalmazása ezen a napon")
         self.enabled.setChecked(bool(dish["promo_enabled"]));layout.addWidget(self.enabled)
-        self.amount=QSpinBox();self.amount.setRange(0,max(0,dish["price"]-1));self.amount.setSuffix(" Ft")
-        self.amount.setValue(dish["promo_price"] or 0);self.amount.setEnabled(self.enabled.isChecked())
+        self.amount=price_edit(dish["promo_price"] or 0);self.amount.setEnabled(self.enabled.isChecked())
         self.enabled.toggled.connect(self.amount.setEnabled)
         row=QFormLayout();row.addRow("Akciós ár",self.amount);layout.addLayout(row)
         layout.addWidget(QLabel("A kedvezmény csak a kiválasztott napi étlapon jelenik meg."))
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
-        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+        controls.accepted.connect(self.validate_accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+
+    def validate_accept(self):
+        if self.enabled.isChecked():
+            try:amount=int(self.amount.text())
+            except ValueError:
+                QMessageBox.warning(self,APP_NAME,"Írd be az akciós árat számjegyekkel.");return
+            if not 0<=amount<self.parent_dish_price:
+                QMessageBox.warning(self,APP_NAME,"Az akciós ár legyen kisebb a normál árnál.");return
+        self.accept()
 
 
 class DailyDishDialog(QDialog):
@@ -77,17 +99,24 @@ class DailyDishDialog(QDialog):
         self.include=QCheckBox("Felveszem a mai étlapra");self.include.setChecked(selected is not None)
         layout.addWidget(self.include)
         form=QFormLayout();layout.addLayout(form)
-        self.regular=QSpinBox();self.regular.setRange(0,1_000_000);self.regular.setSuffix(" Ft")
-        self.regular.setValue(dish["price"]);form.addRow("Normál ár",self.regular)
+        self.regular=price_edit(dish["price"]);form.addRow("Normál ár (Ft)",self.regular)
         self.promo=QCheckBox("Akciós ár ezen a napon");self.promo.setChecked(bool(selected and selected["promo_enabled"] and selected["promo_price"] is not None))
         form.addRow("Akció",self.promo)
-        self.promo_amount=QSpinBox();self.promo_amount.setRange(0,1_000_000);self.promo_amount.setSuffix(" Ft")
-        self.promo_amount.setValue((selected["promo_price"] if selected and selected["promo_price"] is not None else 0))
+        self.promo_amount=price_edit(selected["promo_price"] if selected and selected["promo_price"] is not None else 0)
         self.promo_amount.setEnabled(self.promo.isChecked());self.promo.toggled.connect(self.promo_amount.setEnabled)
         form.addRow("Akciós ár",self.promo_amount)
         layout.addWidget(QLabel("Az új normál ár az étel adatlapján is frissül."))
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
-        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+        controls.accepted.connect(self.validate_accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+
+    def validate_accept(self):
+        try:
+            regular=int(self.regular.text());promo=int(self.promo_amount.text() or "0")
+        except ValueError:
+            QMessageBox.warning(self,APP_NAME,"Írd be a normál és az akciós árat számjegyekkel.");return
+        if self.promo.isChecked() and (regular<=0 or promo>=regular):
+            QMessageBox.warning(self,APP_NAME,"Az akciós ár legyen kisebb a normál árnál.");return
+        self.accept()
 
 
 class FoodButton(QPushButton):
@@ -106,37 +135,33 @@ class PreviewLabel(QLabel):
     def paintEvent(self,event):
         super().paintEvent(event)
         if not self.guides or not self.pixmap() or self.width()<=0:return
-        from PyQt6.QtCore import QRectF
-        scale=self.width()/1440;p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        for name,(x,y,w,h) in self.regions.items():
-            rect=QRectF(x*scale,y*scale,w*scale,h*scale)
-            p.setPen(QPen(QColor("#008a87"),1.5,Qt.PenStyle.DashLine));p.setBrush(Qt.BrushStyle.NoBrush);p.drawRect(rect)
-            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor("#008a87"));p.drawRect(QRectF(rect.right()-7,rect.bottom()-7,12,12))
-            p.setPen(QColor("#006a68"));p.drawText(int(rect.left()+4),int(rect.top()+15),name)
+        scale=self.pixmap().width()/1440;p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        for name,y in self.regions.items():
+            yy=round(y*scale)
+            p.setPen(QPen(QColor(37,116,93,190),2));p.drawLine(12,yy,self.width()-12,yy)
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(37,116,93,220));p.drawRoundedRect(16,yy-12,150,24,9,9)
+            p.setPen(QColor("white"));p.drawText(24,yy+5,name)
         p.end()
     def mousePressEvent(self,event):
         if self.guides and event.button()==Qt.MouseButton.LeftButton:
-            scale=self.width()/1440
+            scale=self.pixmap().width()/1440 if self.pixmap() else 0
             if scale>0:
-                point=(event.position().x()/scale,event.position().y()/scale)
-                for name,(x,y,w,h) in reversed(list(self.regions.items())):
-                    if x+w-24<=point[0]<=x+w+18 and y+h-24<=point[1]<=y+h+18:
-                        self._drag=(name,"resize",point,(x,y,w,h));event.accept();return
-                    if x<=point[0]<=x+w and y<=point[1]<=y+h:
-                        self._drag=(name,"move",point,(x,y,w,h));event.accept();return
+                y=event.position().y()/scale
+                for name,guide_y in reversed(list(self.regions.items())):
+                    if abs(guide_y-y)<=16:
+                        self._drag=(name,y,guide_y);self.setCursor(Qt.CursorShape.SizeVerCursor);event.accept();return
         super().mousePressEvent(event)
     def mouseMoveEvent(self,event):
         if self._drag:
-            name,mode,start,original=self._drag;scale=self.width()/1440
-            point=(event.position().x()/scale,event.position().y()/scale);dx=point[0]-start[0];dy=point[1]-start[1]
-            x,y,w,h=original
-            if mode=="move":x+=dx;y+=dy
-            else:w=max(220,w+dx);h=max(80,h+dy)
-            x=max(20,min(1440-w,x));y=max(20,min(1800-h,y))
-            self.regions[name]=(round(x),round(y),round(w),round(h));self.regionChanged.emit(name,self.regions[name]);self.update();event.accept();return
+            name,start,original=self._drag;scale=self.pixmap().width()/1440
+            limits={"Fejléc vége":(360,520),"Napi menü vége":(650,850),"Heti menü kezdete":(480,700)}
+            low,high=limits.get(name,(100,1700))
+            y=round(max(low,min(high,event.position().y()/scale)))
+            self.regions[name]=y;self.regionChanged.emit(name,y);self.update();event.accept();return
         super().mouseMoveEvent(event)
     def mouseReleaseEvent(self,event):
-        if self._drag and event.button()==Qt.MouseButton.LeftButton:self._drag=None;event.accept();return
+        if self._drag and event.button()==Qt.MouseButton.LeftButton:
+            self._drag=None;self.unsetCursor();event.accept();return
         super().mouseReleaseEvent(event)
 
 
@@ -148,7 +173,11 @@ class MainWindow(QMainWindow):
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
         splitter=QSplitter(Qt.Orientation.Horizontal);self.setCentralWidget(splitter)
         left=QWidget();left_layout=QVBoxLayout(left);left_layout.setContentsMargins(12,12,8,12)
-        title=QLabel("ÉTLAPSTÚDIÓ");title.setObjectName("appTitle");left_layout.addWidget(title)
+        brand=QHBoxLayout();logo=QLabel();logo.setFixedSize(48,48)
+        logo_path=BASE/"design_assets"/"megyehaza_logo.png"
+        if logo_path.is_file():logo.setPixmap(QPixmap(str(logo_path)).scaled(46,46,Qt.AspectRatioMode.KeepAspectRatio,Qt.TransformationMode.SmoothTransformation))
+        brand.addWidget(logo);title=QLabel("ÉTLAPSTÚDIÓ\nMegyeháza Étterem");title.setObjectName("appTitle");brand.addWidget(title,1)
+        left_layout.addLayout(brand)
         self.tabs=QTabWidget();left_layout.addWidget(self.tabs,1)
         splitter.addWidget(left)
         right=QWidget();right_layout=QVBoxLayout(right);right_layout.setContentsMargins(8,12,12,12)
@@ -160,7 +189,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(button("Facebook-kép",lambda:self.export("png")))
         toolbar.addStretch();right_layout.addLayout(toolbar)
         controls=QHBoxLayout();controls.setSpacing(6)
-        self.guides=QCheckBox("Szerkesztővonalak");self.guides.setToolTip("Húzd a keretet a mozgatáshoz, a jobb alsó fogantyút az átméretezéshez.")
+        self.guides=QCheckBox("Térközök állítása");self.guides.setToolTip("Fogd meg a vízszintes vonalat és húzd fel vagy le a blokkok közötti tér beállításához.")
         self.guides.toggled.connect(self.update_guides);controls.addWidget(self.guides);controls.addStretch()
         self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség"])
         self.zoom.setMaximumWidth(120);self.zoom.currentIndexChanged.connect(self.fit_preview);controls.addWidget(self.zoom)
@@ -177,22 +206,29 @@ class MainWindow(QMainWindow):
         self.store.copy_previous_daily(date.today());self.refresh_daily()
         self.schedule_preview()
         self.setStyleSheet('''
-            QMainWindow,QWidget { background:#f3f5f4; color:#263640; font-size:13px; }
-            QTabWidget::pane { border:1px solid #d7e0e4; border-radius:10px; background:#ffffff; }
-            QTabBar::tab { padding:11px 18px; background:#e8edef; border-top-left-radius:8px; border-top-right-radius:8px; }
-            QTabBar::tab:selected { background:white; color:#173f52; font-weight:bold; }
-            QPushButton { padding:9px 13px; background:#e5edf0; border:1px solid #c9d8de; border-radius:8px; }
-            QPushButton:hover { background:#d3e2e8; }
-            QPushButton[role="category"] { padding:5px 7px; min-height:28px; background:#e7efec; color:#24473b; font-weight:600; border:0; border-radius:7px; }
-            QPushButton[role="category"][active="true"] { background:#486f5e; color:white; }
-            QPushButton[role="food"] { padding:10px; min-height:54px; min-width:0; text-align:left; background:white; border:1px solid #dce4e7; }
-            QPushButton[role="food"][selected="true"] { background:#e6f0e8; border:1px solid #5e8b6c; }
-            QLineEdit,QComboBox,QSpinBox,QDateEdit,QFontComboBox { background:white; padding:8px; border:1px solid #ccd9de; border-radius:7px; }
-            QTreeWidget,QListWidget { background:white; alternate-background-color:#f4f7f8; border:1px solid #d0dcdf; }
-            QDockWidget::title { background:#e6edef; padding:9px; color:#183e50; font-weight:bold; }
-            QLabel#appTitle { color:#174759; font-size:22px; font-weight:bold; padding:4px; }
-            QLabel#previewTitle { color:#174759; font-size:17px; font-weight:bold; }
-            QFrame[card="true"] { background:white; border:1px solid #dce4e7; border-radius:10px; }
+            QMainWindow { background:#efe8dc; }
+            QWidget { color:#362f2b; font-size:13px; }
+            QSplitter::handle { background:#d9cabb; width:5px; }
+            QTabWidget::pane { border:0; border-radius:16px; background:#fffaf2; }
+            QTabBar::tab { padding:11px 18px; margin-right:4px; background:#e8d8c3; color:#655046; border-radius:11px 11px 0 0; font-weight:600; }
+            QTabBar::tab:selected { background:#fffaf2; color:#9d463b; }
+            QPushButton { padding:9px 13px; background:#d8e5d7; color:#344b3a; border:0; border-radius:10px; font-weight:600; }
+            QPushButton:hover { background:#bed2c0; }
+            QPushButton:pressed { background:#91ad96; }
+            QPushButton[role="category"] { padding:4px 6px; min-height:25px; background:#f0e3d1; color:#66503f; font-size:12px; font-weight:650; border:0; border-radius:8px; }
+            QPushButton[role="category"][active="true"] { background:#b85a4a; color:white; }
+            QPushButton[role="food"] { padding:10px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
+            QPushButton[role="food"][selected="true"] { background:#e2ecdc; border:1px solid #86a184; }
+            QLineEdit,QComboBox,QDateEdit,QFontComboBox { background:#fffdf9; padding:8px; border:1px solid #dacbbb; border-radius:9px; selection-background-color:#bc6957; }
+            QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { border:2px solid #bf715b; }
+            QCheckBox { spacing:8px; color:#50453e; }
+            QTreeWidget,QListWidget { background:#fffcf7; alternate-background-color:#f6eee2; border:1px solid #ddcbb7; border-radius:11px; }
+            QDockWidget::title { background:#b35d4b; padding:10px; color:white; font-weight:bold; }
+            QLabel#appTitle { color:#874739; font-size:20px; font-weight:bold; padding:4px; }
+            QLabel#previewTitle { color:#864637; font-size:18px; font-weight:bold; }
+            QLabel#dailySpecial { background:#e2ecdc; border-radius:12px; color:#42583f; padding:12px; }
+            QScrollArea { border:0; background:transparent; }
+            QStatusBar { background:#ddcbb7; color:#4e443d; }
         ''')
 
     def pane(self,title):
@@ -262,7 +298,8 @@ class MainWindow(QMainWindow):
             label=("✓  " if is_selected else "")+name+"\n"+dish["category"]+"  ·  "+price(dish["price"])
             b=button(label,lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
             b.setProperty("role","food");b.setProperty("selected",is_selected)
-            b.setMinimumHeight(72);b.setMinimumWidth(0);b.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+            lines=len(name.splitlines())+1
+            b.setMinimumHeight(max(72,24+lines*21));b.setMinimumWidth(0);b.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
             b.setStyleSheet("text-align:left;white-space:pre-wrap")
             cols=max(1,min(3,self.food_scroll.viewport().width()//235))
             self.food_grid.addWidget(b,n//cols,n%cols)
@@ -339,7 +376,12 @@ class MainWindow(QMainWindow):
         self.decorations=QCheckBox("Egyszerű ecsetvonásos címsorok és áttetsző elválasztók")
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
+        self.background=QCheckBox("Automatikus évszakos háttérgrafika")
+        self.background.setChecked(self.store.setting("background_enabled","1")=="1")
+        self.background.toggled.connect(self.save_appearance);form.addRow("",self.background)
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
+        reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
+        form.addRow("",reset)
         scroll.setWidget(inner);box.addWidget(scroll,1)
 
     def current_day(self):return pydate(self.day.date())
@@ -366,20 +408,15 @@ class MainWindow(QMainWindow):
         selected=next((dict(x) for x in self.store.selection(self.current_day()) if x["id"]==dish_id),None)
         dialog=DailyDishDialog(self,dish,selected)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
-        new_price=dialog.regular.value();promo=dialog.promo.isChecked()
-        promo_price=dialog.promo_amount.value()
-        if promo and (new_price<=0 or promo_price>=new_price):
-            QMessageBox.warning(self,APP_NAME,"Az akciós ár legyen kisebb a normál árnál.");return
-        try:self.store.add_dish(dish["name"],dish["category"],new_price,dish_id)
-        except ValueError as exc:QMessageBox.warning(self,APP_NAME,str(exc));return
-        active={row["id"] for row in self.store.selection(self.current_day())}
-        if dialog.include.isChecked():active.add(dish_id)
-        else:active.discard(dish_id)
-        self.store.set_selected(self.current_day(),sorted(active))
-        if dialog.include.isChecked() and promo:
-            self.store.set_daily_promotion(self.current_day(),dish_id,True,promo_price)
-        else:self.store.set_daily_promotion(self.current_day(),dish_id,False)
-        self.preview_archive=None;self.refresh_daily()
+        try:
+            self.store.save_daily_dish(self.current_day(),dish_id,int(dialog.regular.text()),
+                dialog.include.isChecked(),dialog.promo.isChecked(),int(dialog.promo_amount.text() or "0"))
+            saved=any(row["id"]==dish_id for row in self.store.selection(self.current_day()))
+            if saved!=dialog.include.isChecked():raise RuntimeError("Az étlap adatbázisa nem igazolta vissza a mentést.")
+        except (ValueError,sqlite3.Error,RuntimeError) as exc:
+            QMessageBox.warning(self,APP_NAME,"Nem sikerült elmenteni az ételt.\n"+str(exc));return
+        self.preview_archive=None;self.refresh_daily();self.refresh_archive()
+        self.status.setText("Az étel és az ár elmentve.")
 
     def refresh_week(self):
         if not hasattr(self,"week_fields"):return
@@ -437,7 +474,7 @@ class MainWindow(QMainWindow):
             if form.exec()!=QDialog.DialogCode.Accepted:return
             name=form.name.text().strip()
             if not name:QMessageBox.warning(dialog,APP_NAME,"Add meg az étel nevét.");return
-            self.store.add_dish(name,form.category.currentText(),form.amount.value(),row["id"] if row else None)
+            self.store.add_dish(name,form.category.currentText(),int(form.amount.text()),row["id"] if row else None)
             reload();self.refresh_daily();self.refresh_menu_suggestions()
         actions=QHBoxLayout();add=button("Új étel",lambda:edit())
         change=button("Szerkesztés",lambda:edit(selected_row()))
@@ -493,9 +530,24 @@ class MainWindow(QMainWindow):
         values={"theme":self.theme.currentData() or "auto","auto_theme":"1" if self.theme.currentData()=="auto" else "0",
                 "decorations":"1" if self.decorations.isChecked() else "0",
                 "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
-                "background_enabled":"0"}
+                "background_enabled":"1" if self.background.isChecked() else "0"}
         values.update({"font_"+key:combo.currentFont().family() for key,combo in self.fonts.items()})
         self.store.set_settings(values);self.schedule_preview()
+
+    def reset_design(self):
+        with self.store.db:
+            self.store.db.execute("DELETE FROM settings WHERE key LIKE 'guide_%' OR key LIKE 'layout_%'")
+        self.store.set_settings({"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
+                                 "background_enabled":"1","background_path":"","leader":"none",
+                                 "theme_primary":"","theme_accent":"",
+                                 "font_restaurant":"Georgia","font_title":"Georgia","font_heading":"Georgia",
+                                 "font_special":"Segoe UI","font_dish":"Segoe UI"})
+        self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
+        for role,combo in self.fonts.items():
+            combo.blockSignals(True);combo.setCurrentFont(QFont("Georgia" if role in ("restaurant","title","heading") else "Segoe UI"));combo.blockSignals(False)
+        self.glass.setChecked(True);self.decorations.setChecked(True);self.background.setChecked(True)
+        idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))
+        self.update_guides();self.schedule_preview()
 
     def import_theme(self):
         path,_=QFileDialog.getOpenFileName(self,"Témacsomag importálása","","ZIP (*.zip)")
@@ -519,27 +571,19 @@ class MainWindow(QMainWindow):
         self.preview_archive=None;self.schedule_preview()
         self.update_guides()
 
-    def layout_defaults(self):
-        if self.tabs.currentIndex()==1:
-            return {"header":(80,55,1280,375),"days":(120,520,1200,1120)}
-        return {"header":(80,55,1280,375),"daily_menu":(120,475,1200,235),"alacarte":(120,725,1200,990)}
-
     def update_guides(self,*_):
         if not hasattr(self,"preview"):return
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
-        labels={"header":"Fejléc","daily_menu":"Napi menü","alacarte":"À la carte","days":"Napok"}
-        regions={}
-        for key,default in self.layout_defaults().items():
-            raw=self.store.setting(f"layout_{kind}_{key}")
-            try:rect=tuple(map(int,raw.split(","))) if raw else default
-            except (ValueError,TypeError):rect=default
-            regions[labels[key]]=rect
+        keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
+            "header":"Fejléc vége","menu_end":"Napi menü vége"}
+        defaults={"header":430,"days":520,"menu_end":710}
+        regions={label:int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key]))) for key,label in keys.items()}
         self.preview.set_guides(self.guides.isChecked(),regions)
 
-    def save_layout_region(self,name,rect):
-        keys={"Fejléc":"header","Napi menü":"daily_menu","À la carte":"alacarte","Napok":"days"}
+    def save_layout_region(self,name,y):
+        keys={"Fejléc vége":"header","Heti menü kezdete":"days","Napi menü vége":"menu_end"}
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
-        self.store.set_settings({f"layout_{kind}_{keys[name]}":",".join(map(str,rect))})
+        self.store.set_settings({f"guide_{kind}_{keys[name]}":str(y)})
         self.schedule_preview()
     def preview_source(self):
         index=self.tabs.currentIndex()

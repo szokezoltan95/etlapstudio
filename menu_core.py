@@ -195,6 +195,29 @@ class Store:
             else:self.db.execute("DELETE FROM daily_promotions WHERE day=? AND dish_id=?",
                                  (day.isoformat(),dish_id))
 
+    def save_daily_dish(self, day: date, dish_id: int, amount: int, include: bool,
+                        promo_enabled: bool = False, promo_price: int | None = None):
+        """Atomically save a dish's current price, today's selection, and promotion."""
+        if amount < 0:
+            raise ValueError("Az ár nem lehet negatív.")
+        if promo_enabled and (promo_price is None or not 0 <= promo_price < amount):
+            raise ValueError("Az akciós ár legyen kisebb a normál árnál.")
+        current=day.isoformat()
+        with self.db:
+            exists=self.db.execute("SELECT 1 FROM dishes WHERE id=? AND active=1",(dish_id,)).fetchone()
+            if not exists:raise ValueError("Az étel már nem található az adatbázisban.")
+            self.db.execute("UPDATE dishes SET price=? WHERE id=?",(amount,dish_id))
+            if include:
+                self.db.execute("INSERT OR IGNORE INTO daily_selection(day,dish_id) VALUES(?,?)",(current,dish_id))
+            else:
+                self.db.execute("DELETE FROM daily_selection WHERE day=? AND dish_id=?",(current,dish_id))
+            if include and promo_enabled:
+                self.db.execute("INSERT INTO daily_promotions(day,dish_id,promo_price) VALUES(?,?,?) "
+                                "ON CONFLICT(day,dish_id) DO UPDATE SET promo_price=excluded.promo_price",
+                                (current,dish_id,promo_price))
+            else:
+                self.db.execute("DELETE FROM daily_promotions WHERE day=? AND dish_id=?",(current,dish_id))
+
     def week_entry(self, day: date):
         row = self.db.execute("SELECT soup,menu_a,menu_b FROM weekly_menu WHERE day=?",
                               (day.isoformat(),)).fetchone()

@@ -177,9 +177,10 @@ def draw_daily(p,source,target,folder,manifest,palette,primary,accent,dark,decor
     for item in placements:
         kind,col,y,value,size,*rest=item;x=col_x[col]
         if kind=="heading":
-            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(palette["background"]))
-            p.drawRoundedRect(QRectF(x-8,y-3,column_width-20,size*1.8),8,8)
-            draw_raster(p,seasonal_asset(source,"category"),QRectF(x-8,y-3,column_width-20,size*1.8),.20)
+            if decorated:
+                p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(palette["background"]))
+                p.drawRoundedRect(QRectF(x-8,y-3,column_width-20,size*1.8),8,8)
+                draw_raster(p,seasonal_asset(source,"category"),QRectF(x-8,y-3,column_width-20,size*1.8),.20)
             text(p,source,"heading",size*1.23,primary,x,y,column_width,size*1.8,value,True)
             continue
         d=value;row_h=rest[0];promo=bool(d.get("promo_enabled") and d.get("promo_price") is not None)
@@ -208,9 +209,10 @@ def draw_weekly(p,source,target,folder,manifest,palette,primary,accent,dark,deco
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=548+i*222
         p.setPen(QPen(QColor(accent),1));p.drawLine(140,y+201,W-140,y+201)
-        p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(palette["background"]))
-        p.drawRoundedRect(QRectF(138,y-4,248,61),8,8)
-        draw_raster(p,seasonal_asset(source,"category"),QRectF(138,y-4,248,61),.20)
+        if decorated:
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(palette["background"]))
+            p.drawRoundedRect(QRectF(138,y-4,248,61),8,8)
+            draw_raster(p,seasonal_asset(source,"category"),QRectF(138,y-4,248,61),.20)
         text(p,source,"heading",31,primary,145,y,235,52,label,True)
         values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
         size=25

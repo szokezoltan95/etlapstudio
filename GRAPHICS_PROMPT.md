@@ -1,30 +1,30 @@
 # Prompt étlapgrafikák készítéséhez
 
-A másolható promptok bármely képgeneráló AI-nak megadhatók. A grafika mindig raszteres, teljes színű PNG/JPG legyen; az alkalmazás SVG grafikákat nem használ.
+A program automatikusan az étlap dátumához igazítja az alapszíneket. Az importálható grafikák ezt egészítik ki: legyenek visszafogottak, áttetszők, és hagyjanak sok helyet a szövegnek. A teljes oldalas, mintás háttér, színes keret vagy panel nem része a jelenlegi dizájnnak.
 
-## Teljes oldalas, szezonális háttér
+## Témacsomag prompt
+
+Másold be a promptot egy képgeneráló modellnek, és cseréld ki a zárójeles részeket:
 
 ```text
-Készíts igényes, nyomtatásra és Facebookra szánt teljes oldalas étlap-hátteret
-álló 4:5 képarányban, lehetőleg legalább 1440 × 1800 képpont felbontásban.
-Téma: [ÉVSZAK VAGY ÜNNEP]. Színek: [SZÍNEK]. Stílus: részletgazdag,
-kézzel festett, teljes színű akvarell vagy gouache illusztráció, elegáns éttermi
-arculathoz. A díszítő növények, termések és ünnepi motívumok keretezzék az oldal
-külső szélét és sarkait. A lap középső legalább 75%-a legyen világos, visszafogott
-és majdnem üres, hogy sűrű fekete ételnevek és árak jól olvashatók maradjanak.
-Ne tegyél rá szöveget, betűt, számot, logót vagy vízjelet. Ne használj geometrikus
-vektorgrafikát, mockupot vagy asztalra helyezett lapot. Egyetlen lapos, teljes
-oldalas PNG/JPG képet készíts.
+Készíts átlátszó hátterű, raszteres PNG díszítőelemeket egy letisztult éttermi
+étlaphoz. Téma: [ÉVSZAK VAGY ÜNNEP]. A hangulatot ezek a színek adják:
+[SZÍNEK]. Az eredmény visszafogott, kézzel festett, elegáns legyen.
+
+Készíts külön fájlt mindegyikhez, pontosan az alábbi méretben:
+1. header.png — 1200 × 200 px: egyetlen finom, vízszintes ecsetvonás, amely
+   címsor mögé tehető. A középső terület maradjon közel egyszínű és szöveghez
+   használható.
+2. divider.png — 1200 × 200 px: egy vagy két vékony, áttetsző festett vonás,
+   amely ételcsoportok között használható. Ne legyen doboz vagy panel.
+3. corner.png — 290 × 290 px: egy apró, légies, áttetsző motívum a lap széléhez.
+
+Az ecsetvonás legyen egyszerű és nagy formájú. Ne tegyél rá ismétlődő mintát,
+geometrikus díszt, keretet, teljes oldalas hátteret, fehér vagy színes téglalapot,
+szöveget, számot, logót vagy vízjelet. Tényleges alfa-átlátszóságot használj.
+Minden fájlt külön PNG-ként adj vissza, a pontos kért méretben.
 ```
 
-## Fejléc, címsáv, elválasztó és sarokdísz
-
-Kérj négy külön, átlátszó hátterű, teljes színű PNG grafikát egyetlen témában.
-A ZIP témacsomagban a méretek és fájlnevek kötöttek:
-
-- `header.png` — 1200 × 200 px: díszítőelemek főleg a két szélen; középen maradjon hely az étterem nevének.
-- `divider.png` — 1200 × 200 px: elegáns, vékony vízszintes dísz, középen kis motívummal.
-- `corner.png` — 290 × 290 px: egy sarokban használható kompakt dísz.
-- `manifest.json` — téma neve, színei és az előbbi fájlnevek; a struktúrához használd a [csomagformátum leírását](TEMACSOMAG_FORMATUM.md).
-
-A grafikák ne tartalmazzanak feliratot, ételnevet, dátumot, árat, logót vagy vízjelet. Tartsd meg a valódi átlátszóságot, és kerüld a túl sűrű részleteket a szöveg helyén. A négy fájlt a ZIP gyökerébe tedd, ne belső könyvtárba. A teljes oldalas háttér külön PNG/JPG fájl, nem része a témacsomagnak.
+A fájlokat és a témaszíneket tartalmazó ZIP felépítését a
+[TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md) írja le. Kiinduló csomag:
+[`TEMA_SABLON.zip`](TEMA_SABLON.zip). Az app nem hív automatikusan AI-szolgáltatást.

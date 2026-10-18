@@ -1,19 +1,18 @@
 """ÉtlapStúdió Qt6 desktop editor with persistent split preview."""
 from __future__ import annotations
-import hashlib
-import shutil
 import sqlite3
 import sys
+import textwrap
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt
-from PyQt6.QtGui import QColor, QFont, QPixmap
+from PyQt6.QtGui import QColor, QFont, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QColorDialog, QComboBox, QCompleter, QDateEdit, QDialog,
+    QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
-    QSlider, QSpinBox, QSplitter, QTabWidget, QTreeWidget, QTreeWidgetItem,
+    QSpinBox, QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
     QVBoxLayout, QWidget,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
@@ -95,6 +94,52 @@ class FoodButton(QPushButton):
     pass
 
 
+class PreviewLabel(QLabel):
+    """Preview canvas with draggable guides for the printed sections."""
+    from PyQt6.QtCore import pyqtSignal
+    regionChanged = pyqtSignal(str, object)
+    def __init__(self,parent=None):
+        super().__init__(parent);self.guides=False;self.regions={};self._drag=None
+        self.setMouseTracking(True)
+    def set_guides(self,enabled,regions):
+        self.guides=enabled;self.regions=regions;self.update()
+    def paintEvent(self,event):
+        super().paintEvent(event)
+        if not self.guides or not self.pixmap() or self.width()<=0:return
+        from PyQt6.QtCore import QRectF
+        scale=self.width()/1440;p=QPainter(self);p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        for name,(x,y,w,h) in self.regions.items():
+            rect=QRectF(x*scale,y*scale,w*scale,h*scale)
+            p.setPen(QPen(QColor("#008a87"),1.5,Qt.PenStyle.DashLine));p.setBrush(Qt.BrushStyle.NoBrush);p.drawRect(rect)
+            p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor("#008a87"));p.drawRect(QRectF(rect.right()-7,rect.bottom()-7,12,12))
+            p.setPen(QColor("#006a68"));p.drawText(int(rect.left()+4),int(rect.top()+15),name)
+        p.end()
+    def mousePressEvent(self,event):
+        if self.guides and event.button()==Qt.MouseButton.LeftButton:
+            scale=self.width()/1440
+            if scale>0:
+                point=(event.position().x()/scale,event.position().y()/scale)
+                for name,(x,y,w,h) in reversed(list(self.regions.items())):
+                    if x+w-24<=point[0]<=x+w+18 and y+h-24<=point[1]<=y+h+18:
+                        self._drag=(name,"resize",point,(x,y,w,h));event.accept();return
+                    if x<=point[0]<=x+w and y<=point[1]<=y+h:
+                        self._drag=(name,"move",point,(x,y,w,h));event.accept();return
+        super().mousePressEvent(event)
+    def mouseMoveEvent(self,event):
+        if self._drag:
+            name,mode,start,original=self._drag;scale=self.width()/1440
+            point=(event.position().x()/scale,event.position().y()/scale);dx=point[0]-start[0];dy=point[1]-start[1]
+            x,y,w,h=original
+            if mode=="move":x+=dx;y+=dy
+            else:w=max(220,w+dx);h=max(80,h+dy)
+            x=max(20,min(1440-w,x));y=max(20,min(1800-h,y))
+            self.regions[name]=(round(x),round(y),round(w),round(h));self.regionChanged.emit(name,self.regions[name]);self.update();event.accept();return
+        super().mouseMoveEvent(event)
+    def mouseReleaseEvent(self,event):
+        if self._drag and event.button()==Qt.MouseButton.LeftButton:self._drag=None;event.accept();return
+        super().mouseReleaseEvent(event)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
@@ -107,16 +152,22 @@ class MainWindow(QMainWindow):
         self.tabs=QTabWidget();left_layout.addWidget(self.tabs,1)
         splitter.addWidget(left)
         right=QWidget();right_layout=QVBoxLayout(right);right_layout.setContentsMargins(8,12,12,12)
-        toolbar=QHBoxLayout();self.preview_title=QLabel("Élő előnézet");self.preview_title.setObjectName("previewTitle")
-        toolbar.addWidget(self.preview_title);toolbar.addStretch()
+        self.preview_title=QLabel("Élő előnézet");self.preview_title.setObjectName("previewTitle")
+        title_row=QHBoxLayout();title_row.addWidget(self.preview_title);title_row.addStretch();right_layout.addLayout(title_row)
+        toolbar=QHBoxLayout();toolbar.setSpacing(6)
         toolbar.addWidget(button("Mentés",self.save_current))
-        self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség"])
-        self.zoom.currentIndexChanged.connect(self.fit_preview);toolbar.addWidget(self.zoom)
-        toolbar.addWidget(button("PDF export",lambda:self.export("pdf")))
+        toolbar.addWidget(button("PDF",lambda:self.export("pdf")))
         toolbar.addWidget(button("Facebook-kép",lambda:self.export("png")))
-        right_layout.addLayout(toolbar)
+        toolbar.addStretch();right_layout.addLayout(toolbar)
+        controls=QHBoxLayout();controls.setSpacing(6)
+        self.guides=QCheckBox("Szerkesztővonalak");self.guides.setToolTip("Húzd a keretet a mozgatáshoz, a jobb alsó fogantyút az átméretezéshez.")
+        self.guides.toggled.connect(self.update_guides);controls.addWidget(self.guides);controls.addStretch()
+        self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség"])
+        self.zoom.setMaximumWidth(120);self.zoom.currentIndexChanged.connect(self.fit_preview);controls.addWidget(self.zoom)
+        right_layout.addLayout(controls)
         self.scroll=QScrollArea();self.scroll.setWidgetResizable(False);self.scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop)
-        self.preview=QLabel();self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.preview=PreviewLabel();self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter);self.preview.regionChanged.connect(self.save_layout_region)
         self.scroll.setWidget(self.preview);right_layout.addWidget(self.scroll,1)
         self.status=QLabel();right_layout.addWidget(self.status)
         splitter.addWidget(right);splitter.setSizes([540,820]);splitter.setChildrenCollapsible(False)
@@ -132,10 +183,10 @@ class MainWindow(QMainWindow):
             QTabBar::tab:selected { background:white; color:#173f52; font-weight:bold; }
             QPushButton { padding:9px 13px; background:#e5edf0; border:1px solid #c9d8de; border-radius:8px; }
             QPushButton:hover { background:#d3e2e8; }
-            QPushButton[role="category"] { padding:14px 8px; min-height:46px; background:#e4edf0; color:#183f51; font-weight:650; }
-            QPushButton[role="category"][active="true"] { background:#245b6e; color:white; }
-            QPushButton[role="food"] { padding:13px; min-height:56px; text-align:left; background:white; border:1px solid #dce4e7; }
-            QPushButton[role="food"][selected="true"] { background:#e4f1e8; border:2px solid #3b8b5d; }
+            QPushButton[role="category"] { padding:5px 7px; min-height:28px; background:#e7efec; color:#24473b; font-weight:600; border:0; border-radius:7px; }
+            QPushButton[role="category"][active="true"] { background:#486f5e; color:white; }
+            QPushButton[role="food"] { padding:10px; min-height:54px; min-width:0; text-align:left; background:white; border:1px solid #dce4e7; }
+            QPushButton[role="food"][selected="true"] { background:#e6f0e8; border:1px solid #5e8b6c; }
             QLineEdit,QComboBox,QSpinBox,QDateEdit,QFontComboBox { background:white; padding:8px; border:1px solid #ccd9de; border-radius:7px; }
             QTreeWidget,QListWidget { background:white; alternate-background-color:#f4f7f8; border:1px solid #d0dcdf; }
             QDockWidget::title { background:#e6edef; padding:9px; color:#183e50; font-weight:bold; }
@@ -146,7 +197,7 @@ class MainWindow(QMainWindow):
 
     def pane(self,title):
         outer=QWidget();layout=QVBoxLayout(outer);layout.setContentsMargins(12,12,12,12)
-        layout.addWidget(QLabel(title));return outer,layout
+        heading=QLabel(title);heading.setWordWrap(True);layout.addWidget(heading);return outer,layout
 
     def build_daily(self):
         page,box=self.pane("Napi étlap · kattints egy ételre a felvételhez vagy módosításhoz")
@@ -161,24 +212,30 @@ class MainWindow(QMainWindow):
         box.addWidget(self.daily_special)
         self.search=QLineEdit();self.search.setPlaceholderText("Kezdj el gépelni egy ételnevet…");self.search.textChanged.connect(self.refresh_food_grid)
         box.addWidget(self.search)
-        self.category_scroll=QScrollArea();self.category_scroll.setWidgetResizable(True);self.category_scroll.setMaximumHeight(140)
-        category_wrap=QWidget();self.category_grid=QGridLayout(category_wrap);self.category_grid.setContentsMargins(2,2,2,2);self.category_grid.setSpacing(8)
-        self.category_scroll.setWidget(category_wrap);box.addWidget(self.category_scroll)
+        category_wrap=QWidget();self.category_grid=QGridLayout(category_wrap);self.category_grid.setContentsMargins(0,2,0,2);self.category_grid.setSpacing(5)
+        box.addWidget(category_wrap)
         self.active_category="Összes";self.category_buttons={}
         self.build_category_buttons()
         self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
-        foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(4,4,4,4);self.food_grid.setSpacing(10)
+        self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
         box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
 
     def build_category_buttons(self):
         categories=["Összes"]+[name for name in CATEGORIES if name!="Menü"]
+        short={"Főzelékek":"Főzelék","Feltétek":"Feltét","Köretek":"Köret",
+               "Savanyúságok":"Savanyúság","Frissensültek":"Frissensült",
+               "Tészták, desszertek":"Tészta / desszert","Mártások, öntetek":"Mártás"}
         for i,name in enumerate(categories):
             b=button(name,lambda checked=False,category=name:self.choose_category(category))
+            b.setText(short.get(name,name));b.setToolTip(name)
             b.setProperty("role","category");b.setProperty("active",name==self.active_category)
             b.style().unpolish(b);b.style().polish(b)
-            self.category_grid.addWidget(b,i//4,i%4);self.category_buttons[name]=b
+            b.setMinimumHeight(30);b.setMinimumWidth(0);b.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Fixed)
+            self.category_grid.addWidget(b,i//3,i%3);self.category_buttons[name]=b
+        for col in range(3):self.category_grid.setColumnStretch(col,1)
 
     def choose_category(self,category):
         self.active_category=category
@@ -199,12 +256,19 @@ class MainWindow(QMainWindow):
         self._food_rows={r["id"]:r for r in foods}
         for n,dish in enumerate(foods):
             is_selected=dish["id"] in selected
-            label=("✓  " if is_selected else "")+dish["name"]+"\n"+dish["category"]+"  ·  "+price(dish["price"])
+            cols=max(1,min(3,self.food_scroll.viewport().width()//235))
+            chars=max(15,int((self.food_scroll.viewport().width()/cols-40)/8))
+            name="\n".join(textwrap.wrap(dish["name"],width=chars,break_long_words=True,break_on_hyphens=False))
+            label=("✓  " if is_selected else "")+name+"\n"+dish["category"]+"  ·  "+price(dish["price"])
             b=button(label,lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
             b.setProperty("role","food");b.setProperty("selected",is_selected)
-            b.setMinimumHeight(72);b.setStyleSheet("text-align:left;white-space:pre-wrap")
-            self.food_grid.addWidget(b,n//2,n%2)
-        self.food_grid.setRowStretch((len(foods)+1)//2,1)
+            b.setMinimumHeight(72);b.setMinimumWidth(0);b.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
+            b.setStyleSheet("text-align:left;white-space:pre-wrap")
+            cols=max(1,min(3,self.food_scroll.viewport().width()//235))
+            self.food_grid.addWidget(b,n//cols,n%cols)
+        cols=max(1,min(3,self.food_scroll.viewport().width()//235))
+        for col in range(cols):self.food_grid.setColumnStretch(col,1)
+        self.food_grid.setRowStretch((len(foods)+cols-1)//cols,1)
         self.daily_count.setText(f"{len(selected)} étel szerepel a mai étlapon"+ (" · nincs találat" if not foods else ""))
         self.schedule_preview()
 
@@ -269,26 +333,12 @@ class MainWindow(QMainWindow):
         for label,value in LEADERS.items():self.leader.addItem(label,value)
         index=self.leader.findData(self.store.setting("leader","none"));self.leader.setCurrentIndex(max(index,0))
         self.leader.currentIndexChanged.connect(self.save_appearance);form.addRow("Étel–ár jelölés",self.leader)
-        self.decorations=QCheckBox("Fejlécek, címháttér és elválasztók")
+        self.glass=QCheckBox("Félig áttetsző üveghatású panelek az olvashatóságért")
+        self.glass.setChecked(self.store.setting("glass_panels","1")=="1")
+        self.glass.toggled.connect(self.save_appearance);form.addRow("",self.glass)
+        self.decorations=QCheckBox("Egyszerű ecsetvonásos címsorok és áttetsző elválasztók")
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
-        self.bg_enabled=QCheckBox("Színes háttérkép használata")
-        self.bg_enabled.setChecked(self.store.setting("background_enabled","1")=="1")
-        self.bg_enabled.toggled.connect(self.save_appearance);form.addRow("",self.bg_enabled)
-        self.season=QComboBox();self.season.addItem("Nincs külön szezonális háttér","none")
-        for label,key in (("Tavasz / húsvét","spring"),("Nyár / szüret","summer"),("Ősz","autumn"),("Tél / karácsony","winter")):
-            self.season.addItem(label,key)
-        idx=self.season.findData(self.store.setting("seasonal_background","autumn"));self.season.setCurrentIndex(max(idx,0))
-        self.season.currentIndexChanged.connect(self.save_appearance);form.addRow("Évszak és ünnep",self.season)
-        form.addRow("",button("Szezonális háttér beállítása",self.use_sample_background))
-        form.addRow("",button("Saját háttérkép importálása…",self.import_background))
-        form.addRow("",button("Háttér eltávolítása",self.clear_background))
-        self.opacity=QSlider(Qt.Orientation.Horizontal);self.opacity.setRange(0,100)
-        self.opacity.setValue(int(self.store.setting("background_opacity","78")))
-        self.opacity.valueChanged.connect(self.save_appearance);form.addRow("Háttér erőssége",self.opacity)
-        self.primary=button("Alapszín…",lambda:self.pick_color("primary"))
-        self.accent=button("Kiegészítő szín…",lambda:self.pick_color("accent"))
-        form.addRow("Színek",self.primary);form.addRow("",self.accent)
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
         scroll.setWidget(inner);box.addWidget(scroll,1)
 
@@ -431,50 +481,28 @@ class MainWindow(QMainWindow):
     def reload_themes(self):
         self.theme_packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
         self.theme.blockSignals(True)
-        self.theme.clear();self.theme_keys=list(self.theme_packs)
-        for key in self.theme_keys:self.theme.addItem(self.theme_packs[key][0]["name"],key)
-        index=self.theme.findData(self.store.setting("theme","classic"));self.theme.setCurrentIndex(max(index,0))
+        self.theme.clear();self.theme.addItem("Automatikus ünnepi színek","auto");self.theme_keys=["auto",*self.theme_packs]
+        for key in self.theme_keys:
+            self.theme.addItem("Automatikus ünnepi színek" if key=="auto" else self.theme_packs[key][0]["name"],key)
+        default_theme="auto" if self.store.setting("auto_theme","1")=="1" else self.store.setting("theme","classic")
+        index=self.theme.findData(default_theme);self.theme.setCurrentIndex(max(index,0))
         self.theme.blockSignals(False)
 
     def save_appearance(self,*_):
-        if not hasattr(self,"opacity"):return
-        values={"theme":self.theme.currentData() or "classic","decorations":"1" if self.decorations.isChecked() else "0",
-                "leader":self.leader.currentData() or "none","background_enabled":"1" if self.bg_enabled.isChecked() else "0",
-                "background_opacity":str(self.opacity.value()),"seasonal_background":self.season.currentData() or "autumn"}
+        if not hasattr(self,"glass"):return
+        values={"theme":self.theme.currentData() or "auto","auto_theme":"1" if self.theme.currentData()=="auto" else "0",
+                "decorations":"1" if self.decorations.isChecked() else "0",
+                "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
+                "background_enabled":"0"}
         values.update({"font_"+key:combo.currentFont().family() for key,combo in self.fonts.items()})
         self.store.set_settings(values);self.schedule_preview()
 
-    def pick_color(self,key):
-        chosen=QColorDialog.getColor(QColor(self.store.setting("theme_"+key,"#1d6b50")),self)
-        if chosen.isValid():self.store.set_settings({"theme_"+key:chosen.name().upper()});self.schedule_preview()
-
-    def use_sample_background(self):
-        if self.season.currentData()=="none":
-            self.season.setCurrentIndex(self.season.findData("autumn"))
-        self.bg_enabled.setChecked(True);self.save_appearance()
-    def clear_background(self):
-        self.store.set_settings({"background_builtin":"0","background_file":"","seasonal_background":"none"})
-        self.season.setCurrentIndex(0);self.bg_enabled.setChecked(False);self.schedule_preview()
-    def import_background(self):
-        path,_=QFileDialog.getOpenFileName(self,"Grafika importálása","","PNG/JPEG (*.png *.jpg *.jpeg)")
-        if not path:return
-        source=Path(path)
-        from PyQt6.QtGui import QImageReader
-        reader=QImageReader(path);size=reader.size()
-        if source.stat().st_size>20_000_000 or size.width()<800 or size.height()<1000 or size.width()*size.height()>36_000_000:
-            QMessageBox.warning(self,APP_NAME,"Legalább 800 × 1000 px, legfeljebb 20 MB és 36 MP méretű képet válassz.");return
-        folder=data_dir()/"backgrounds";folder.mkdir(exist_ok=True)
-        name=hashlib.sha256(source.read_bytes()).hexdigest()[:20]+source.suffix.lower()
-        shutil.copyfile(source,folder/name)
-        self.season.setCurrentIndex(0)
-        self.store.set_settings({"background_file":name,"background_builtin":"0"})
-        self.bg_enabled.setChecked(True);self.schedule_preview()
     def import_theme(self):
         path,_=QFileDialog.getOpenFileName(self,"Témacsomag importálása","","ZIP (*.zip)")
         if not path:return
         try:
             slug=import_theme(Path(path),data_dir()/"themes",set(self.theme_packs))
-            self.store.set_settings({"theme":slug,"theme_primary":"","theme_accent":""})
+            self.store.set_settings({"theme":slug,"auto_theme":"0","theme_primary":"","theme_accent":""})
             self.reload_themes();self.schedule_preview()
         except Exception as exc:QMessageBox.warning(self,APP_NAME,str(exc))
 
@@ -489,6 +517,30 @@ class MainWindow(QMainWindow):
 
     def on_tab(self,index):
         self.preview_archive=None;self.schedule_preview()
+        self.update_guides()
+
+    def layout_defaults(self):
+        if self.tabs.currentIndex()==1:
+            return {"header":(80,55,1280,375),"days":(120,520,1200,1120)}
+        return {"header":(80,55,1280,375),"daily_menu":(120,475,1200,235),"alacarte":(120,725,1200,990)}
+
+    def update_guides(self,*_):
+        if not hasattr(self,"preview"):return
+        kind="weekly" if self.tabs.currentIndex()==1 else "daily"
+        labels={"header":"Fejléc","daily_menu":"Napi menü","alacarte":"À la carte","days":"Napok"}
+        regions={}
+        for key,default in self.layout_defaults().items():
+            raw=self.store.setting(f"layout_{kind}_{key}")
+            try:rect=tuple(map(int,raw.split(","))) if raw else default
+            except (ValueError,TypeError):rect=default
+            regions[labels[key]]=rect
+        self.preview.set_guides(self.guides.isChecked(),regions)
+
+    def save_layout_region(self,name,rect):
+        keys={"Fejléc":"header","Napi menü":"daily_menu","À la carte":"alacarte","Napok":"days"}
+        kind="weekly" if self.tabs.currentIndex()==1 else "daily"
+        self.store.set_settings({f"layout_{kind}_{keys[name]}":",".join(map(str,rect))})
+        self.schedule_preview()
     def preview_source(self):
         index=self.tabs.currentIndex()
         if index==1:return self.store,"weekly",self.current_week()
@@ -514,7 +566,9 @@ class MainWindow(QMainWindow):
         self.preview.adjustSize()
     def resizeEvent(self,event):
         super().resizeEvent(event)
-        if hasattr(self,"preview"):QTimer.singleShot(60,self.fit_preview)
+        if hasattr(self,"preview"):
+            QTimer.singleShot(60,self.fit_preview)
+            if hasattr(self,"food_grid"):QTimer.singleShot(100,self.refresh_food_grid)
     def export(self,extension):
         source,kind,target=self.preview_source()
         stem=("napi_etlap_" if kind=="daily" else "heti_menu_")+target.isoformat()

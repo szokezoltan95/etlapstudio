@@ -163,6 +163,9 @@ class Store:
             return False
         if self.db.execute("SELECT 1 FROM daily_selection WHERE day=? LIMIT 1",(current,)).fetchone():
             return False
+        latest=self.db.execute("SELECT MAX(day) FROM daily_selection").fetchone()[0]
+        if latest and current<=latest:
+            return False
         previous=self.db.execute("SELECT MAX(day) FROM daily_selection WHERE day<?",(current,)).fetchone()[0]
         if previous:
             with self.db:

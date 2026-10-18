@@ -311,7 +311,7 @@ class MainWindow(QMainWindow):
         action=dock.toggleViewAction();action.setText("Korábbi étlapok");self.menuBar().addAction(action)
 
     def build_appearance(self):
-        page,box=self.pane("Dizájn · állítsd be a színeket, hátteret és betűtípusokat")
+        page,box=self.pane("Dizájn · ünnepi színek, betűtípusok és visszafogott grafikai elemek")
         self.tabs.addTab(page,"Dizájn")
         scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
         self.settings={}

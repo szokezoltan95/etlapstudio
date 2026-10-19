@@ -13,33 +13,33 @@ from PyQt6.QtWidgets import (
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
-    QVBoxLayout, QWidget, QSpinBox,
+    QVBoxLayout, QWidget, QDoubleSpinBox,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
-from menu_render import export_pdf, export_png, render_image
+from menu_render import A4_WIDTH_PT, H, W, asset_file, export_pdf, export_png, render_image
 from themes import load_themes, import_theme
 
 BASE=Path(__file__).resolve().parent
 TEXT_STYLES=[
-    ("header_title","Fejléc címe · Napi étlap / Heti étlap","Georgia",47,"title"),
-    ("header_date","Dátum / heti dátumtartomány","Segoe UI",25,"special"),
-    ("header_contact","Cím és telefonszám · egy banner","Segoe UI",26,"special"),
-    ("daily_title","Napi menü címsora","Georgia",25,"heading"),
-    ("daily_label","Napi menü sorcímkéi · Leves / A / B","Segoe UI",31,"heading"),
-    ("daily_value","Napi menü ételnevei","Segoe UI",31,"special"),
-    ("menu_price_label","Napi menü árának címkéje","Segoe UI",17,"special"),
-    ("menu_price_value","Napi menü ára","Georgia",36,"title"),
-    ("category_title","À la carte kategóriacímek","Georgia",34,"heading"),
-    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",30,"dish"),
-    ("dish_price","À la carte normál árak","Segoe UI",30,"dish"),
-    ("promo_old_price","Akciós étel régi ára","Segoe UI",17,"dish"),
-    ("promo_new_price","Akciós étel új ára","Segoe UI",20,"dish"),
-    ("promo_badge","AKCIÓ jelzés","Segoe UI",13,"dish"),
-    ("weekday_title","Heti menü napnevei","Georgia",32,"heading"),
-    ("weekly_label","Heti menü sorcímkéi · Leves / A / B","Segoe UI",25,"heading"),
-    ("weekly_value","Heti menü ételnevei","Segoe UI",31,"special"),
-    ("footer_note","Alsó megjegyzés","Georgia",17,"special"),
+    ("header_title","Fejléc címe · Napi étlap / Heti étlap","Georgia",19.5,"title"),
+    ("header_date","Dátum / heti dátumtartomány","Segoe UI",10.5,"special"),
+    ("header_contact","Cím és telefonszám · egy banner","Segoe UI",11,"special"),
+    ("daily_title","Napi menü címsora","Georgia",10.5,"heading"),
+    ("daily_label","Napi menü sorcímkéi · Leves / A / B","Segoe UI",13,"heading"),
+    ("daily_value","Napi menü ételnevei","Segoe UI",13,"special"),
+    ("menu_price_label","Napi menü árának címkéje","Segoe UI",7.5,"special"),
+    ("menu_price_value","Napi menü ára","Georgia",15,"title"),
+    ("category_title","À la carte kategóriacímek","Georgia",14,"heading"),
+    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",12.5,"dish"),
+    ("dish_price","À la carte normál árak","Segoe UI",12.5,"dish"),
+    ("promo_old_price","Akciós étel régi ára","Segoe UI",7,"dish"),
+    ("promo_new_price","Akciós étel új ára","Segoe UI",8,"dish"),
+    ("promo_badge","AKCIÓ jelzés","Segoe UI",6,"dish"),
+    ("weekday_title","Heti menü napnevei","Georgia",13,"heading"),
+    ("weekly_label","Heti menü sorcímkéi · Leves / A / B","Segoe UI",10.5,"heading"),
+    ("weekly_value","Heti menü ételnevei","Segoe UI",13,"special"),
+    ("footer_note","Alsó megjegyzés","Georgia",7,"special"),
 ]
 LEADERS={"Nincs":"none","Pontozott":"dots","Szaggatott":"dashes","Folytonos vonal":"line"}
 
@@ -198,7 +198,7 @@ class MainWindow(QMainWindow):
         splitter=QSplitter(Qt.Orientation.Horizontal);self.setCentralWidget(splitter)
         left=QWidget();left_layout=QVBoxLayout(left);left_layout.setContentsMargins(12,12,8,12)
         brand=QHBoxLayout();logo=QLabel();logo.setFixedSize(48,48)
-        logo_path=BASE/"design_assets"/"megyehaza_emblem.png"
+        logo_path=asset_file("megyehaza_emblem.png")
         if logo_path.is_file():logo.setPixmap(QPixmap(str(logo_path)).scaled(46,46,Qt.AspectRatioMode.KeepAspectRatio,Qt.TransformationMode.SmoothTransformation))
         brand.addWidget(logo);title=QLabel("ÉTLAPSTÚDIÓ\nMegyeháza Étterem");title.setObjectName("appTitle");brand.addWidget(title,1)
         left_layout.addLayout(brand)
@@ -450,8 +450,14 @@ class MainWindow(QMainWindow):
             saved=self.store.setting("font_"+key) or self.store.setting("font_"+legacy_role,default_font)
             saved={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(saved,saved)
             combo.setCurrentFont(QFont(saved));combo.currentFontChanged.connect(self.save_appearance)
-            size=QSpinBox();size.setRange(6,100);size.setSuffix(" px");size.setValue(int(self.store.setting("font_size_"+key,str(default_size)) or default_size))
-            size.setToolTip("Betűméret pixelben. Az à la carte ételnevek a megadott méretnél kisebbre automatikusan zsugorodhatnak.")
+            size=QDoubleSpinBox();size.setRange(4,48);size.setDecimals(1);size.setSingleStep(.5);size.setSuffix(" pt")
+            saved_size=self.store.setting("font_size_"+key)
+            try:saved_size=float(saved_size) if saved_size else None
+            except ValueError:saved_size=default_size
+            if saved_size is None:saved_size=default_size
+            elif self.store.setting("font_size_unit","px")!="pt":saved_size*=A4_WIDTH_PT/W
+            size.setValue(saved_size)
+            size.setToolTip("Betűméret nyomdai pontban. Az à la carte ételnevek a megadott maximális méretnél automatikusan kisebbre zsugorodnak, ha a hely vagy az egyoldalas elrendezés megkívánja.")
             size.valueChanged.connect(self.save_appearance)
             row_layout.addWidget(combo,1);row_layout.addWidget(size)
             self.text_style_widgets[key]=(combo,size)
@@ -617,7 +623,8 @@ class MainWindow(QMainWindow):
         values={"theme":self.theme.currentData() or "auto","auto_theme":"1" if self.theme.currentData()=="auto" else "0",
                 "decorations":"1" if self.decorations.isChecked() else "0",
                 "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
-                "daily_menu_price":self.daily_menu_price.text().strip() or "0"}
+                "daily_menu_price":self.daily_menu_price.text().strip() or "0",
+                "font_size_unit":"pt"}
         if hasattr(self,"text_style_widgets"):
             for key,(combo,size) in self.text_style_widgets.items():
                 values["font_"+key]=combo.currentFont().family()
@@ -628,7 +635,7 @@ class MainWindow(QMainWindow):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
-                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"",
+                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
                   "guide_layout_version":"3"}
         for key,_,family,size,_legacy in TEXT_STYLES:
@@ -697,13 +704,13 @@ class MainWindow(QMainWindow):
             image=render_image(source,kind,target)
             self._image=image
             self.preview_title.setText(("Napi étlap" if kind=="daily" else "Heti menü")+" · "+display_date(target)+(" · mentett előnézet" if self.preview_archive else ""))
-            self.fit_preview();self.status.setText("1440 × 1800 px · A4 PDF és Facebook PNG")
+            self.fit_preview();self.status.setText("A4 álló · 300 dpi · PDF és Facebook PNG")
         except Exception as exc:self.status.setText("Előnézeti hiba: "+str(exc))
     def fit_preview(self):
         if self._image is None:return
         available=self.scroll.viewport().width()-24
         if self.zoom.currentIndex()==0:
-            available=min(available,(self.scroll.viewport().height()-24)*1440/1800)
+            available=min(available,(self.scroll.viewport().height()-24)*W/H)
         width=max(180,min(1000,int(available)))
         self.preview.setPixmap(QPixmap.fromImage(self._image).scaledToWidth(width,Qt.TransformationMode.SmoothTransformation))
         self.preview.adjustSize()

@@ -22,10 +22,10 @@ from themes import load_themes, import_theme
 
 BASE=Path(__file__).resolve().parent
 TEXT_STYLES=[
-    ("header_title","Fejléc címe · Napi étlap / Heti étlap","Georgia",19.5,"title"),
-    ("header_date","Dátum / heti dátumtartomány","Segoe UI",10.5,"special"),
-    ("header_contact","Cím és telefonszám · egy banner","Segoe UI",11,"special"),
-    ("daily_title","Napi menü címsora","Georgia",10.5,"heading"),
+    ("header_title","Étterem neve a fejlécben","Georgia",19.5,"title"),
+    ("header_date","Dátum a napi / heti panelben","Segoe UI",14,"special"),
+    ("header_contact","Cím, telefonszám és Facebook link","Segoe UI",11,"special"),
+    ("daily_title","Napi / heti étlap címsora","Georgia",18,"heading"),
     ("daily_label","Napi menü sorcímkéi · Leves / A / B","Segoe UI",13,"heading"),
     ("daily_value","Napi menü ételnevei","Segoe UI",13,"special"),
     ("menu_price_label","Napi menü árának címkéje","Segoe UI",7.5,"special"),
@@ -172,9 +172,9 @@ class PreviewLabel(QLabel):
     def mouseMoveEvent(self,event):
         if self._drag:
             name,start,original=self._drag;scale=self.pixmap().width()/1440
-            header_shift=self.regions.get("Fejléc vége",270)-270
+            header_shift=self.regions.get("Fejléc vége",205)-205
             limits={"Fejléc vége":(195,235),"Napi menü vége":(420+header_shift,640+header_shift),
-                    "Heti menü kezdete":(200+header_shift,430+header_shift)}
+                    "Heti menü kezdete":(390+header_shift,500+header_shift)}
             low,high=limits.get(name,(100,1700))
             y=round(max(low,min(high,event.position().y()/scale)))
             self.regions[name]=y;self.regionChanged.emit(name,y);self.update();event.accept();return
@@ -188,10 +188,14 @@ class PreviewLabel(QLabel):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
-        if self.store.setting("guide_layout_version","0")!="3":
-            self.store.set_settings({"guide_layout_version":"3","guide_daily_header":"205",
+        self.store.set_settings({"restaurant_name":self.store.setting("restaurant_name","Megyeháza Étterem") or "Megyeháza Étterem",
+                                 "address":self.store.setting("address","Miskolc, Városház tér 1.") or "Miskolc, Városház tér 1.",
+                                 "phone":self.store.setting("phone","+36 30 / 513 2605") or "+36 30 / 513 2605",
+                                 "facebook_url":self.store.setting("facebook_url","https://www.facebook.com/share/1GQgCcNJXE/") or "https://www.facebook.com/share/1GQgCcNJXE/"})
+        if self.store.setting("guide_layout_version","0")!="4":
+            self.store.set_settings({"guide_layout_version":"4","guide_daily_header":"205",
                                      "guide_daily_menu_end":"438","guide_weekly_header":"205",
-                                     "guide_weekly_days":"220"})
+                                     "guide_weekly_days":"410"})
         self.setWindowTitle(APP_NAME);self.resize(1620,920);self.setMinimumSize(1180,680)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
@@ -432,8 +436,12 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(page,"Dizájn")
         scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
         self.settings={}
-        for key,label in (("address","Cím"),("phone","Telefonszám"),("note","Alsó megjegyzés")):
-            edit=QLineEdit(self.store.setting(key));edit.textChanged.connect(self.save_settings)
+        for key,label,default in (("restaurant_name","Étterem neve","Megyeháza Étterem"),
+                                  ("address","Cím","Miskolc, Városház tér 1."),
+                                  ("phone","Telefonszám","+36 30 / 513 2605"),
+                                  ("facebook_url","Facebook link","https://www.facebook.com/share/1GQgCcNJXE/"),
+                                  ("note","Alsó megjegyzés","")):
+            edit=QLineEdit(self.store.setting(key,default));edit.textChanged.connect(self.save_settings)
             self.settings[key]=edit;form.addRow(label,edit)
         self.daily_menu_price=price_edit(self.store.setting("daily_menu_price","2800") or "2800")
         self.daily_menu_price.setToolTip("Ez az ár jelenik meg a napi étlapon és a heti étlap fejlécében is.")
@@ -455,7 +463,7 @@ class MainWindow(QMainWindow):
             try:saved_size=float(saved_size) if saved_size else None
             except ValueError:saved_size=default_size
             if saved_size is None:saved_size=default_size
-            elif self.store.setting("font_size_unit","px")!="pt_a4_300":saved_size*=A4_WIDTH_PT/W
+            elif self.store.setting("font_size_unit","px") not in ("pt_a4_300","pt_a4"):saved_size*=A4_WIDTH_PT/W
             size.setValue(saved_size)
             size.setToolTip("Betűméret nyomdai pontban. Az à la carte ételnevek a megadott maximális méretnél automatikusan kisebbre zsugorodnak, ha a hely vagy az egyoldalas elrendezés megkívánja.")
             size.valueChanged.connect(self.save_appearance)
@@ -624,7 +632,7 @@ class MainWindow(QMainWindow):
                 "decorations":"1" if self.decorations.isChecked() else "0",
                 "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
                 "daily_menu_price":self.daily_menu_price.text().strip() or "0",
-                "font_size_unit":"pt_a4_300"}
+                "font_size_unit":"pt_a4"}
         if hasattr(self,"text_style_widgets"):
             for key,(combo,size) in self.text_style_widgets.items():
                 values["font_"+key]=combo.currentFont().family()
@@ -635,9 +643,9 @@ class MainWindow(QMainWindow):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
-                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4_300",
+                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
-                  "guide_layout_version":"3"}
+                  "guide_layout_version":"4"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         self.store.set_settings(defaults)
@@ -677,7 +685,7 @@ class MainWindow(QMainWindow):
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
         keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
             "header":"Fejléc vége","menu_end":"Napi menü vége"}
-        defaults={"header":205,"days":220,"menu_end":438}
+        defaults={"header":205,"days":410,"menu_end":438}
         header=int(self.store.setting(f"guide_{kind}_header",str(defaults["header"])))
         shift=header-defaults["header"]
         regions={label:header if key=="header" else int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key])))+shift
@@ -704,7 +712,7 @@ class MainWindow(QMainWindow):
             image=render_image(source,kind,target)
             self._image=image
             self.preview_title.setText(("Napi étlap" if kind=="daily" else "Heti menü")+" · "+display_date(target)+(" · mentett előnézet" if self.preview_archive else ""))
-            self.fit_preview();self.status.setText("A4 álló · 300 dpi · PDF és Facebook PNG")
+            self.fit_preview();self.status.setText("A4 álló · 150 dpi · PDF és Facebook PNG")
         except Exception as exc:self.status.setText("Előnézeti hiba: "+str(exc))
     def fit_preview(self):
         if self._image is None:return

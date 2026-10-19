@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from pathlib import Path
+import sys
 from PyQt6.QtCore import QMarginsF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
                          QPageSize, QPdfWriter, QPainterPath, QPen)
@@ -203,24 +204,30 @@ def divider(p,primary,accent,y,assets=None):
 def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets):
     if glass_enabled:glass(p,QRectF(40,28,W-80,176),222,8)
     logo=BASE/"design_assets"/"megyehaza_wordmark.png"
+    if not logo.is_file():
+        bundled=Path(getattr(sys,"_MEIPASS",BASE))/"design_assets"/"megyehaza_wordmark.png"
+        if bundled.is_file():logo=bundled
     if logo.is_file():
         image=QImage(str(logo))
         if not image.isNull():
-            box=QRectF(700,34,350,164)
+            box=QRectF(820,30,540,168)
             scale=min(box.width()/image.width(),box.height()/image.height())
             width=image.width()*scale;height=image.height()*scale
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
     address=setting(source,"address");phone=setting(source,"phone")
-    text(p,source,"special",17,dark,1065,76,270,28,address,align=Qt.AlignmentFlag.AlignRight)
-    text(p,source,"special",17,dark,1065,108,270,28,phone,align=Qt.AlignmentFlag.AlignRight)
     title="Napi étlap" if kind=="daily" else "Heti étlap"
-    text(p,source,"title",47,dark,72,52,570,58,title,True)
+    text(p,source,"title",47,dark,72,42,640,56,title,True)
     stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
-    text(p,source,"special",25,dark,74,117,570,34,stamp)
+    text(p,source,"special",25,dark,74,101,650,32,stamp)
+    contact=" · ".join(part for part in (address,phone) if part.strip())
     if kind=="weekly":
         try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
         except (TypeError,ValueError):menu_price=2800
-        text(p,source,"special",19,primary,74,153,570,27,"Napi menü ára: "+price(menu_price),True)
+        text(p,source,"special",18,primary,74,135,650,24,"Napi menü ára: "+price(menu_price),True)
+        contact_y=164
+    else:
+        contact_y=145
+    text_singleline(p,source,"special",16,dark,74,contact_y,700,24,contact)
 
 
 def draw_menu(p,source,kind,target):
@@ -263,15 +270,17 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     if glass_enabled:glass(p,QRectF(40,menu_y,W-80,205),224,8)
     text(p,source,"heading",25,primary,72,menu_y+9,W-144,34,"Napi menü",True)
     fields=[("Leves",soup or "—"),("A menü",a or "—"),("B menü",b or "—")]
-    special_size=31
+    special_size=18
     for candidate in range(31,17,-1):
-        total=sum(max(34,measure(value,source,"special",candidate,790)+2) for _,value in fields)
-        if total<=132:special_size=candidate;break
-    y=menu_y+52
+        if all(QFontMetricsF(font(source,"special",candidate)).horizontalAdvance(value)<=760
+               and QFontMetricsF(font(source,"special",candidate,True)).horizontalAdvance(label)<=150
+               for label,value in fields):
+            special_size=candidate;break
+    y=menu_y+53
     for label,value in fields:
-        height=max(34,measure(value,source,"special",special_size,790)+2)
-        text(p,source,"heading",special_size*.82,primary,170,y,150,height,label,True)
-        text(p,source,"special",special_size,dark,330,y,790,height,value)
+        height=39
+        text_singleline(p,source,"special",special_size,primary,170,y,150,height,label,False,Qt.AlignmentFlag.AlignRight)
+        text_singleline(p,source,"special",special_size,dark,340,y,760,height,value)
         y+=height
     try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
     except (TypeError,ValueError):menu_price=2800
@@ -364,7 +373,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             p.save();p.setPen(QPen(QColor("#777777"),max(.7,size*.035)));p.drawLine(round(old_x),round(price_y+line_h*.53),round(old_x+old_w),round(price_y+line_h*.53));p.restore()
             text_singleline(p,source,"dish",new_size,"#9E3F3A",old_x+old_w+gap_px,price_y,new_w,line_h,new,True,Qt.AlignmentFlag.AlignRight)
         else:
-            text_singleline(p,source,"dish",min(size*.82,price_width*.105),dark,price_x,price_y,price_width,line_h,price(dish["price"]),False,Qt.AlignmentFlag.AlignRight)
+            text_singleline(p,source,"dish",size,dark,price_x,price_y,price_width,line_h,price(dish["price"]),False,Qt.AlignmentFlag.AlignRight)
     p.restore()
 
 

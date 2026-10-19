@@ -13,7 +13,7 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 - **Korábbi étlapok:** kattints egy napra vagy hétre az előnézethez; dupla kattintással szerkesztésre nyitható meg. A lista hetek szerint csoportosított.
 - **Dizájn:** a választott téma együtt állítja a színpalettát és a háttérképet; a tavasz és a húsvét, illetve a tél és a karácsony külön grafikát kap. Az egyszerű, színes kategóriafejlécek és az áttetsző üveghatású panelek segítik az olvashatóságot. A betűválasztók a Windowsra telepített betűket listázzák. Az alapértelmezett címbetű Georgia, a szövegbetű Segoe UI. A **Dizájn visszaállítása alapértékre** gomb a betűket, színeket és térközöket is visszaállítja.
 - **Export:** A4 álló formátumú Facebook PNG 1240 × 1754 képpontban, 150 dpi-vel, valamint margó nélküli A4 PDF. Az előnézet ugyanezt az A4-es oldalarányt használja. A Dizájn fülön minden szövegtípushoz külön betűtípus és nyomdai pontban (pt) megadott méret választható. A napi étlap egy képen marad; az à la carte ételnevek a beállított maximális méretnél automatikusan kisebbre zsugorodnak, ha a tördelés megkívánja. A **Térközök állítása** kapcsoló egyszerű, húzható vízszintes vonalakat mutat; ezek a blokkok közötti térközt állítják, a tartalmat nem nagyítják vagy nyújtják.
-- **Étlapfejléc:** kompakt, bal oldalon jelenik meg a napi vagy heti cím és a dátum; jobb oldalon az egyedi Megyeháza-logó mellett a cím és a telefonszám kap helyet. A napi menü ára a Dizájn fülön állítható, és mindkét étlaptípuson megjelenik.
+- **Étlapfejléc:** az első üveghatású panelen balra az épületet ábrázoló logó, jobbra pedig az étterem neve, címe, telefonszáma és Facebook-linkje jelenik meg; mind a négy adat szerkeszthető a Dizájn fülön. Alatta a napi lapon nagy „Napi étlap” cím, dátum, leves és A/B menü szerepel egy panelben. A heti változat ugyanilyen felépítésű, de a cím és a hét dátumtartománya alatt nincs napi menüsor. A napi menü ára mindkét lapon feltűnik.
 
 ## Indítás Windows alatt
 
@@ -35,7 +35,7 @@ python qt_app.pyw
 
 ## Használat
 
-1. A **Dizájn** fülön add meg az étterem nevét, címét és telefonszámát.
+1. A **Dizájn** fülön add meg az étterem nevét, címét, telefonszámát és Facebook-linkjét.
 2. A **Heti** fülön írd be hétfőtől péntekig a leveseket és az A/B menüket.
 3. A **Napi** fülön állítsd be a dátumot. A már használt étlapról indul; a kategóriagombokkal vagy keresővel válassz ételeket. Kattints a fogásra, majd a felugró ablakban add meg a kívánt árat és akciót.
 4. A **Dizájn** fülön válassz évszakot, betűtípust, színeket és háttér-erősséget.

@@ -385,16 +385,16 @@ class MainWindow(QMainWindow):
             amount.setStyleSheet(("font-weight:700;color:#a9433b;" if promo else "color:#5d554e;")+"background:transparent;border:0;")
             details.addWidget(title);details.addWidget(amount);cardbox.addLayout(details,1)
             actions=QVBoxLayout();actions.setContentsMargins(0,5,5,5);actions.setSpacing(4)
-            add=button("+",lambda checked=False,dish_id=dish["id"]:self.add_daily_dish(dish_id))
-            add.setToolTip("Hozzáadás a mai étlaphoz");add.setAccessibleName("Hozzáadás: "+dish["name"])
-            add.setEnabled(not is_selected);add.setProperty("role","foodAction")
-            remove=button("×",lambda checked=False,dish_id=dish["id"]:self.remove_daily_dish(dish_id))
-            remove.setToolTip("Eltávolítás a mai étlapról");remove.setAccessibleName("Eltávolítás: "+dish["name"])
-            remove.setEnabled(is_selected);remove.setProperty("role","foodRemove")
+            toggle=button("×" if is_selected else "+",
+                          lambda checked=False,dish_id=dish["id"]:self.toggle_daily_dish(dish_id))
+            action_name="Eltávolítás" if is_selected else "Hozzáadás"
+            toggle.setToolTip(action_name+" "+("a mai étlapról" if is_selected else "a mai étlaphoz"))
+            toggle.setAccessibleName(action_name+": "+dish["name"])
+            toggle.setProperty("role","foodRemove" if is_selected else "foodAction")
             edit=button("Szerk.",lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
             edit.setProperty("role","foodEdit");edit.setToolTip("Étel, ár és napi akció szerkesztése")
             edit.setAccessibleName("Szerkesztés: "+dish["name"])
-            for action in (add,remove,edit):
+            for action in (toggle,edit):
                 action.setMinimumSize(48,32);action.setMaximumWidth(62)
                 action.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Fixed)
                 actions.addWidget(action)

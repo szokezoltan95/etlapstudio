@@ -359,7 +359,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
         return 550+alacarte_shift
     p.save();p.translate(0,alacarte_shift)
-    max_y=1690;top=478
+    top=478
+    # Reserve a small gap above the footer and let the à la carte columns use
+    # the remaining A4 height instead of stopping at the former fixed cutoff.
+    max_y=max(top+120,H-150-alacarte_shift)
     def plan(size,columns):
         gap=16;column_width=(1360-gap*(columns-1))/columns;col_x=[40+column*(column_width+gap) for column in range(columns)]
         name_width=column_width-188
@@ -393,6 +396,25 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         else:lo=mid
     placements=plan(lo,chosen_columns) or plan(5.0,chosen_columns)
     if placements is None:raise ValueError("Túl sok étel az egyképes napi étlaphoz.")
+    # Spread each column's rows and category tabs evenly down to the available
+    # content boundary. This keeps short menus from bunching at the top while
+    # still preserving the per-dish line wrapping and font-size fit.
+    target_bottom=max_y
+    column_items={}
+    column_ends={}
+    for item in placements:
+        col=item[1]
+        height=(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
+                if item[0]=="heading" else item[5])
+        column_items.setdefault(col,[]).append(item)
+        column_ends[col]=max(column_ends.get(col,top),item[2]+height)
+    adjusted=[]
+    for col,items in column_items.items():
+        spare=max(0,target_bottom-column_ends[col])
+        step=spare/max(1,len(items)-1)
+        for index,item in enumerate(items):
+            adjusted.append((*item[:2],item[2]+step*index,*item[3:]))
+    placements=adjusted
     mode=setting(source,"leader","none")
     gap=16;column_width=(1360-gap*(chosen_columns-1))/chosen_columns
     col_x=[40+column*(column_width+gap) for column in range(chosen_columns)]

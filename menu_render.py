@@ -249,12 +249,27 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
              setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
+    title="Napi étlap" if kind=="daily" else "Heti menü"
+    stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
+    title_size=style_size(source,"daily_title",18)
+    text_singleline(p,source,"daily_title",title_size,primary,470,44,500,55,title,True,Qt.AlignmentFlag.AlignHCenter)
+    text_singleline(p,source,"header_date",style_size(source,"header_date",14),dark,470,100,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter)
     name_size=style_size(source,"header_title",11)
-    text_singleline(p,source,"header_title",name_size,dark,470,34,900,32,name)
+    name_metrics=QFontMetricsF(font(source,"header_title",name_size)).horizontalAdvance(name)
+    if name_metrics>410:name_size=max(6,name_size*410/name_metrics)
+    text_singleline(p,source,"header_title",name_size,dark,970,32,410,32,name,False,Qt.AlignmentFlag.AlignRight)
     contact_size=style_size(source,"header_contact",11)
     for index,value in enumerate(details):
         if value.strip():
-            text_singleline(p,source,"header_contact",contact_size,dark,470,69+index*35,900,32,value)
+            size=contact_size
+            width=QFontMetricsF(font(source,"header_contact",size)).horizontalAdvance(value)
+            if width>410:size=max(6,size*410/width)
+            text_singleline(p,source,"header_contact",size,dark,970,67+index*35,410,32,value,False,Qt.AlignmentFlag.AlignRight)
+    if kind=="weekly":
+        try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
+        except (TypeError,ValueError):menu_price=2800
+        text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,470,145,500,22,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter)
+        text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,470,164,500,30,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter)
 
 
 def draw_menu(p,source,kind,target):
@@ -281,17 +296,9 @@ def draw_menu(p,source,kind,target):
                    header_y-header_default,menu_end-438)
     else:
         panel_shift=header_y-header_default
-        stamp=display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
-        if glass_enabled:glass(p,QRectF(40,220+panel_shift,W-80,168),224,8)
-        text_singleline(p,source,"daily_title",style_size(source,"daily_title",18),primary,72,228+panel_shift,420,48,"Heti menü",True)
-        text_singleline(p,source,"header_date",style_size(source,"header_date",14),dark,500,230+panel_shift,560,44,stamp,True)
-        try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
-        except (TypeError,ValueError):menu_price=2800
-        text(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,1085,238+panel_shift,260,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter)
-        text(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1085,265+panel_shift,260,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter)
-        days_y=guide(source,kind,"days",410)
+        days_y=guide(source,kind,"days",220)
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
-                    days_y-410+panel_shift)
+                    days_y-220+panel_shift)
     note=setting(source,"note").strip()
     if note:
         if glass_enabled:glass(p,QRectF(40,1710,W-80,58),205,8)
@@ -304,24 +311,21 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     menu_shift=header_shift
     menu_y=220+menu_shift
     if glass_enabled:glass(p,QRectF(40,menu_y,W-80,205),224,8)
-    text_singleline(p,source,"daily_title",style_size(source,"daily_title",18),primary,72,menu_y+7,420,48,"Napi étlap",True)
-    stamp=display_date(target)
-    text_singleline(p,source,"header_date",style_size(source,"header_date",14),dark,500,menu_y+9,430,44,stamp,True)
     fields=[("Leves",soup or "—"),("A menü",a or "—"),("B menü",b or "—")]
     label_size=style_size(source,"daily_label",13)
     value_size=style_size(source,"daily_value",13)
     label_size=min(label_size,max(6,int(label_size*150/max(1,max(QFontMetricsF(font(source,"daily_label",label_size)).horizontalAdvance(label) for label,_ in fields)))))
     value_size=min(value_size,max(6,int(value_size*760/max(1,max(QFontMetricsF(font(source,"daily_value",value_size)).horizontalAdvance(value) for _,value in fields)))))
-    y=menu_y+61
+    y=menu_y+29
     for label,value in fields:
-        height=38
+        height=42
         text_singleline(p,source,"daily_label",label_size,primary,80,y,150,height,label,True)
         text_singleline(p,source,"daily_value",value_size,dark,245,y,760,height,value)
-        y+=height
+        y+=44
     try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
     except (TypeError,ValueError):menu_price=2800
-    text(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,1085,menu_y+73,260,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter)
-    text(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1085,menu_y+100,260,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter)
+    text(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,1085,menu_y+52,260,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter)
+    text(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1085,menu_y+80,260,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter)
     alacarte_shift=header_shift+menu_gap_shift
     if decorated:divider(p,primary,accent,460+alacarte_shift,assets)
     dishes=[dict(d) for d in source.selection(target)]
@@ -435,9 +439,9 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     p.save();p.translate(0,days_shift)
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
-        y=410+i*260
-        if glass_enabled:glass(p,QRectF(40,y-8,W-80,230),195,6)
-        if i<4:divider(p,primary,accent,y+242,assets)
+        y=220+i*282
+        if glass_enabled:glass(p,QRectF(40,y-8,W-80,250),195,6)
+        if i<4:divider(p,primary,accent,y+264,assets)
         weekday_size=style_size(source,"weekday_title",13)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
         p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+9,heading_width,48),5,5);p.restore()

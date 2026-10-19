@@ -21,8 +21,8 @@ from menu_render import export_pdf, export_png, render_image
 from themes import load_themes, import_theme
 
 BASE=Path(__file__).resolve().parent
-FONT_ROLES=[("restaurant","Étterem neve"),("title","Főcím"),
-            ("heading","Alcímek"),("special","Menüszövegek"),("dish","Ételek és árak")]
+FONT_ROLES=[("title","Főcím"),("heading","Alcímek"),
+            ("special","Menüszövegek"),("dish","Ételek és árak")]
 LEADERS={"Nincs":"none","Pontozott":"dots","Szaggatott":"dashes","Folytonos vonal":"line"}
 
 
@@ -155,8 +155,8 @@ class PreviewLabel(QLabel):
         if self._drag:
             name,start,original=self._drag;scale=self.pixmap().width()/1440
             header_shift=self.regions.get("Fejléc vége",270)-270
-            limits={"Fejléc vége":(260,360),"Napi menü vége":(480+header_shift,760+header_shift),
-                    "Heti menü kezdete":(300+header_shift,600+header_shift)}
+            limits={"Fejléc vége":(195,235),"Napi menü vége":(420+header_shift,640+header_shift),
+                    "Heti menü kezdete":(200+header_shift,430+header_shift)}
             low,high=limits.get(name,(100,1700))
             y=round(max(low,min(high,event.position().y()/scale)))
             self.regions[name]=y;self.regionChanged.emit(name,y);self.update();event.accept();return
@@ -170,10 +170,10 @@ class PreviewLabel(QLabel):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
-        if self.store.setting("guide_layout_version","0")!="2":
-            self.store.set_settings({"guide_layout_version":"2","guide_daily_header":"270",
-                                     "guide_daily_menu_end":"500","guide_weekly_header":"270",
-                                     "guide_weekly_days":"320"})
+        if self.store.setting("guide_layout_version","0")!="3":
+            self.store.set_settings({"guide_layout_version":"3","guide_daily_header":"205",
+                                     "guide_daily_menu_end":"438","guide_weekly_header":"205",
+                                     "guide_weekly_days":"220"})
         self.setWindowTitle(APP_NAME);self.resize(1620,920);self.setMinimumSize(1180,680)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
@@ -414,16 +414,20 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(page,"Dizájn")
         scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
         self.settings={}
-        for key,label in (("restaurant","Étterem neve"),("address","Cím"),("phone","Telefonszám"),("note","Alsó megjegyzés")):
+        for key,label in (("address","Cím"),("phone","Telefonszám"),("note","Alsó megjegyzés")):
             edit=QLineEdit(self.store.setting(key));edit.textChanged.connect(self.save_settings)
             self.settings[key]=edit;form.addRow(label,edit)
+        self.daily_menu_price=price_edit(self.store.setting("daily_menu_price","2800") or "2800")
+        self.daily_menu_price.setToolTip("Ez az ár jelenik meg a napi étlapon és a heti étlap fejlécében is.")
+        self.daily_menu_price.editingFinished.connect(self.save_appearance)
+        form.addRow("Napi menü ára (Ft)",self.daily_menu_price)
         form.addRow("",button("Ételadatbázis kezelése…",self.catalog_manager))
         form.addRow("",button("Adatbázis biztonsági másolata…",self.backup))
         self.theme=QComboBox();self.theme_keys=[];self.reload_themes()
         self.theme.currentIndexChanged.connect(self.save_appearance);form.addRow("Téma · színek és háttér",self.theme)
         self.fonts={}
         for role,label in FONT_ROLES:
-            default_font="Georgia" if role in ("restaurant","title","heading") else "Segoe UI"
+            default_font="Georgia" if role in ("title","heading") else "Segoe UI"
             combo=QFontComboBox();saved=self.store.setting("font_"+role,default_font)
             saved={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(saved,saved)
             combo.setCurrentFont(QFont(saved));combo.currentFontChanged.connect(self.save_appearance)
@@ -588,7 +592,8 @@ class MainWindow(QMainWindow):
         if not hasattr(self,"glass"):return
         values={"theme":self.theme.currentData() or "auto","auto_theme":"1" if self.theme.currentData()=="auto" else "0",
                 "decorations":"1" if self.decorations.isChecked() else "0",
-                "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none"}
+                "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
+                "daily_menu_price":self.daily_menu_price.text().strip() or "0"}
         values.update({"font_"+key:combo.currentFont().family() for key,combo in self.fonts.items()})
         self.store.set_settings(values);self.schedule_preview()
 
@@ -598,12 +603,12 @@ class MainWindow(QMainWindow):
         self.store.set_settings({"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                                  "background_path":"","leader":"none",
                                  "theme_primary":"","theme_accent":"",
-                                 "font_restaurant":"Georgia","font_title":"Georgia","font_heading":"Georgia",
+                                 "font_title":"Georgia","font_heading":"Georgia",
                                  "font_special":"Segoe UI","font_dish":"Segoe UI",
-                                 "guide_layout_version":"2"})
+                                 "guide_layout_version":"3"})
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
         for role,combo in self.fonts.items():
-            combo.blockSignals(True);combo.setCurrentFont(QFont("Georgia" if role in ("restaurant","title","heading") else "Segoe UI"));combo.blockSignals(False)
+            combo.blockSignals(True);combo.setCurrentFont(QFont("Georgia" if role in ("title","heading") else "Segoe UI"));combo.blockSignals(False)
         self.glass.setChecked(True);self.decorations.setChecked(True)
         idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))
         self.update_guides();self.schedule_preview()
@@ -635,7 +640,7 @@ class MainWindow(QMainWindow):
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
         keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
             "header":"Fejléc vége","menu_end":"Napi menü vége"}
-        defaults={"header":270,"days":320,"menu_end":500}
+        defaults={"header":205,"days":220,"menu_end":438}
         header=int(self.store.setting(f"guide_{kind}_header",str(defaults["header"])))
         shift=header-defaults["header"]
         regions={label:header if key=="header" else int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key])))+shift
@@ -645,7 +650,7 @@ class MainWindow(QMainWindow):
     def save_layout_region(self,name,y):
         keys={"Fejléc vége":"header","Heti menü kezdete":"days","Napi menü vége":"menu_end"}
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
-        header=int(self.store.setting(f"guide_{kind}_header","270"));shift=header-270
+        header=int(self.store.setting(f"guide_{kind}_header","205"));shift=header-205
         saved_y=y if name=="Fejléc vége" else y-shift
         self.store.set_settings({f"guide_{kind}_{keys[name]}":str(saved_y)})
         self.update_guides();self.schedule_preview()

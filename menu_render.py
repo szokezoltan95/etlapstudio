@@ -42,7 +42,7 @@ def asset_file(name):
 
 
 def font(source,role,size,bold=False):
-    defaults={"header_title":"Georgia","header_date":"Segoe UI","header_contact":"Segoe UI",
+    defaults={"header_title":"Segoe UI","header_date":"Segoe UI","header_contact":"Segoe UI",
               "daily_title":"Georgia","daily_label":"Segoe UI","daily_value":"Segoe UI",
               "menu_price_label":"Segoe UI","menu_price_value":"Georgia",
               "category_title":"Georgia","dish_name":"Segoe UI","dish_price":"Segoe UI",
@@ -237,13 +237,11 @@ def divider(p,primary,accent,y,assets=None):
 
 def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets):
     if glass_enabled:glass(p,QRectF(40,28,W-80,176),222,8)
-    # Use the building mark alone here; the restaurant name is editable text
-    # alongside it and must not be duplicated inside a wordmark image.
-    logo=asset_file("megyehaza_building.png")
+    logo=asset_file("megyehaza_wordmark.png")
     if logo.is_file():
         image=QImage(str(logo))
         if not image.isNull():
-            box=QRectF(72,42,350,140)
+            box=QRectF(62,42,370,140)
             scale=min(box.width()/image.width(),box.height()/image.height())
             width=image.width()*scale;height=image.height()*scale
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
@@ -251,14 +249,12 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
              setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
-    title_size=style_size(source,"header_title",19.5)
-    title_width=QFontMetricsF(font(source,"header_title",title_size,True)).horizontalAdvance(name)
-    if title_width>900:title_size*=900/title_width
-    text_singleline(p,source,"header_title",title_size,dark,470,34,900,50,name,True)
+    name_size=style_size(source,"header_title",11)
+    text_singleline(p,source,"header_title",name_size,dark,470,34,900,32,name)
     contact_size=style_size(source,"header_contact",11)
     for index,value in enumerate(details):
         if value.strip():
-            text_singleline(p,source,"header_contact",contact_size,dark,472,82+index*34,890,32,value)
+            text_singleline(p,source,"header_contact",contact_size,dark,470,69+index*35,900,32,value)
 
 
 def draw_menu(p,source,kind,target):

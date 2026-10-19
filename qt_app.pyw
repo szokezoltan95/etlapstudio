@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
-    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect,
+    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
@@ -618,9 +618,25 @@ class MainWindow(QMainWindow):
         self.glass=QCheckBox("Félig áttetsző üveghatású panelek az olvashatóságért")
         self.glass.setChecked(self.store.setting("glass_panels","1")=="1")
         self.glass.toggled.connect(self.save_appearance);form.addRow("",self.glass)
+        self.glass_color_mode=QComboBox()
+        self.glass_color_mode.addItem("Automatikus · az aktuális téma színe", "auto")
+        self.glass_color_mode.addItem("Egyéni szín", "custom")
+        mode=self.store.setting("glass_color_mode","auto")
+        mode_index=self.glass_color_mode.findData(mode);self.glass_color_mode.setCurrentIndex(max(0,mode_index))
+        self.glass_color_mode.currentIndexChanged.connect(self.glass_color_mode_changed)
+        form.addRow("Üvegpanelek színe",self.glass_color_mode)
+        self.glass_color_button=button("Egyéni szín kiválasztása…",self.choose_glass_color)
+        self.glass_color_button.setToolTip("Egyéni panelárnyalat. A finom áttetszőség megőrzi a szöveg olvashatóságát.")
+        self._glass_custom_color=self.store.setting("glass_color","#DDE7D8")
+        form.addRow("Egyéni panelárnyalat",self.glass_color_button)
+        self.glass_opacity=QSpinBox();self.glass_opacity.setRange(25,100);self.glass_opacity.setSuffix(" %")
+        self.glass_opacity.setValue(int(self.store.setting("glass_opacity","80") or "80"))
+        self.glass_opacity.setToolTip("Nagyobb értéknél a panel jobban takarja a hátteret, így a szöveg könnyebben olvasható.")
+        self.glass_opacity.valueChanged.connect(self.save_appearance);form.addRow("Panel fedettsége",self.glass_opacity)
         self.decorations=QCheckBox("Áttetsző szezonális elválasztók")
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
+        self.glass_color_mode_changed()
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
         reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
         form.addRow("",reset)
@@ -638,7 +654,25 @@ class MainWindow(QMainWindow):
                 prefix+"leader":self.leader.currentData() or "none",prefix+"font_size_unit":"pt_a4"}
         for key,(combo,size) in self.text_style_widgets.items():
             values[prefix+"font_"+key]=combo.currentFont().family();values[prefix+"font_size_"+key]=str(size.value())
+        values[prefix+"glass_color_mode"]=self.glass_color_mode.currentData() or "auto"
+        values[prefix+"glass_color"]=self._glass_custom_color
+        values[prefix+"glass_opacity"]=str(self.glass_opacity.value())
         self.store.set_settings(values)
+
+    def glass_color_mode_changed(self,*_):
+        if not hasattr(self,"glass_color_button"):return
+        self.glass_color_button.setEnabled(self.glass_color_mode.currentData()=="custom")
+        self.update_glass_color_button();self.save_appearance()
+
+    def update_glass_color_button(self):
+        color=QColor(self._glass_custom_color)
+        if color.isValid():
+            self.glass_color_button.setStyleSheet(f"background-color:{color.name()}; color:#28332a; border:1px solid #8f998e; padding:8px; border-radius:8px;")
+
+    def choose_glass_color(self):
+        color=QColorDialog.getColor(QColor(self._glass_custom_color),self,"Üvegpanelek színe")
+        if not color.isValid():return
+        self._glass_custom_color=color.name().upper();self.update_glass_color_button();self.save_appearance()
 
     def load_design_kind(self,kind):
         self.design_kind=kind;prefix=kind+"_"
@@ -659,6 +693,13 @@ class MainWindow(QMainWindow):
             widget.blockSignals(True);widget.setChecked(self.store.setting(prefix+key,self.store.setting(key,default))=="1");widget.blockSignals(False)
         idx=self.leader.findData(self.store.setting(prefix+"leader",self.store.setting("leader","none")))
         self.leader.blockSignals(True);self.leader.setCurrentIndex(max(0,idx));self.leader.blockSignals(False)
+        self.glass_color_mode.blockSignals(True)
+        mode=self.store.setting(prefix+"glass_color_mode",self.store.setting("glass_color_mode","auto"))
+        idx=self.glass_color_mode.findData(mode);self.glass_color_mode.setCurrentIndex(max(0,idx));self.glass_color_mode.blockSignals(False)
+        self._glass_custom_color=self.store.setting(prefix+"glass_color",self.store.setting("glass_color","#DDE7D8"))
+        self.update_glass_color_button();self.glass_color_button.setEnabled(self.glass_color_mode.currentData()=="custom")
+        opacity=self.store.setting(prefix+"glass_opacity",self.store.setting("glass_opacity","80"))
+        self.glass_opacity.blockSignals(True);self.glass_opacity.setValue(int(opacity or "80"));self.glass_opacity.blockSignals(False)
         self.schedule_preview()
 
     def change_design_kind(self,index):
@@ -847,6 +888,7 @@ class MainWindow(QMainWindow):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
+                  "glass_color_mode":"auto","glass_color":"#DDE7D8","glass_opacity":"80",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
                   "guide_layout_version":"8"}
@@ -854,7 +896,7 @@ class MainWindow(QMainWindow):
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         for kind in ("daily","weekly","special"):
             for key,value in list(defaults.items()):
-                if key.startswith(("font_","font_size_","theme","auto_theme","decorations","glass_panels","leader")):
+                if key.startswith(("font_","font_size_","theme","auto_theme","decorations","glass_panels","glass_color_mode","glass_color","glass_opacity","leader")):
                     defaults[kind+"_"+key]=value
         self.store.set_settings(defaults)
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
@@ -863,6 +905,9 @@ class MainWindow(QMainWindow):
             combo.blockSignals(True);combo.setCurrentFont(QFont(definition[2]));combo.blockSignals(False)
             size.blockSignals(True);size.setValue(definition[3]);size.blockSignals(False)
         self.glass.setChecked(True);self.decorations.setChecked(True)
+        self.glass_color_mode.blockSignals(True);self.glass_color_mode.setCurrentIndex(self.glass_color_mode.findData("auto"));self.glass_color_mode.blockSignals(False)
+        self._glass_custom_color="#DDE7D8";self.update_glass_color_button();self.glass_color_button.setEnabled(False)
+        self.glass_opacity.setValue(80)
         idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))
         self.update_guides()
         for kind in ("daily","weekly","special"):self.capture_design_kind(kind)

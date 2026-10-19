@@ -99,19 +99,41 @@ def _easter_sunday(year):
     return date(year,month,day)
 
 
+def is_easter_period(target):
+    """Easter styling runs for weekdays in the two weeks before Easter Sunday."""
+    easter=_easter_sunday(target.year)
+    return target.weekday()<5 and easter-timedelta(days=14)<=target<easter
+
+
+def is_christmas_period(target):
+    """Christmas styling is reserved for open days before Christmas Eve."""
+    return target.month==12 and 1<=target.day<=23
+
+
+def is_workday_window_before(target,holiday,workdays=3):
+    """True for the last N Monday-Friday dates before a fixed holiday."""
+    end=holiday-timedelta(days=1)
+    while end.weekday()>=5:end-=timedelta(days=1)
+    start=end;remaining=max(1,workdays)-1
+    while remaining:
+        start-=timedelta(days=1)
+        if start.weekday()<5:remaining-=1
+    return target.weekday()<5 and start<=target<=end
+
+
 def seasonal_colors(target):
     """Muted holiday palette selected from the menu date."""
-    easter=_easter_sunday(target.year)
-    if easter-timedelta(days=4)<=target<=easter+timedelta(days=1):
+    if is_easter_period(target):
         return ("#4F5D3E","#A93632","#F7EEDC")
-    if target.month==2 and 13<=target.day<=15:
+    if is_workday_window_before(target,date(target.year,2,14),3):
         return ("#682A36","#B7444D","#F8EADF")
-    if target.month==8 and 18<=target.day<=21:
+    if is_workday_window_before(target,date(target.year,8,20),3):
         return ("#3F5942","#B33930","#F5EBD5")
     if target.month==10 and target.day>=20:
         return ("#63352A","#AD382D","#F5EAD4")
-    if (target.month==12 and target.day>=1) or (target.month==1 and target.day<=2):
+    if is_christmas_period(target):
         return ("#3A5748","#A8342D","#F5EBDD")
+    if target.month in (1,2):return ("#3F5942","#A8342D","#F5EBDD")
     if target.month in (6,7,8):return ("#526044","#B33930","#F8EED9")
     if target.month in (9,10,11):return ("#63352A","#A9362E","#F5EAD4")
     return ("#4D5C45","#A93632","#F7EEDC")
@@ -162,18 +184,16 @@ def guide(source,kind,name,default):
 
 
 def season_key(target):
-    easter=_easter_sunday(target.year)
-    if easter-timedelta(days=4)<=target<=easter+timedelta(days=1):return "spring"
-    if target.month==12 or (target.month==1 and target.day<=2):return "winter"
+    if is_easter_period(target):return "spring"
+    if target.month in (12,1,2):return "winter"
     if target.month in (6,7,8):return "summer"
     if target.month in (9,10,11):return "autumn"
     return "spring"
 
 
 def divider_season_key(target):
-    easter=_easter_sunday(target.year)
-    if easter-timedelta(days=4)<=target<=easter+timedelta(days=1):return "easter"
-    if target.month==12 or (target.month==1 and target.day<=2):return "christmas"
+    if is_easter_period(target):return "easter"
+    if is_christmas_period(target):return "christmas"
     return season_key(target)
 
 
@@ -190,9 +210,8 @@ def theme_background_path(key,target):
     """Holiday art stays distinct from its generic seasonal counterpart."""
     name=(key or "auto").casefold()
     if name=="auto":
-        easter=_easter_sunday(target.year)
-        if easter-timedelta(days=4)<=target<=easter+timedelta(days=1):name="easter"
-        elif target.month==12 or (target.month==1 and target.day<=2):name="christmas"
+        if is_easter_period(target):name="easter"
+        elif is_christmas_period(target):name="christmas"
         else:name=season_key(target)
     if "easter" in name:return BASE/"design_assets"/"spring_background.jpg"
     if "christmas" in name:return BASE/"design_assets"/"winter_background.jpg"

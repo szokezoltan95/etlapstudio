@@ -71,13 +71,26 @@ class Store:
                 );
                 CREATE TABLE IF NOT EXISTS saved_menus (
                     id INTEGER PRIMARY KEY,
-                    kind TEXT NOT NULL CHECK(kind IN ('daily','weekly')),
+                    kind TEXT NOT NULL CHECK(kind IN ('daily','weekly','special')),
                     menu_date TEXT NOT NULL,
                     saved_at TEXT NOT NULL,
                     definition TEXT NOT NULL,
                     UNIQUE(kind,menu_date)
                 );
             """)
+            schema=self.db.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='saved_menus'").fetchone()[0]
+            if "'special'" not in schema:
+                self.db.executescript("""
+                    ALTER TABLE saved_menus RENAME TO saved_menus_old;
+                    CREATE TABLE saved_menus (
+                        id INTEGER PRIMARY KEY,
+                        kind TEXT NOT NULL CHECK(kind IN ('daily','weekly','special')),
+                        menu_date TEXT NOT NULL, saved_at TEXT NOT NULL, definition TEXT NOT NULL,
+                        UNIQUE(kind,menu_date)
+                    );
+                    INSERT INTO saved_menus SELECT * FROM saved_menus_old;
+                    DROP TABLE saved_menus_old;
+                """)
             columns={row[1] for row in self.db.execute("PRAGMA table_info(dishes)")}
             if "promo_enabled" not in columns:
                 self.db.execute("ALTER TABLE dishes ADD COLUMN promo_enabled INTEGER NOT NULL DEFAULT 0")
@@ -247,6 +260,8 @@ class Store:
                 self.db.execute("SELECT key,value FROM settings")}
 
     def snapshot(self, kind: str, day: date):
+        if kind == "special":
+            return {"settings":self.menu_settings()}
         if kind == "daily":
             soup,a,b=self.week_entry(day)
             return {"settings":self.menu_settings(),"special":{"soup":soup,"menu_a":a,"menu_b":b},
@@ -258,7 +273,7 @@ class Store:
             for i in range(5)]}
 
     def save_menu(self, kind: str, day: date):
-        if kind not in ("daily","weekly"):raise ValueError("Ismeretlen étlaptípus.")
+        if kind not in ("daily","weekly","special"):raise ValueError("Ismeretlen étlaptípus.")
         day=monday(day) if kind=="weekly" else day
         definition=self.snapshot(kind,day)
         now=datetime.now().astimezone().isoformat(timespec="seconds")

@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
-                         QPageSize, QPdfWriter, QPainterPath, QPen)
+                         QPageSize, QPdfWriter, QPainterPath, QPen, QTextDocument)
 from themes import HEX, load_themes
 from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, monday, price
 
@@ -110,7 +110,7 @@ def is_christmas_period(target):
     return target.month==12 and 1<=target.day<=23
 
 
-def is_workday_window_before(target,holiday,workdays=3):
+def is_workday_window_before(target,holiday,workdays=5):
     """True for the last N Monday-Friday dates before a fixed holiday."""
     end=holiday-timedelta(days=1)
     while end.weekday()>=5:end-=timedelta(days=1)
@@ -125,9 +125,9 @@ def seasonal_colors(target):
     """Muted holiday palette selected from the menu date."""
     if is_easter_period(target):
         return ("#4F5D3E","#A93632","#F7EEDC")
-    if is_workday_window_before(target,date(target.year,2,14),3):
+    if is_workday_window_before(target,date(target.year,2,14),5):
         return ("#682A36","#B7444D","#F8EADF")
-    if is_workday_window_before(target,date(target.year,8,20),3):
+    if is_workday_window_before(target,date(target.year,8,20),5):
         return ("#3F5942","#B33930","#F5EBD5")
     if target.month==10 and target.day>=20:
         return ("#63352A","#AD382D","#F5EAD4")
@@ -185,6 +185,8 @@ def guide(source,kind,name,default):
 
 def season_key(target):
     if is_easter_period(target):return "spring"
+    if is_workday_window_before(target,date(target.year,2,14),5):return "valentine"
+    if is_workday_window_before(target,date(target.year,8,20),5):return "august20"
     if target.month in (12,1,2):return "winter"
     if target.month in (6,7,8):return "summer"
     if target.month in (9,10,11):return "autumn"
@@ -194,6 +196,8 @@ def season_key(target):
 def divider_season_key(target):
     if is_easter_period(target):return "easter"
     if is_christmas_period(target):return "christmas"
+    if is_workday_window_before(target,date(target.year,2,14),5):return "valentine"
+    if is_workday_window_before(target,date(target.year,8,20),5):return "august20"
     return season_key(target)
 
 
@@ -212,7 +216,11 @@ def theme_background_path(key,target):
     if name=="auto":
         if is_easter_period(target):name="easter"
         elif is_christmas_period(target):name="christmas"
+        elif is_workday_window_before(target,date(target.year,2,14),5):name="valentine"
+        elif is_workday_window_before(target,date(target.year,8,20),5):name="august20"
         else:name=season_key(target)
+    if "valentine" in name:return BASE/"design_assets"/"valentine_background.jpg"
+    if "august20" in name:return BASE/"design_assets"/"august20_background.jpg"
     if "easter" in name:return BASE/"design_assets"/"spring_background.jpg"
     if "christmas" in name:return BASE/"design_assets"/"winter_background.jpg"
     if "spring" in name:return BASE/"design_assets"/"spring_generic_background.jpg"
@@ -290,8 +298,8 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
              setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
-    title="Napi étlap" if kind=="daily" else "Heti menü"
-    stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
+    title=(setting(source,"special_title","Különleges alkalom") or "Különleges alkalom") if kind=="special" else ("Napi étlap" if kind=="daily" else "Heti menü")
+    stamp=display_date(target) if kind in ("daily","special") else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     title_size=style_size(source,"daily_title",22)
     text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
@@ -330,7 +338,7 @@ def draw_menu(p,source,kind,target):
         menu_end=guide(source,kind,"menu_end",438)
         draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
                    header_y-header_default,menu_end-438)
-    else:
+    elif kind=="weekly":
         panel_shift=header_y-header_default
         if glass_enabled:glass(p,QRectF(40,220+panel_shift,W-80,88),224,8)
         try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
@@ -340,6 +348,20 @@ def draw_menu(p,source,kind,target):
         days_y=guide(source,kind,"days",330)
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
                     days_y-330+panel_shift)
+    else:
+        top=225+(header_y-header_default)
+        bottom=H-100
+        panel=QRectF(52,top,W-104,bottom-top)
+        if glass_enabled:glass(p,panel,220,12)
+        document=QTextDocument()
+        document.setDefaultFont(font(source,"weekly_value",style_size(source,"weekly_value",16)))
+        document.setDocumentMargin(28)
+        document.setHtml(setting(source,"special_html","") or "<p></p>")
+        document.setTextWidth(panel.width()-56)
+        content_width=panel.width()-56;content_height=panel.height()-52
+        fit=min(1.0,content_height/max(1.0,document.size().height()))
+        p.save();p.setClipRect(panel.adjusted(20,18,-20,-18));p.translate(panel.left()+28,panel.top()+26);p.scale(fit,fit)
+        document.drawContents(p,QRectF(0,0,content_width,document.size().height()));p.restore()
     note=setting(source,"note").strip()
     if note:
         # Keep the footer close to the bottom edge of the A4 canvas. The old
@@ -556,6 +578,6 @@ def export_pdf(path,source,kind,target):
     writer=QPdfWriter(str(path))
     writer.setPageLayout(QPageLayout(QPageSize(QPageSize.PageSizeId.A4),QPageLayout.Orientation.Portrait,
                                     QMarginsF(0,0,0,0),QPageLayout.Unit.Millimeter))
-    writer.setResolution(EXPORT_DPI);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü")+" – "+display_date(target))
+    writer.setResolution(EXPORT_DPI);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü" if kind=="weekly" else "Különleges alkalom")+" – "+display_date(target))
     p=QPainter(writer);area=writer.pageLayout().paintRectPixels(writer.resolution())
     p.translate(area.x(),area.y());p.scale(area.width()/W,area.height()/H);draw_menu(p,source,kind,target);p.end()

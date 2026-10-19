@@ -11,14 +11,15 @@ Az alap témákhoz készíts legalább öt különböző változatot. A prompt v
 ```text
 Készíts elegáns, finom LINE-ART jellegű vízszintes elválasztó díszt egy
 barátságos, modern magyar étterem nyomtatott étlapjához. Évszak / alkalom:
-[TAVASZ / NYÁR / ŐSZ / TÉL / HÚSVÉT / KARÁCSONY]. Színpaletta: [ELSŐDLEGES
+[TAVASZ / NYÁR / ŐSZ / TÉL / HÚSVÉT / KARÁCSONY / VALENTIN-NAP / AUGUSZTUS 20.]. Színpaletta: [ELSŐDLEGES
 SZÍN] és [KIEGÉSZÍTŐ SZÍN].
 
 Kép: pontosan 1800 × 120 px, vízszintes, teljesen átlátszó háttérrel (valódi
 alfa-csatorna). Középen fusson egy vékony, finoman stilizált vonal vagy
 indás szál, amelyhez az évszakot felismerhetővé tevő néhány apró vonalas dísz
 kapcsolódik: például tavasszal levelek vagy apró virág, nyáron növényindák,
-ősszel levél, télen hópehely. Ünnepi téma esetén csak visszafogott, kis
+ősszel levél, télen hópehely, Valentin-napra rózsaág vagy szív alakú levél,
+augusztus 20-ra visszafogott piros-fehér-zöld szalag és búzakalász. Ünnepi téma esetén csak visszafogott, kis
 motívumot használj. A dísz légies, aszimmetrikus és elegáns legyen, a vonalak
 ne legyenek vastagok. A grafika ne foglaljon el nagy felületet, a középső
 terület maradjon könnyű és áttekinthető.
@@ -39,7 +40,10 @@ LEÍRÁS]. Kép: pontosan 1440 × 2037 px.
 Kézzel festett, természetes, finoman részletgazdag illusztráció legyen,
 amelynek a szélein és sarkaiban jelennek meg a téma díszítő elemei. A lap
 középső 75 százaléka világos, alacsony kontrasztú és nyugodt maradjon, mert
-itt üveghatású, olvasható szövegpanelek fedik majd. A grafika legyen szép,
+itt üveghatású, olvasható szövegpanelek fedik majd. Valentin-napra finom
+rózsaág vagy apró szív alakú levelek, augusztus 20-ra búzakalász és diszkrét
+piros-fehér-zöld szalagok kerüljenek a szélekre. A húsvéti és karácsonyi
+hátterek már elkészültek, ezekhez ne készíts új változatot. A grafika legyen szép,
 teljes színű, de ne versenyezzen az étlap szövegével.
 
 Az általános téli témához ne tegyél karácsonyfát, díszt vagy ajándékot. Az

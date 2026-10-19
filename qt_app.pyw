@@ -5,13 +5,13 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt
-from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette
+from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
-    QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
+    QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
     QVBoxLayout, QWidget, QDoubleSpinBox,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
         self.scroll.setWidget(self.preview);right_layout.addWidget(self.scroll,1)
         self.status=QLabel();right_layout.addWidget(self.status)
         splitter.addWidget(right);splitter.setSizes([540,820]);splitter.setChildrenCollapsible(False)
-        self.build_daily();self.build_weekly();self.build_appearance();self.build_archive()
+        self.build_daily();self.build_weekly();self.build_special();self.build_appearance();self.build_archive()
         self.tabs.currentChanged.connect(self.on_tab)
         self.refresh_daily();self.refresh_week();self.refresh_archive()
         self.store.copy_previous_daily(date.today());self.refresh_daily()
@@ -460,6 +460,66 @@ class MainWindow(QMainWindow):
         note=QLabel("A szerkesztett heti menüt a jobb felső Mentés gombbal rögzítheted.")
         note.setWordWrap(True);box.addWidget(note)
 
+    def build_special(self):
+        page,box=self.pane("Különleges alkalom · egyedi címsor és szabadon formázható, nagy szövegmező")
+        self.tabs.addTab(page,"Különleges")
+        row=QHBoxLayout();self.special_date=QDateEdit(qdate(date.today()));self.special_date.setCalendarPopup(True)
+        self.special_date.setDisplayFormat("yyyy.MM.dd.");self.special_date.dateChanged.connect(self.special_changed)
+        row.addWidget(QLabel("Dátum"));row.addWidget(self.special_date)
+        self.special_title_edit=QLineEdit(self.store.setting("special_title","Különleges alkalom"))
+        self.special_title_edit.setPlaceholderText("Az étlapon megjelenő címsor")
+        self.special_title_edit.textChanged.connect(self.special_changed)
+        row.addWidget(QLabel("Címsor"));row.addWidget(self.special_title_edit,1);box.addLayout(row)
+        toolbar=QHBoxLayout();toolbar.setSpacing(5)
+        self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Georgia")))
+        self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
+        self.special_size=QDoubleSpinBox();self.special_size.setRange(6,60);self.special_size.setValue(16);self.special_size.setSuffix(" pt")
+        self.special_size.valueChanged.connect(self.special_set_size);toolbar.addWidget(self.special_size)
+        for label,attribute in (("B","bold"),("I","italic"),("U","underline")):
+            control=QPushButton(label);control.setCheckable(True);control.setFixedWidth(38)
+            if label=="B":control.setStyleSheet("font-weight:bold")
+            if label=="I":control.setStyleSheet("font-style:italic")
+            if label=="U":control.setStyleSheet("text-decoration:underline")
+            control.clicked.connect(lambda checked,a=attribute:self.special_set_decoration(a,checked))
+            toolbar.addWidget(control)
+        toolbar.addWidget(button("Szín",self.special_choose_color))
+        toolbar.addWidget(button("Balra",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignLeft)))
+        toolbar.addWidget(button("Középre",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignHCenter)))
+        toolbar.addWidget(button("Jobbra",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignRight)))
+        toolbar.addStretch();box.addLayout(toolbar)
+        self.special_text=QTextEdit();self.special_text.setAcceptRichText(True)
+        self.special_text.setPlaceholderText("Írd ide a különleges menü vagy esemény szövegét. Jelöld ki a szöveget, majd használd a formázó gombokat.")
+        self.special_text.setHtml(self.store.setting("special_html","") or "")
+        self.special_text.textChanged.connect(self.special_content_changed)
+        box.addWidget(self.special_text,1)
+
+    def special_changed(self,*_):
+        if not hasattr(self,"special_title_edit"):return
+        self.store.set_settings({"special_title":self.special_title_edit.text().strip() or "Különleges alkalom"})
+        self.preview_archive=None;self.schedule_preview()
+
+    def special_content_changed(self):
+        self.store.set_settings({"special_html":self.special_text.toHtml()})
+        self.preview_archive=None;self.schedule_preview()
+
+    def special_set_font(self,font):
+        fmt=QTextCharFormat();fmt.setFontFamily(font.family());self.special_text.mergeCurrentCharFormat(fmt)
+
+    def special_set_size(self,size):
+        fmt=QTextCharFormat();fmt.setFontPointSize(size);self.special_text.mergeCurrentCharFormat(fmt)
+
+    def special_set_decoration(self,attribute,checked):
+        fmt=QTextCharFormat()
+        if attribute=="bold":fmt.setFontWeight(QFont.Weight.Bold if checked else QFont.Weight.Normal)
+        elif attribute=="italic":fmt.setFontItalic(checked)
+        else:fmt.setFontUnderline(checked)
+        self.special_text.mergeCurrentCharFormat(fmt)
+
+    def special_choose_color(self):
+        color=QColorDialog.getColor(QColor("#342f2b"),self,"Szövegszín választása")
+        if color.isValid():
+            fmt=QTextCharFormat();fmt.setForeground(color);self.special_text.mergeCurrentCharFormat(fmt)
+
     def build_archive(self):
         dock=QDockWidget("Korábbi étlapok · hetek szerint",self)
         dock.setObjectName("savedMenusDock");dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea|Qt.DockWidgetArea.RightDockWidgetArea)
@@ -583,10 +643,16 @@ class MainWindow(QMainWindow):
         self.store.save_menu("weekly",self.current_week());self.refresh_archive()
         self.preview_archive=None;QMessageBox.information(self,APP_NAME,"A heti menü mentve az étlap-adatbázisba.")
 
+    def save_special(self):
+        self.special_content_changed();self.special_changed()
+        self.store.save_menu("special",pydate(self.special_date.date()));self.refresh_archive()
+        self.preview_archive=None;QMessageBox.information(self,APP_NAME,"A különleges étlap mentve az étlap-adatbázisba.")
+
     def save_current(self):
         if self.preview_archive is not None:
             self.edit_saved_menu(self.archive.currentItem(),0);return
         if self.tabs.currentIndex()==1:self.save_week()
+        elif self.tabs.currentIndex()==2:self.save_special()
         else:self.save_daily()
 
     def refresh_menu_suggestions(self):
@@ -639,7 +705,7 @@ class MainWindow(QMainWindow):
             if key not in groups:
                 group=QTreeWidgetItem([f"{week:%Y.%m.%d.} – {(week+timedelta(days=6)):%m.%d.}"])
                 group.setData(0,Qt.ItemDataRole.UserRole,None);self.archive.addTopLevelItem(group);groups[key]=group
-            label=("📅  " if row["kind"]=="daily" else "🗓  ")+day.strftime("%Y.%m.%d.")
+            label={"daily":"📅  ","weekly":"🗓  ","special":"✦  "}[row["kind"]]+day.strftime("%Y.%m.%d.")
             item=QTreeWidgetItem([label]);item.setData(0,Qt.ItemDataRole.UserRole,row["id"])
             item.setData(0,Qt.ItemDataRole.UserRole+1,row["kind"]);item.setToolTip(0,"Dupla kattintással megnyitás szerkesztésre")
             groups[key].addChild(item)
@@ -653,9 +719,16 @@ class MainWindow(QMainWindow):
 
     def edit_saved_menu(self,item,column=0):
         if not item or item.data(0,Qt.ItemDataRole.UserRole) is None:return
-        row,_=self.store.saved_menu(item.data(0,Qt.ItemDataRole.UserRole));day=date.fromisoformat(row["menu_date"])
+        row,definition=self.store.saved_menu(item.data(0,Qt.ItemDataRole.UserRole));day=date.fromisoformat(row["menu_date"])
         self.preview_archive=None
         if row["kind"]=="weekly":self.tabs.setCurrentIndex(1);self.week.setDate(qdate(day))
+        elif row["kind"]=="special":
+            self.tabs.setCurrentIndex(2);self.special_date.setDate(qdate(day))
+            values=definition.get("settings",{})
+            self.store.set_settings({key:values.get(key,"") for key in ("special_title","special_html")})
+            self.special_title_edit.blockSignals(True);self.special_title_edit.setText(values.get("special_title","Különleges alkalom"));self.special_title_edit.blockSignals(False)
+            self.special_text.blockSignals(True);self.special_text.setHtml(values.get("special_html",""));self.special_text.blockSignals(False)
+            self.schedule_preview()
         else:self.tabs.setCurrentIndex(0);self.day.setDate(qdate(day))
 
     def reload_themes(self):
@@ -724,6 +797,10 @@ class MainWindow(QMainWindow):
 
     def update_guides(self,*_):
         if not hasattr(self,"preview"):return
+        if self.tabs.currentIndex() not in (0,1):
+            self.guides.setEnabled(False);self.preview.set_guides(False,{})
+            return
+        self.guides.setEnabled(True)
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
         keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
             "header":"Fejléc vége","menu_end":"Napi menü vége"}
@@ -744,6 +821,7 @@ class MainWindow(QMainWindow):
     def preview_source(self):
         index=self.tabs.currentIndex()
         if index==1:return self.store,"weekly",self.current_week()
+        if index==2:return self.store,"special",pydate(self.special_date.date())
         if self.preview_archive is not None:return self.preview_archive
         return self.store,"daily",self.current_day()
     def schedule_preview(self):
@@ -753,7 +831,7 @@ class MainWindow(QMainWindow):
             source,kind,target=self.preview_source()
             image=render_image(source,kind,target)
             self._image=image
-            self.preview_title.setText(("Napi étlap" if kind=="daily" else "Heti menü")+" · "+display_date(target)+(" · mentett előnézet" if self.preview_archive else ""))
+            self.preview_title.setText(("Napi étlap" if kind=="daily" else "Heti menü" if kind=="weekly" else "Különleges étlap")+" · "+display_date(target)+(" · mentett előnézet" if self.preview_archive else ""))
             self.fit_preview();self.status.setText("A4 álló · 150 dpi · PDF és Facebook PNG")
         except Exception as exc:self.status.setText("Előnézeti hiba: "+str(exc))
     def fit_preview(self):
@@ -771,7 +849,7 @@ class MainWindow(QMainWindow):
             if hasattr(self,"food_grid"):QTimer.singleShot(100,self.refresh_food_grid)
     def export(self,extension):
         source,kind,target=self.preview_source()
-        stem=("napi_etlap_" if kind=="daily" else "heti_menu_")+target.isoformat()
+        stem=("napi_etlap_" if kind=="daily" else "heti_menu_" if kind=="weekly" else "kulonleges_etlap_")+target.isoformat()
         path,_=QFileDialog.getSaveFileName(self,"Étlap exportálása",stem+"."+extension,
                                            "PDF (*.pdf)" if extension=="pdf" else "PNG (*.png)")
         if not path:return

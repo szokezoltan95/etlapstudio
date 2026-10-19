@@ -241,7 +241,7 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     if logo.is_file():
         image=QImage(str(logo))
         if not image.isNull():
-            box=QRectF(62,42,370,140)
+            box=QRectF(62,47,370,140)
             scale=min(box.width()/image.width(),box.height()/image.height())
             width=image.width()*scale;height=image.height()*scale
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
@@ -252,19 +252,19 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     title="Napi étlap" if kind=="daily" else "Heti menü"
     stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     title_size=style_size(source,"daily_title",18)
-    text_singleline(p,source,"daily_title",title_size,primary,470,44,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-    text_singleline(p,source,"header_date",style_size(source,"header_date",14),dark,470,100,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"header_date",style_size(source,"header_date",14),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     name_size=style_size(source,"header_title",11)
     name_metrics=QFontMetricsF(font(source,"header_title",name_size)).horizontalAdvance(name)
     if name_metrics>410:name_size=max(6,name_size*410/name_metrics)
-    text_singleline(p,source,"header_title",name_size,dark,970,32,410,32,name,False,Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"header_title",name_size,dark,970,47,410,32,name,False,Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
     contact_size=style_size(source,"header_contact",11)
     for index,value in enumerate(details):
         if value.strip():
             size=contact_size
             width=QFontMetricsF(font(source,"header_contact",size)).horizontalAdvance(value)
             if width>410:size=max(6,size*410/width)
-            text_singleline(p,source,"header_contact",size,dark,970,67+index*35,410,32,value,False,Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
+            text_singleline(p,source,"header_contact",size,dark,970,82+index*35,410,32,value,False,Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
 
 
 def draw_menu(p,source,kind,target):
@@ -294,8 +294,8 @@ def draw_menu(p,source,kind,target):
         if glass_enabled:glass(p,QRectF(40,220+panel_shift,W-80,88),224,8)
         try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
         except (TypeError,ValueError):menu_price=2800
-        text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,470,224+panel_shift,500,24,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-        text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,470,248+panel_shift,500,48,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,470,228+panel_shift,500,24,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,470,252+panel_shift,500,48,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
         days_y=guide(source,kind,"days",330)
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
                     days_y-330+panel_shift)
@@ -316,7 +316,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     value_size=style_size(source,"daily_value",13)
     label_size=min(label_size,max(6,int(label_size*150/max(1,max(QFontMetricsF(font(source,"daily_label",label_size)).horizontalAdvance(label) for label,_ in fields)))))
     value_size=min(value_size,max(6,int(value_size*760/max(1,max(QFontMetricsF(font(source,"daily_value",value_size)).horizontalAdvance(value) for _,value in fields)))))
-    y=menu_y+29
+    y=menu_y+38
     for label,value in fields:
         height=42
         text_singleline(p,source,"daily_label",label_size,primary,80,y,150,height,label,True)
@@ -324,8 +324,8 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         y+=44
     try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
     except (TypeError,ValueError):menu_price=2800
-    text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,1085,menu_y+52,260,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-    text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1085,menu_y+80,260,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,1085,menu_y+62,260,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1085,menu_y+90,260,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     alacarte_shift=header_shift+menu_gap_shift
     if decorated:divider(p,primary,accent,460+alacarte_shift,assets)
     dishes=[dict(d) for d in source.selection(target)]

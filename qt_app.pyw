@@ -4,7 +4,7 @@ import sqlite3
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from PyQt6.QtCore import QDate, QTimer, Qt
+from PyQt6.QtCore import QDate, QTimer, Qt, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
-    QVBoxLayout, QWidget, QDoubleSpinBox,
+    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
@@ -138,6 +138,23 @@ class DailyDishDialog(QDialog):
 
 class FoodButton(QPushButton):
     pass
+
+
+class AnimatedFoodAction(QPushButton):
+    """Small animated elevation cue so the add/remove control reads as clickable."""
+    def __init__(self,label,parent=None):
+        super().__init__(label,parent)
+        self.shadow=QGraphicsDropShadowEffect(self)
+        self.shadow.setBlurRadius(0);self.shadow.setOffset(0,1);self.shadow.setColor(QColor(52,82,55,95))
+        self.setGraphicsEffect(self.shadow)
+        self.animation=QPropertyAnimation(self.shadow,b"blurRadius",self)
+        self.animation.setDuration(145);self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+    def enterEvent(self,event):
+        self.animation.stop();self.animation.setStartValue(self.shadow.blurRadius());self.animation.setEndValue(13)
+        self.animation.start();self.shadow.setOffset(0,3);super().enterEvent(event)
+    def leaveEvent(self,event):
+        self.animation.stop();self.animation.setStartValue(self.shadow.blurRadius());self.animation.setEndValue(0)
+        self.animation.start();self.shadow.setOffset(0,1);super().leaveEvent(event)
 
 
 class PreviewLabel(QLabel):
@@ -269,7 +286,11 @@ class MainWindow(QMainWindow):
             QPushButton[role="foodEdit"] { padding:6px 5px; min-width:54px; background:#f0e5d9; color:#6c4436; border:1px solid #dfcbbb; border-radius:9px; }
             QPushButton[role="foodEdit"]:hover { background:#e7d2c0; color:#55382d; }
             QPushButton[role="foodAction"] { padding:3px; min-width:42px; min-height:30px; background:#dce9d8; color:#31553b; border:1px solid #bdd0b8; border-radius:8px; font-size:17px; }
+            QPushButton[role="foodAction"]:hover { background:#c7ddc0; color:#23452d; border:1px solid #789a73; }
+            QPushButton[role="foodAction"]:pressed { background:#aac9a2; }
             QPushButton[role="foodRemove"] { padding:3px; min-width:42px; min-height:30px; background:#f5e3df; color:#98463d; border:1px solid #e5c3bb; border-radius:8px; font-size:17px; }
+            QPushButton[role="foodRemove"]:hover { background:#edcbc3; color:#7f332d; border:1px solid #ce8e82; }
+            QPushButton[role="foodRemove"]:pressed { background:#e1b1a7; }
             QLineEdit,QComboBox,QDateEdit,QFontComboBox { background:#fffdf9; color:#362f2b; padding:8px; border:1px solid #dacbbb; border-radius:9px; selection-background-color:#bc6957; selection-color:#ffffff; }
             QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { background:#ffffff; border:2px solid #bf715b; color:#2e2824; }
             QLineEdit:disabled,QComboBox:disabled,QDateEdit:disabled,QFontComboBox:disabled { background:#ece5dc; color:#898076; }
@@ -385,8 +406,8 @@ class MainWindow(QMainWindow):
             amount.setStyleSheet(("font-weight:700;color:#a9433b;" if promo else "color:#5d554e;")+"background:transparent;border:0;")
             details.addWidget(title);details.addWidget(amount);cardbox.addLayout(details,1)
             actions=QVBoxLayout();actions.setContentsMargins(0,5,5,5);actions.setSpacing(4)
-            toggle=button("×" if is_selected else "+",
-                          lambda checked=False,dish_id=dish["id"]:self.toggle_daily_dish(dish_id))
+            toggle=AnimatedFoodAction("×" if is_selected else "+")
+            toggle.clicked.connect(lambda checked=False,dish_id=dish["id"]:self.toggle_daily_dish(dish_id))
             action_name="Eltávolítás" if is_selected else "Hozzáadás"
             toggle.setToolTip(action_name+" "+("a mai étlapról" if is_selected else "a mai étlaphoz"))
             toggle.setAccessibleName(action_name+": "+dish["name"])
@@ -459,7 +480,7 @@ class MainWindow(QMainWindow):
                 edit.setCompleter(completer)
                 form.addRow(field,edit);group.append(edit)
             self.week_fields.append(group);innerbox.addLayout(form)
-            closure_note=QLineEdit();closure_note.setPlaceholderText("Megjegyzés / ok (pl. ünnepnap miatt)");closure_note.textChanged.connect(self.schedule_week_save)
+            closure_note=QLineEdit();closure_note.setPlaceholderText("Megjegyzés / ok (pl. ünnepnap miatt)");closure_note.editingFinished.connect(self.schedule_week_save)
             self.week_closed.append(closed);self.week_closure_notes.append(closure_note);form.addRow("Zárva megjegyzés",closure_note)
         innerbox.addStretch();scroll.setWidget(inner);box.addWidget(scroll,1)
         note=QLabel("A szerkesztett heti menüt a jobb felső Mentés gombbal rögzítheted.")
@@ -895,6 +916,11 @@ class MainWindow(QMainWindow):
         self.update_guides();self.schedule_preview()
     def preview_source(self):
         index=self.tabs.currentIndex()
+        if index==3:
+            kind=getattr(self,"design_kind","daily")
+            if kind=="weekly":return self.store,"weekly",self.current_week()
+            if kind=="special":return self.store,"special",pydate(self.special_date.date())
+            return self.store,"daily",self.current_day()
         if index==1:return self.store,"weekly",self.current_week()
         if index==2:return self.store,"special",pydate(self.special_date.date())
         if self.preview_archive is not None:return self.preview_archive

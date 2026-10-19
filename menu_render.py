@@ -121,11 +121,17 @@ def is_workday_window_before(target,holiday,workdays=5):
     return target.weekday()<5 and start<=target<=end
 
 
+def is_valentine_period(target):
+    """Last workweek before Valentine's Day, plus the day itself if the restaurant is open."""
+    holiday=date(target.year,2,14)
+    return is_workday_window_before(target,holiday,5) or (target==holiday and target.weekday()<5)
+
+
 def seasonal_colors(target):
     """Muted holiday palette selected from the menu date."""
     if is_easter_period(target):
         return ("#4F5D3E","#A93632","#F7EEDC")
-    if is_workday_window_before(target,date(target.year,2,14),5):
+    if is_valentine_period(target):
         return ("#682A36","#B7444D","#F8EADF")
     if is_workday_window_before(target,date(target.year,8,20),5):
         return ("#3F5942","#B33930","#F5EBD5")
@@ -185,7 +191,7 @@ def guide(source,kind,name,default):
 
 def season_key(target):
     if is_easter_period(target):return "spring"
-    if is_workday_window_before(target,date(target.year,2,14),5):return "valentine"
+    if is_valentine_period(target):return "valentine"
     if is_workday_window_before(target,date(target.year,8,20),5):return "august20"
     if target.month in (12,1,2):return "winter"
     if target.month in (6,7,8):return "summer"
@@ -196,7 +202,7 @@ def season_key(target):
 def divider_season_key(target):
     if is_easter_period(target):return "easter"
     if is_christmas_period(target):return "christmas"
-    if is_workday_window_before(target,date(target.year,2,14),5):return "valentine"
+    if is_valentine_period(target):return "valentine"
     if is_workday_window_before(target,date(target.year,8,20),5):return "august20"
     return season_key(target)
 
@@ -216,7 +222,7 @@ def theme_background_path(key,target):
     if name=="auto":
         if is_easter_period(target):name="easter"
         elif is_christmas_period(target):name="christmas"
-        elif is_workday_window_before(target,date(target.year,2,14),5):name="valentine"
+        elif is_valentine_period(target):name="valentine"
         elif is_workday_window_before(target,date(target.year,8,20),5):name="august20"
         else:name=season_key(target)
     if "valentine" in name:return BASE/"design_assets"/"valentine_background.jpg"

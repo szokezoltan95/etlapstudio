@@ -18,7 +18,7 @@ Kép: pontosan 1800 × 120 px, vízszintes, teljesen átlátszó háttérrel (va
 alfa-csatorna). Középen fusson egy vékony, finoman stilizált vonal vagy
 indás szál, amelyhez az évszakot felismerhetővé tevő néhány apró vonalas dísz
 kapcsolódik: például tavasszal levelek vagy apró virág, nyáron növényindák,
-ősszel levél, télen hópehely, Valentin-napra rózsaág vagy szív alakú levél,
+ősszel levél, télen hópehely, Valentin-napra apró szívmotívumok,
 augusztus 20-ra visszafogott piros-fehér-zöld szalag és búzakalász. Ünnepi téma esetén csak visszafogott, kis
 motívumot használj. A dísz légies, aszimmetrikus és elegáns legyen, a vonalak
 ne legyenek vastagok. A grafika ne foglaljon el nagy felületet, a középső
@@ -40,8 +40,8 @@ LEÍRÁS]. Kép: pontosan 1440 × 2037 px.
 Kézzel festett, természetes, finoman részletgazdag illusztráció legyen,
 amelynek a szélein és sarkaiban jelennek meg a téma díszítő elemei. A lap
 középső 75 százaléka világos, alacsony kontrasztú és nyugodt maradjon, mert
-itt üveghatású, olvasható szövegpanelek fedik majd. Valentin-napra finom
-rózsaág vagy apró szív alakú levelek, augusztus 20-ra búzakalász és diszkrét
+itt üveghatású, olvasható szövegpanelek fedik majd. Valentin-napra csak néhány
+apró, visszafogott szív kerüljön a szélekre, rózsa vagy virág nélkül. Augusztus 20-ra búzakalász és diszkrét
 piros-fehér-zöld szalagok kerüljenek a szélekre. A húsvéti és karácsonyi
 hátterek már elkészültek, ezekhez ne készíts új változatot. A grafika legyen szép,
 teljes színű, de ne versenyezzen az étlap szövegével.

@@ -128,27 +128,27 @@ def is_valentine_period(target):
 
 
 def seasonal_colors(target):
-    """Muted holiday palette selected from the menu date."""
+    """Seasonal palette with clearer color and stronger contrast."""
     if is_easter_period(target):
-        return ("#4F5D3E","#A93632","#F7EEDC")
+        return ("#3F6A3C","#D34A37","#F2DDB4")
     if is_valentine_period(target):
-        return ("#682A36","#B7444D","#F8EADF")
+        return ("#71283C","#D44855","#F2D5D5")
     if is_workday_window_before(target,date(target.year,8,20),5):
-        return ("#3F5942","#B33930","#F5EBD5")
+        return ("#285E42","#D33C32","#F1DDB5")
     if target.month==10 and target.day>=20:
-        return ("#63352A","#AD382D","#F5EAD4")
+        return ("#803D25","#D14B28","#F0D3A8")
     if is_christmas_period(target):
-        return ("#3A5748","#A8342D","#F5EBDD")
-    if target.month in (1,2):return ("#3F5942","#A8342D","#F5EBDD")
-    if target.month in (6,7,8):return ("#526044","#B33930","#F8EED9")
-    if target.month in (9,10,11):return ("#63352A","#A9362E","#F5EAD4")
-    return ("#4D5C45","#A93632","#F7EEDC")
+        return ("#285943","#C83A32","#EDE0C1")
+    if target.month in (1,2):return ("#496578","#B84338","#E0E8E9")
+    if target.month in (6,7,8):return ("#4A6938","#D94E2E","#F4D99A")
+    if target.month in (9,10,11):return ("#803D25","#D14B28","#F0D3A8")
+    return ("#3F6A3C","#D34A37","#F2DDB4")
 
 
 def colors(source,target):
     key=setting(source,"theme","auto")
-    if key=="valentine":return ("#682A36","#B7444D","#F8EADF")
-    if key in ("august20","national_day"):return ("#3F5942","#B33930","#F5EBD5")
+    if key=="valentine":return ("#71283C","#D44855","#F2D5D5")
+    if key in ("august20","national_day"):return ("#285E42","#D33C32","#F1DDB5")
     if key=="auto" or setting(source,"auto_theme","1")=="1":return seasonal_colors(target)
     packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
     if key in packs:
@@ -246,8 +246,13 @@ def seasonal_art(target,kind):
         if not image.isNull():return image
 
 
-def glass(p,rect,opacity=216,radius=20):
-    p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(255,255,255,opacity));p.drawRoundedRect(rect,radius,radius);p.restore()
+def glass(p,rect,opacity=170,radius=20,tint="#4D6A43"):
+    """Translucent, softly tinted glass that lets the seasonal artwork show through."""
+    shade=QColor(tint);mix=.34
+    fill=QColor(round(255*(1-mix)+shade.red()*mix),
+                round(255*(1-mix)+shade.green()*mix),
+                round(255*(1-mix)+shade.blue()*mix),min(178,opacity))
+    p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(fill);p.drawRoundedRect(rect,radius,radius);p.restore()
 
 
 def divider(p,primary,accent,y,assets=None,target=None,height=30):
@@ -294,7 +299,7 @@ def divider(p,primary,accent,y,assets=None,target=None,height=30):
 
 
 def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets):
-    if glass_enabled:glass(p,QRectF(40,28,W-80,176),222,8)
+    if glass_enabled:glass(p,QRectF(40,28,W-80,176),158,8,primary)
     logo=asset_file("megyehaza_wordmark.png")
     if logo.is_file():
         image=QImage(str(logo))
@@ -346,8 +351,8 @@ def draw_menu(p,source,kind,target):
     background=QImage(str(background_path)) if background_path else seasonal_art(target,"background")
     if background is not None and background.isNull():background=seasonal_art(target,"background")
     if background is not None:
-        p.save();p.setOpacity(.48);p.drawImage(QRectF(0,0,W,H),background);p.restore()
-        p.fillRect(QRectF(0,0,W,H),QColor(QColor(paper).red(),QColor(paper).green(),QColor(paper).blue(),143))
+        p.save();p.setOpacity(.70);p.drawImage(QRectF(0,0,W,H),background);p.restore()
+        p.fillRect(QRectF(0,0,W,H),QColor(QColor(paper).red(),QColor(paper).green(),QColor(paper).blue(),58))
     glass_enabled=setting(source,"glass_panels","1")=="1"
     decorated=setting(source,"decorations","1")=="1"
     header_default=205
@@ -361,7 +366,7 @@ def draw_menu(p,source,kind,target):
                    header_y-header_default,menu_end-438)
     elif kind=="weekly":
         panel_shift=header_y-header_default
-        if glass_enabled:glass(p,QRectF(40,220+panel_shift,W-80,88),224,8)
+        if glass_enabled:glass(p,QRectF(40,220+panel_shift,W-80,88),160,8,primary)
         try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
         except (TypeError,ValueError):menu_price=2800
         text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,470,222+panel_shift,500,30,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
@@ -373,7 +378,7 @@ def draw_menu(p,source,kind,target):
         top=225+(header_y-header_default)
         bottom=H-100
         panel=QRectF(52,top,W-104,bottom-top)
-        if glass_enabled:glass(p,panel,220,12)
+        if glass_enabled:glass(p,panel,158,12,primary)
         document=QTextDocument()
         document.setDefaultFont(font(source,"weekly_value",style_size(source,"weekly_value",16)))
         document.setDocumentMargin(28)
@@ -388,7 +393,7 @@ def draw_menu(p,source,kind,target):
         # Keep the footer close to the bottom edge of the A4 canvas. The old
         # fixed daily coordinate left a large, unused strip below the note.
         note_y=H-76
-        if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),205,8)
+        if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),150,8,primary)
         text(p,source,"footer_note",style_size(source,"footer_note",10),dark,60,note_y+10,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
 
@@ -397,7 +402,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     soup,a,b=source.week_entry(target)
     menu_shift=header_shift
     menu_y=220+menu_shift
-    if glass_enabled:glass(p,QRectF(40,menu_y,W-80,205),224,8)
+    if glass_enabled:glass(p,QRectF(40,menu_y,W-80,205),160,8,primary)
     fields=[("Leves",soup or "—"),("A menü",a or "—"),("B menü",b or "—")]
     label_size=style_size(source,"daily_label",13)
     value_size=style_size(source,"daily_value",13)
@@ -417,7 +422,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,30)
     dishes=[dict(d) for d in source.selection(target)]
     if not dishes:
-        if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),210,8)
+        if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),158,8,primary)
         text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
         return 550+alacarte_shift
     p.save();p.translate(0,alacarte_shift)
@@ -478,7 +483,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 start=section[0][2]+heading_height
                 end=max(item[2]+(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
                                  if item[0]=="heading" else item[5]) for item in section)
-                if end>start:glass(p,QRectF(x-3,start,column_width+6,end-start),170,5)
+                if end>start:glass(p,QRectF(x-3,start,column_width+6,end-start),142,5,primary)
     for item in placements:
         item_kind,col,y,value,size,*rest=item;x=col_x[col]
         if item_kind=="heading":
@@ -541,7 +546,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=330+i*310
-        if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),195,6)
+        if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),158,6,primary)
         if decorated and i<4:divider(p,primary,accent,y+286,assets,mon+timedelta(days=i),20)
         closed,closure_note=source.week_entry_state(mon+timedelta(days=i)) if hasattr(source,"week_entry_state") else (False,"")
         if closed:

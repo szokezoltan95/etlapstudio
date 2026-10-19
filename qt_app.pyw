@@ -335,7 +335,7 @@ class MainWindow(QMainWindow):
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
-        self.new_food_button=button("＋  Új étel hozzáadása az adatbázishoz",self.add_catalogue_dish)
+        self.new_food_button=button("＋  Új étel",self.add_catalogue_dish)
         box.addWidget(self.new_food_button)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
         box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
@@ -428,12 +428,14 @@ class MainWindow(QMainWindow):
     def add_catalogue_dish(self):
         form=DishDialog(self)
         if form.exec()!=QDialog.DialogCode.Accepted:return
-        try:self.store.add_dish(form.name.text().strip(),form.category.currentText(),int(form.amount.text()))
+        try:
+            dish_id=self.store.add_dish(form.name.text().strip(),form.category.currentText(),int(form.amount.text()))
+            self.store.save_daily_dish(self.current_day(),dish_id,int(form.amount.text()),True)
         except (ValueError,sqlite3.Error) as exc:
             QMessageBox.warning(self,APP_NAME,"Nem sikerült elmenteni az új ételt.\n"+str(exc));return
         self.search.clear();self.choose_category("Összes")
         self.refresh_menu_suggestions();self.refresh_daily()
-        self.status.setText("Az új étel bekerült az adatbázisba. A + gombbal tehető a napi étlapra.")
+        self.status.setText("Az új étel bekerült az adatbázisba és a mai étlapra.")
 
     def build_weekly(self):
         page,box=self.pane("Heti menü · leves, A és B menü külön az à la carte kínálattól")
@@ -442,12 +444,13 @@ class MainWindow(QMainWindow):
         self.week.setCalendarPopup(True);self.week.setDisplayFormat("yyyy.MM.dd.")
         self.week.dateChanged.connect(lambda _:self.refresh_week())
         row.addWidget(QLabel("Hét dátuma"));row.addWidget(self.week);box.addLayout(row)
-        self.week_fields=[]
+        self.week_fields=[];self.week_closed=[];self.week_closure_notes=[]
         scroll=QScrollArea();scroll.setWidgetResizable(True)
         inner=QWidget();innerbox=QVBoxLayout(inner)
         for i,label in enumerate(WEEKDAYS):
-            heading=QLabel(label);heading.setStyleSheet("font-weight:bold;color:#176246;margin-top:8px;")
-            innerbox.addWidget(heading);form=QFormLayout();group=[]
+            dayrow=QHBoxLayout();heading=QLabel(label);heading.setStyleSheet("font-weight:bold;color:#176246;margin-top:8px;")
+            dayrow.addWidget(heading);dayrow.addStretch();closed=QCheckBox("Zárva ezen a napon");closed.toggled.connect(self.schedule_week_save);dayrow.addWidget(closed);innerbox.addLayout(dayrow)
+            form=QFormLayout();group=[]
             for field in ("Leves","A menü","B menü"):
                 edit=QLineEdit();edit.textChanged.connect(self.schedule_week_save)
                 completer=QCompleter(self.store.menu_suggestions(),edit)
@@ -456,6 +459,8 @@ class MainWindow(QMainWindow):
                 edit.setCompleter(completer)
                 form.addRow(field,edit);group.append(edit)
             self.week_fields.append(group);innerbox.addLayout(form)
+            closure_note=QLineEdit();closure_note.setPlaceholderText("Megjegyzés / ok (pl. ünnepnap miatt)");closure_note.textChanged.connect(self.schedule_week_save)
+            self.week_closed.append(closed);self.week_closure_notes.append(closure_note);form.addRow("Zárva megjegyzés",closure_note)
         innerbox.addStretch();scroll.setWidget(inner);box.addWidget(scroll,1)
         note=QLabel("A szerkesztett heti menüt a jobb felső Mentés gombbal rögzítheted.")
         note.setWordWrap(True);box.addWidget(note)
@@ -463,13 +468,21 @@ class MainWindow(QMainWindow):
     def build_special(self):
         page,box=self.pane("Különleges alkalom · egyedi címsor és szabadon formázható, nagy szövegmező")
         self.tabs.addTab(page,"Különleges")
-        row=QHBoxLayout();self.special_date=QDateEdit(qdate(date.today()));self.special_date.setCalendarPopup(True)
-        self.special_date.setDisplayFormat("yyyy.MM.dd.");self.special_date.dateChanged.connect(self.special_changed)
-        row.addWidget(QLabel("Dátum"));row.addWidget(self.special_date)
-        self.special_title_edit=QLineEdit(self.store.setting("special_title","Különleges alkalom"))
+        row=QHBoxLayout();self.special_show_date=QCheckBox("Dátum megjelenítése")
+        self.special_show_date.setChecked(self.store.setting("special_show_date","0")=="1")
+        self.special_date=QDateEdit(qdate(date.today()));self.special_date.setCalendarPopup(True)
+        self.special_date.setDisplayFormat("yyyy.MM.dd.");self.special_date.setEnabled(self.special_show_date.isChecked())
+        self.special_show_date.toggled.connect(self.special_date.setEnabled);self.special_date.dateChanged.connect(self.special_changed)
+        self.special_show_date.toggled.connect(self.special_changed)
+        row.addWidget(self.special_show_date);row.addWidget(self.special_date)
+        self.special_show_title=QCheckBox("Címsor megjelenítése")
+        self.special_show_title.setChecked(self.store.setting("special_show_title","0")=="1")
+        self.special_title_edit=QLineEdit(self.store.setting("special_title",""))
         self.special_title_edit.setPlaceholderText("Az étlapon megjelenő címsor")
+        self.special_title_edit.setEnabled(self.special_show_title.isChecked())
         self.special_title_edit.textChanged.connect(self.special_changed)
-        row.addWidget(QLabel("Címsor"));row.addWidget(self.special_title_edit,1);box.addLayout(row)
+        self.special_show_title.toggled.connect(self.special_title_edit.setEnabled);self.special_show_title.toggled.connect(self.special_changed)
+        row.addWidget(self.special_show_title);row.addWidget(self.special_title_edit,1);box.addLayout(row)
         toolbar=QHBoxLayout();toolbar.setSpacing(5)
         self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Georgia")))
         self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
@@ -495,7 +508,9 @@ class MainWindow(QMainWindow):
 
     def special_changed(self,*_):
         if not hasattr(self,"special_title_edit"):return
-        self.store.set_settings({"special_title":self.special_title_edit.text().strip() or "Különleges alkalom"})
+        self.store.set_settings({"special_title":self.special_title_edit.text().strip(),
+            "special_show_title":"1" if self.special_show_title.isChecked() else "0",
+            "special_show_date":"1" if self.special_show_date.isChecked() else "0"})
         self.preview_archive=None;self.schedule_preview()
 
     def special_content_changed(self):
@@ -538,6 +553,9 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(page,"Dizájn")
         scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
         self.settings={}
+        self.design_kind="daily"
+        self.design_type=QComboBox();self.design_type.addItem("Napi étlap","daily");self.design_type.addItem("Heti étlap","weekly");self.design_type.addItem("Különleges alkalom","special")
+        form.addRow("Szerkesztett laptípus",self.design_type)
         for key,label,default in (("restaurant_name","Étterem neve","Megyeháza Étterem"),
                                   ("address","Cím","Miskolc, Városház tér 1."),
                                   ("phone","Telefonszám","+36 30 / 513 2605"),
@@ -585,7 +603,47 @@ class MainWindow(QMainWindow):
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
         reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
         form.addRow("",reset)
+        self.design_type.currentIndexChanged.connect(self.change_design_kind)
         scroll.setWidget(inner);box.addWidget(scroll,1)
+        # Load saved per-page design, while retaining compatibility with older global settings.
+        self.load_design_kind("daily")
+
+    def capture_design_kind(self,kind):
+        prefix=kind+"_"
+        values={prefix+"theme":self.theme.currentData() or "auto",
+                prefix+"auto_theme":"1" if self.theme.currentData()=="auto" else "0",
+                prefix+"decorations":"1" if self.decorations.isChecked() else "0",
+                prefix+"glass_panels":"1" if self.glass.isChecked() else "0",
+                prefix+"leader":self.leader.currentData() or "none",prefix+"font_size_unit":"pt_a4"}
+        for key,(combo,size) in self.text_style_widgets.items():
+            values[prefix+"font_"+key]=combo.currentFont().family();values[prefix+"font_size_"+key]=str(size.value())
+        self.store.set_settings(values)
+
+    def load_design_kind(self,kind):
+        self.design_kind=kind;prefix=kind+"_"
+        theme=self.store.setting(prefix+"theme",self.store.setting("theme","auto"))
+        self.theme.blockSignals(True);idx=self.theme.findData(theme);self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
+        for key,(combo,size) in self.text_style_widgets.items():
+            definition=next(item for item in TEXT_STYLES if item[0]==key)
+            family=self.store.setting(prefix+"font_"+key,self.store.setting("font_"+key,self.store.setting("font_"+definition[4],definition[2])))
+            family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
+            combo.blockSignals(True);combo.setCurrentFont(QFont(family));combo.blockSignals(False)
+            raw=self.store.setting(prefix+"font_size_"+key,self.store.setting("font_size_"+key))
+            try:value=float(raw) if raw else definition[3]
+            except ValueError:value=definition[3]
+            unit=self.store.setting(prefix+"font_size_unit",self.store.setting("font_size_unit","px"))
+            if raw and unit not in ("pt_a4_300","pt_a4"):value*=A4_WIDTH_PT/W
+            size.blockSignals(True);size.setValue(value);size.blockSignals(False)
+        for widget,key,default in ((self.glass,"glass_panels","1"),(self.decorations,"decorations","1")):
+            widget.blockSignals(True);widget.setChecked(self.store.setting(prefix+key,self.store.setting(key,default))=="1");widget.blockSignals(False)
+        idx=self.leader.findData(self.store.setting(prefix+"leader",self.store.setting("leader","none")))
+        self.leader.blockSignals(True);self.leader.setCurrentIndex(max(0,idx));self.leader.blockSignals(False)
+        self.schedule_preview()
+
+    def change_design_kind(self,index):
+        if not hasattr(self,"text_style_widgets"):return
+        old=self.design_kind;self.capture_design_kind(old)
+        self.load_design_kind(self.design_type.currentData() or "daily")
 
     def current_day(self):return pydate(self.day.date())
     def current_week(self):return monday(pydate(self.week.date()))
@@ -626,13 +684,23 @@ class MainWindow(QMainWindow):
         mon=self.current_week();self._loading=True
         if self.week.date()!=qdate(mon):self.week.setDate(qdate(mon))
         for i,group in enumerate(self.week_fields):
-            for widget,value in zip(group,self.store.week_entry(mon+timedelta(days=i))):widget.setText(value)
+            day=mon+timedelta(days=i)
+            for widget,value in zip(group,self.store.week_entry(day)):widget.setText(value)
+            closed,note=self.store.week_entry_state(day)
+            self.week_closed[i].setChecked(closed);self.week_closure_notes[i].setText(note)
+            for widget in group:widget.setEnabled(not closed)
+            self.week_closure_notes[i].setEnabled(closed)
         self._loading=False;self.schedule_preview()
 
     def schedule_week_save(self):
         if self._loading:return
+        self.preview_archive=None
         for i,group in enumerate(self.week_fields):
-            self.store.set_week_entry(self.current_week()+timedelta(days=i),*(edit.text() for edit in group))
+            closed=self.week_closed[i].isChecked()
+            for widget in group:widget.setEnabled(not closed)
+            self.week_closure_notes[i].setEnabled(closed)
+            self.store.set_week_entry(self.current_week()+timedelta(days=i),*(edit.text() for edit in group),
+                closed,self.week_closure_notes[i].text())
         self.refresh_daily();self.schedule_preview()
 
     def save_daily(self):
@@ -725,8 +793,10 @@ class MainWindow(QMainWindow):
         elif row["kind"]=="special":
             self.tabs.setCurrentIndex(2);self.special_date.setDate(qdate(day))
             values=definition.get("settings",{})
-            self.store.set_settings({key:values.get(key,"") for key in ("special_title","special_html")})
-            self.special_title_edit.blockSignals(True);self.special_title_edit.setText(values.get("special_title","Különleges alkalom"));self.special_title_edit.blockSignals(False)
+            self.store.set_settings({key:values.get(key,"") for key in ("special_title","special_html","special_show_title","special_show_date")})
+            self.special_title_edit.blockSignals(True);self.special_title_edit.setText(values.get("special_title",""));self.special_title_edit.blockSignals(False)
+            self.special_show_title.setChecked(values.get("special_show_title","0")=="1")
+            self.special_show_date.setChecked(values.get("special_show_date","0")=="1")
             self.special_text.blockSignals(True);self.special_text.setHtml(values.get("special_html",""));self.special_text.blockSignals(False)
             self.schedule_preview()
         else:self.tabs.setCurrentIndex(0);self.day.setDate(qdate(day))
@@ -737,22 +807,20 @@ class MainWindow(QMainWindow):
         self.theme.clear();self.theme.addItem("Automatikus évszakos téma · színek + háttér","auto");self.theme_keys=["auto",*self.theme_packs]
         for key in self.theme_keys:
             self.theme.addItem("Automatikus évszakos téma · színek + háttér" if key=="auto" else self.theme_packs[key][0]["name"],key)
-        default_theme="auto" if self.store.setting("auto_theme","1")=="1" else self.store.setting("theme","classic")
+        for key,label in (("valentine","Valentin-nap · szív motívum"),("august20","Augusztus 20. · nemzeti színek")):
+            if key not in self.theme_keys:self.theme_keys.append(key);self.theme.addItem(label,key)
+        prefix=getattr(self,"design_kind","daily")+"_"
+        chosen=self.store.setting(prefix+"theme",self.store.setting("theme","auto"))
+        default_theme=chosen if chosen!="" else "auto"
         index=self.theme.findData(default_theme);self.theme.setCurrentIndex(max(index,0))
         self.theme.blockSignals(False)
 
     def save_appearance(self,*_):
         if not hasattr(self,"glass"):return
-        values={"theme":self.theme.currentData() or "auto","auto_theme":"1" if self.theme.currentData()=="auto" else "0",
-                "decorations":"1" if self.decorations.isChecked() else "0",
-                "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
-                "daily_menu_price":self.daily_menu_price.text().strip() or "0",
-                "font_size_unit":"pt_a4"}
-        if hasattr(self,"text_style_widgets"):
-            for key,(combo,size) in self.text_style_widgets.items():
-                values["font_"+key]=combo.currentFont().family()
-                values["font_size_"+key]=str(size.value())
-        self.store.set_settings(values);self.schedule_preview()
+        values={"daily_menu_price":self.daily_menu_price.text().strip() or "0"}
+        self.store.set_settings(values)
+        if hasattr(self,"text_style_widgets"):self.capture_design_kind(getattr(self,"design_kind","daily"))
+        self.schedule_preview()
 
     def reset_design(self):
         with self.store.db:
@@ -763,6 +831,10 @@ class MainWindow(QMainWindow):
                   "guide_layout_version":"8"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
+        for kind in ("daily","weekly","special"):
+            for key,value in list(defaults.items()):
+                if key.startswith(("font_","font_size_","theme","auto_theme","decorations","glass_panels","leader")):
+                    defaults[kind+"_"+key]=value
         self.store.set_settings(defaults)
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
         for key,(combo,size) in self.text_style_widgets.items():
@@ -771,14 +843,17 @@ class MainWindow(QMainWindow):
             size.blockSignals(True);size.setValue(definition[3]);size.blockSignals(False)
         self.glass.setChecked(True);self.decorations.setChecked(True)
         idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))
-        self.update_guides();self.save_appearance()
+        self.update_guides()
+        for kind in ("daily","weekly","special"):self.capture_design_kind(kind)
+        self.schedule_preview()
 
     def import_theme(self):
         path,_=QFileDialog.getOpenFileName(self,"Témacsomag importálása","","ZIP (*.zip)")
         if not path:return
         try:
             slug=import_theme(Path(path),data_dir()/"themes",set(self.theme_packs))
-            self.store.set_settings({"theme":slug,"auto_theme":"0","theme_primary":"","theme_accent":""})
+            prefix=self.design_kind+"_"
+            self.store.set_settings({prefix+"theme":slug,prefix+"auto_theme":"0",prefix+"theme_primary":"",prefix+"theme_accent":""})
             self.reload_themes();self.schedule_preview()
         except Exception as exc:QMessageBox.warning(self,APP_NAME,str(exc))
 
@@ -874,3 +949,4 @@ def main():
     window=MainWindow();window.show();sys.exit(app.exec())
 
 if __name__=="__main__":main()
+

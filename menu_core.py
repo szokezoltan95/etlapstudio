@@ -64,7 +64,8 @@ class Store:
                 );
                 CREATE TABLE IF NOT EXISTS weekly_menu (
                     day TEXT PRIMARY KEY, soup TEXT NOT NULL DEFAULT '',
-                    menu_a TEXT NOT NULL DEFAULT '', menu_b TEXT NOT NULL DEFAULT ''
+                    menu_a TEXT NOT NULL DEFAULT '', menu_b TEXT NOT NULL DEFAULT '', closed INTEGER NOT NULL DEFAULT 0,
+                    closure_note TEXT NOT NULL DEFAULT ''
                 );
                 CREATE TABLE IF NOT EXISTS settings (
                     key TEXT PRIMARY KEY, value TEXT NOT NULL
@@ -96,6 +97,9 @@ class Store:
                 self.db.execute("ALTER TABLE dishes ADD COLUMN promo_enabled INTEGER NOT NULL DEFAULT 0")
             if "promo_price" not in columns:
                 self.db.execute("ALTER TABLE dishes ADD COLUMN promo_price INTEGER")
+            week_columns={row[1] for row in self.db.execute("PRAGMA table_info(weekly_menu)")}
+            if "closed" not in week_columns:self.db.execute("ALTER TABLE weekly_menu ADD COLUMN closed INTEGER NOT NULL DEFAULT 0")
+            if "closure_note" not in week_columns:self.db.execute("ALTER TABLE weekly_menu ADD COLUMN closure_note TEXT NOT NULL DEFAULT ''")
         self._archive_existing()
         if not self.db.execute("SELECT 1 FROM dishes LIMIT 1").fetchone():
             self.import_starter_catalogue()
@@ -141,8 +145,10 @@ class Store:
                 self.db.execute("DELETE FROM daily_promotions WHERE dish_id=? AND promo_price>=?",
                                 (dish_id,amount))
             else:
-                self.db.execute("INSERT INTO dishes(name,category,price,promo_enabled,promo_price) VALUES(?,?,?,?,?)",
+                cursor=self.db.execute("INSERT INTO dishes(name,category,price,promo_enabled,promo_price) VALUES(?,?,?,?,?)",
                                 (name, category, amount,int(promo_enabled),promo_price))
+                return cursor.lastrowid
+        return dish_id
 
     def delete_dish(self, dish_id: int):
         with self.db:
@@ -236,13 +242,17 @@ class Store:
                               (day.isoformat(),)).fetchone()
         return tuple(row) if row else ("", "", "")
 
-    def set_week_entry(self, day: date, soup: str, menu_a: str, menu_b: str):
+    def week_entry_state(self, day: date):
+        row=self.db.execute("SELECT closed,closure_note FROM weekly_menu WHERE day=?",(day.isoformat(),)).fetchone()
+        return (bool(row["closed"]),row["closure_note"] or "") if row else (False,"")
+
+    def set_week_entry(self, day: date, soup: str, menu_a: str, menu_b: str, closed=False, closure_note=""):
         with self.db:
             self.db.execute("""
-                INSERT INTO weekly_menu(day,soup,menu_a,menu_b) VALUES(?,?,?,?)
+                INSERT INTO weekly_menu(day,soup,menu_a,menu_b,closed,closure_note) VALUES(?,?,?,?,?,?)
                 ON CONFLICT(day) DO UPDATE SET soup=excluded.soup,
-                menu_a=excluded.menu_a,menu_b=excluded.menu_b
-            """, (day.isoformat(), soup.strip(), menu_a.strip(), menu_b.strip()))
+                menu_a=excluded.menu_a,menu_b=excluded.menu_b,closed=excluded.closed,closure_note=excluded.closure_note
+            """, (day.isoformat(), soup.strip(), menu_a.strip(), menu_b.strip(),int(closed),closure_note.strip()))
 
     def setting(self, key: str, default: str = "") -> str:
         row = self.db.execute("SELECT value FROM settings WHERE key=?", (key,)).fetchone()
@@ -269,7 +279,9 @@ class Store:
                               for row in self.selection(day)]}
         mon=monday(day)
         return {"settings":self.menu_settings(),"days":[
-            dict(zip(("soup","menu_a","menu_b"),self.week_entry(mon+timedelta(days=i))))
+            {**dict(zip(("soup","menu_a","menu_b"),self.week_entry(mon+timedelta(days=i)))),
+             "closed":self.week_entry_state(mon+timedelta(days=i))[0],
+             "closure_note":self.week_entry_state(mon+timedelta(days=i))[1]}
             for i in range(5)]}
 
     def save_menu(self, kind: str, day: date):
@@ -324,4 +336,11 @@ class ArchivedMenu:
             days=self.definition.get("days",[])
             data=days[offset] if 0<=offset<len(days) else {}
         return tuple(data.get(key,"") for key in ("soup","menu_a","menu_b"))
+
+    def week_entry_state(self,day):
+        if self.kind=="daily":return (False,"")
+        offset=(day-self.menu_date).days;days=self.definition.get("days",[])
+        data=days[offset] if 0<=offset<len(days) else {}
+        return bool(data.get("closed",False)),data.get("closure_note","")
+
 

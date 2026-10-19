@@ -147,6 +147,8 @@ def seasonal_colors(target):
 
 def colors(source,target):
     key=setting(source,"theme","auto")
+    if key=="valentine":return ("#682A36","#B7444D","#F8EADF")
+    if key in ("august20","national_day"):return ("#3F5942","#B33930","#F5EBD5")
     if key=="auto" or setting(source,"auto_theme","1")=="1":return seasonal_colors(target)
     packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
     if key in packs:
@@ -210,6 +212,7 @@ def divider_season_key(target):
 def theme_season(key,target):
     key=(key or "").casefold()
     for tokens,season in ((('christmas',),'christmas'),(('easter',),'easter'),
+                          (('valentine',),'valentine'),(('august20','national_day'),'august20'),
                           (('winter',),'winter'),(('autumn','fall'),'autumn'),
                           (('summer',),'summer'),(('spring',),'spring'),(('classic',),'classic')):
         if any(token in key for token in tokens):return season
@@ -304,11 +307,13 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
              setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
-    title=(setting(source,"special_title","Különleges alkalom") or "Különleges alkalom") if kind=="special" else ("Napi étlap" if kind=="daily" else "Heti menü")
+    title=(setting(source,"special_title","") or "") if kind=="special" else ("Napi étlap" if kind=="daily" else "Heti menü")
     stamp=display_date(target) if kind in ("daily","special") else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     title_size=style_size(source,"daily_title",22)
-    text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-    text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    if kind!="special" or setting(source,"special_show_title","0")=="1":
+        if title:text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    if kind!="special" or setting(source,"special_show_date","0")=="1":
+        text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     name_size=style_size(source,"header_title",11)
     name_metrics=QFontMetricsF(font(source,"header_title",name_size)).horizontalAdvance(name)
     if name_metrics>410:name_size=max(6,name_size*410/name_metrics)
@@ -322,7 +327,17 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
             text_singleline(p,source,"header_contact",size,dark,970,82+index*35,410,32,value,False,Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
 
 
+class KindSettings:
+    """Overlay per-menu design keys while sharing restaurant and content settings."""
+    def __init__(self,source,kind):self.source,self.kind=source,kind
+    def setting(self,key,default=""):
+        specific=self.source.setting(self.kind+"_"+key,None)
+        return self.source.setting(key,default) if specific is None else specific
+    def __getattr__(self,name):return getattr(self.source,name)
+
+
 def draw_menu(p,source,kind,target):
+    source=KindSettings(source,kind)
     p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
     primary,accent,paper=colors(source,target);dark="#2D342E"
     assets=theme_assets(source,target)
@@ -444,30 +459,6 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         else:lo=mid
     placements=plan(lo,chosen_columns) or plan(5.0,chosen_columns)
     if placements is None:raise ValueError("Túl sok étel az egyképes napi étlaphoz.")
-    # Spread whole category sections down the available column height. Keep
-    # each heading attached to all of its dishes when adding the extra space.
-    target_bottom=max_y
-    column_sections={}
-    column_ends={}
-    active_section={}
-    for item in placements:
-        col=item[1]
-        height=(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
-                if item[0]=="heading" else item[5])
-        if item[0]=="heading":
-            active_section[col]=[]
-            column_sections.setdefault(col,[]).append(active_section[col])
-        active_section[col].append(item)
-        column_ends[col]=max(column_ends.get(col,top),item[2]+height)
-    adjusted=[]
-    for col,sections in column_sections.items():
-        spare=max(0,target_bottom-column_ends[col])
-        step=spare/max(1,len(sections)-1)
-        for index,section in enumerate(sections):
-            offset=step*index
-            for item in section:
-                adjusted.append((*item[:2],item[2]+offset,*item[3:]))
-    placements=adjusted
     mode=setting(source,"leader","none")
     gap=16;column_width=(1360-gap*(chosen_columns-1))/chosen_columns
     col_x=[40+column*(column_width+gap) for column in range(chosen_columns)]
@@ -483,10 +474,11 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for col,sections in sections_by_column.items():
             x=col_x[col]
             for section in sections:
-                start=section[0][2]
+                heading_height=max(section[0][4]*1.3,style_size(source,"category_title",14)*1.2)
+                start=section[0][2]+heading_height
                 end=max(item[2]+(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
                                  if item[0]=="heading" else item[5]) for item in section)
-                glass(p,QRectF(x-3,start-2,column_width+6,end-start+4),170,5)
+                if end>start:glass(p,QRectF(x-3,start,column_width+6,end-start),170,5)
     for item in placements:
         item_kind,col,y,value,size,*rest=item;x=col_x[col]
         if item_kind=="heading":
@@ -551,6 +543,10 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
         y=330+i*310
         if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),195,6)
         if decorated and i<4:divider(p,primary,accent,y+286,assets,mon+timedelta(days=i),20)
+        closed,closure_note=source.week_entry_state(mon+timedelta(days=i)) if hasattr(source,"week_entry_state") else (False,"")
+        if closed:
+            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+18,W-184,230,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+            continue
         weekday_size=style_size(source,"weekday_title",16)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
         p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
@@ -587,3 +583,4 @@ def export_pdf(path,source,kind,target):
     writer.setResolution(EXPORT_DPI);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü" if kind=="weekly" else "Különleges alkalom")+" – "+display_date(target))
     p=QPainter(writer);area=writer.pageLayout().paintRectPixels(writer.resolution())
     p.translate(area.x(),area.y());p.scale(area.width()/W,area.height()/H);draw_menu(p,source,kind,target);p.end()
+

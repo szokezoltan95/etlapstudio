@@ -270,7 +270,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for category in CATEGORIES:
             rows=[d for d in dishes if d["category"]==category]
             for index,d in enumerate(rows):
-                lines=wrapped_lines(d["name"],source,"dish",size,name_width-(52 if d.get("promo_enabled") and d.get("promo_price") is not None else 0))
+                lines=wrapped_lines(d["name"],source,"dish",size,name_width-(62 if d.get("promo_enabled") and d.get("promo_price") is not None else 0))
                 line_h=QFontMetricsF(font(source,"dish",size)).height()*1.05
                 promo=bool(d.get("promo_enabled") and d.get("promo_price") is not None)
                 row_h=max(line_h*len(lines)+size*.18,size*1.25)
@@ -309,7 +309,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             text(p,source,"heading",size*1.14,primary,x,y,column_width,size*1.8,value,True);continue
         dish=value;row_h=rest[0];promo=bool(dish.get("promo_enabled") and dish.get("promo_price") is not None)
         price_width=column_width-name_width-10;price_x=x+name_width+10
-        label_width=name_width-(52 if promo else 0)
+        label_width=name_width-(62 if promo else 0)
         lines=wrapped_lines(dish["name"],source,"dish",size,label_width)
         metrics=QFontMetricsF(font(source,"dish",size));line_h=metrics.height()*1.05
         if glass_enabled:glass(p,QRectF(x-4,y-2,column_width-18,max(row_h,size*1.4)),170,8)
@@ -317,10 +317,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             yy=y+li*line_h
             text_singleline(p,source,"dish",size,dark,x,yy,label_width,line_h,line)
         if promo:
-            badge_x=x+name_width-47;badge_y=y+(len(lines)-1)*line_h
-            badge=QRectF(badge_x,badge_y+line_h*.12,46,line_h*.72)
+            badge_x=x+name_width-57;badge_y=y+(len(lines)-1)*line_h
+            badge=QRectF(badge_x,badge_y+line_h*.12,56,line_h*.72)
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor("#a9433b"));p.drawRoundedRect(badge,6,6);p.restore()
-            text_singleline(p,source,"dish",max(8,size*.52),"#ffffff",badge_x+2,badge_y+line_h*.12,42,line_h*.72,"AKCIÓ",True,Qt.AlignmentFlag.AlignHCenter)
+            text_singleline(p,source,"dish",max(7,size*.43),"#ffffff",badge_x+2,badge_y+line_h*.12,52,line_h*.72,"AKCIÓ",True,Qt.AlignmentFlag.AlignHCenter)
         price_y=y+(len(lines)-1)*line_h
         if mode!="none":
             pen=QPen(QColor(accent));pen.setWidthF(.8)

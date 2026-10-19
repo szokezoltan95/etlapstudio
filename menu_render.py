@@ -425,6 +425,21 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     gap=16;column_width=(1360-gap*(chosen_columns-1))/chosen_columns
     col_x=[40+column*(column_width+gap) for column in range(chosen_columns)]
     name_width=column_width-188
+    sections_by_column={}
+    for item in placements:
+        col=item[1]
+        if item[0]=="heading":
+            sections_by_column.setdefault(col,[]).append([item])
+        else:
+            sections_by_column[col][-1].append(item)
+    if glass_enabled:
+        for col,sections in sections_by_column.items():
+            x=col_x[col]
+            for section in sections:
+                start=section[0][2]
+                end=max(item[2]+(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
+                                 if item[0]=="heading" else item[5]) for item in section)
+                glass(p,QRectF(x-3,start-2,column_width+6,end-start+4),170,5)
     for item in placements:
         item_kind,col,y,value,size,*rest=item;x=col_x[col]
         if item_kind=="heading":
@@ -441,7 +456,6 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         label_width=name_width-(62 if promo else 0)
         lines=wrapped_lines(dish["name"],source,"dish_name",size,label_width)
         metrics=QFontMetricsF(font(source,"dish_name",size));line_h=metrics.height()*1.05
-        if glass_enabled:glass(p,QRectF(x-3,y-2,column_width+6,max(row_h,size*1.4)),170,4)
         for li,line in enumerate(lines):
             yy=y+li*line_h
             text_singleline(p,source,"dish_name",size,dark,x,yy,label_width,line_h,line)

@@ -154,7 +154,9 @@ class PreviewLabel(QLabel):
     def mouseMoveEvent(self,event):
         if self._drag:
             name,start,original=self._drag;scale=self.pixmap().width()/1440
-            limits={"Fejléc vége":(360,520),"Napi menü vége":(650,850),"Heti menü kezdete":(480,700)}
+            header_shift=self.regions.get("Fejléc vége",270)-270
+            limits={"Fejléc vége":(260,360),"Napi menü vége":(480+header_shift,760+header_shift),
+                    "Heti menü kezdete":(300+header_shift,600+header_shift)}
             low,high=limits.get(name,(100,1700))
             y=round(max(low,min(high,event.position().y()/scale)))
             self.regions[name]=y;self.regionChanged.emit(name,y);self.update();event.accept();return
@@ -168,13 +170,17 @@ class PreviewLabel(QLabel):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
+        if self.store.setting("guide_layout_version","0")!="2":
+            self.store.set_settings({"guide_layout_version":"2","guide_daily_header":"270",
+                                     "guide_daily_menu_end":"500","guide_weekly_header":"270",
+                                     "guide_weekly_days":"320"})
         self.setWindowTitle(APP_NAME);self.resize(1620,920);self.setMinimumSize(1180,680)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
         splitter=QSplitter(Qt.Orientation.Horizontal);self.setCentralWidget(splitter)
         left=QWidget();left_layout=QVBoxLayout(left);left_layout.setContentsMargins(12,12,8,12)
         brand=QHBoxLayout();logo=QLabel();logo.setFixedSize(48,48)
-        logo_path=BASE/"design_assets"/"megyehaza_logo.png"
+        logo_path=BASE/"design_assets"/"megyehaza_emblem.png"
         if logo_path.is_file():logo.setPixmap(QPixmap(str(logo_path)).scaled(46,46,Qt.AspectRatioMode.KeepAspectRatio,Qt.TransformationMode.SmoothTransformation))
         brand.addWidget(logo);title=QLabel("ÉTLAPSTÚDIÓ\nMegyeháza Étterem");title.setObjectName("appTitle");brand.addWidget(title,1)
         left_layout.addLayout(brand)
@@ -429,7 +435,7 @@ class MainWindow(QMainWindow):
         self.glass=QCheckBox("Félig áttetsző üveghatású panelek az olvashatóságért")
         self.glass.setChecked(self.store.setting("glass_panels","1")=="1")
         self.glass.toggled.connect(self.save_appearance);form.addRow("",self.glass)
-        self.decorations=QCheckBox("Egyszerű ecsetvonásos címsorok és áttetsző elválasztók")
+        self.decorations=QCheckBox("Áttetsző szezonális elválasztók")
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
@@ -588,12 +594,13 @@ class MainWindow(QMainWindow):
 
     def reset_design(self):
         with self.store.db:
-            self.store.db.execute("DELETE FROM settings WHERE key LIKE 'guide_%' OR key LIKE 'layout_%'")
+            self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
         self.store.set_settings({"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                                  "background_path":"","leader":"none",
                                  "theme_primary":"","theme_accent":"",
                                  "font_restaurant":"Georgia","font_title":"Georgia","font_heading":"Georgia",
-                                 "font_special":"Segoe UI","font_dish":"Segoe UI"})
+                                 "font_special":"Segoe UI","font_dish":"Segoe UI",
+                                 "guide_layout_version":"2"})
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
         for role,combo in self.fonts.items():
             combo.blockSignals(True);combo.setCurrentFont(QFont("Georgia" if role in ("restaurant","title","heading") else "Segoe UI"));combo.blockSignals(False)
@@ -628,15 +635,20 @@ class MainWindow(QMainWindow):
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
         keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
             "header":"Fejléc vége","menu_end":"Napi menü vége"}
-        defaults={"header":360 if kind=="weekly" else 340,"days":420,"menu_end":570}
-        regions={label:int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key]))) for key,label in keys.items()}
+        defaults={"header":270,"days":320,"menu_end":500}
+        header=int(self.store.setting(f"guide_{kind}_header",str(defaults["header"])))
+        shift=header-defaults["header"]
+        regions={label:header if key=="header" else int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key])))+shift
+                 for key,label in keys.items()}
         self.preview.set_guides(self.guides.isChecked(),regions)
 
     def save_layout_region(self,name,y):
         keys={"Fejléc vége":"header","Heti menü kezdete":"days","Napi menü vége":"menu_end"}
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
-        self.store.set_settings({f"guide_{kind}_{keys[name]}":str(y)})
-        self.schedule_preview()
+        header=int(self.store.setting(f"guide_{kind}_header","270"));shift=header-270
+        saved_y=y if name=="Fejléc vége" else y-shift
+        self.store.set_settings({f"guide_{kind}_{keys[name]}":str(saved_y)})
+        self.update_guides();self.schedule_preview()
     def preview_source(self):
         index=self.tabs.currentIndex()
         if index==1:return self.store,"weekly",self.current_week()

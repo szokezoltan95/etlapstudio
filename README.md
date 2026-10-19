@@ -11,9 +11,9 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 - **Heti menü:** hétfőtől péntekig önálló leves, A és B menü. A mezők gépelés közben javaslatokat adnak a külön **Menü** kategóriából; szabadon új fogás is beírható. A Menü kategória tételei nem jelennek meg a napi à la carte pipálható listában.
 - **Ételadatbázis:** 341 induló tétel a feltöltött 2026. július–októberi étlapképek alapján, kategóriák, árak, keresés, felvétel, szerkesztés, törlés. Új adatbázisba automatikusan betöltődik. Meglévő adatbázisban az **Ételek → Alapadatbázis hiányzó ételeinek betöltése** gomb egészíti ki; ez nem írja felül a saját neveket, árakat vagy törölt tételeket.
 - **Korábbi étlapok:** kattints egy napra vagy hétre az előnézethez; dupla kattintással szerkesztésre nyitható meg. A lista hetek szerint csoportosított.
-- **Dizájn:** évszakhoz és ünnepnapokhoz igazodó színvilág és háttérgrafika; áttetsző ecsetvonások címsorokon és elválasztóként; üveghatású panelek; öt külön választható betűtípus. A betűválasztók a Windowsra telepített betűket listázzák. Az alapértelmezett címbetű Georgia, a szövegbetű Segoe UI. A Dizájn fülön a **Dizájn visszaállítása alapértékre** gomb a betűket, színeket, díszítéseket és térközöket is visszaállítja.
+- **Dizájn:** a választott téma együtt állítja a színpalettát és a háttérképet; a tavasz és a húsvét, illetve a tél és a karácsony külön grafikát kap. Az egyszerű, színes kategóriafejlécek és az áttetsző üveghatású panelek segítik az olvashatóságot. A betűválasztók a Windowsra telepített betűket listázzák. Az alapértelmezett címbetű Georgia, a szövegbetű Segoe UI. A **Dizájn visszaállítása alapértékre** gomb a betűket, színeket és térközöket is visszaállítja.
 - **Export:** 1440 × 1800 képpontos, 4:5 arányú Facebook PNG és margó nélküli A4 PDF. A napi étlap egy képen marad; az à la carte rész szükség esetén kisebb betűvel tördelődik. A **Térközök állítása** kapcsoló egyszerű, húzható vízszintes vonalakat mutat; ezek a blokkok közötti térközt állítják, a tartalmat nem nagyítják vagy nyújtják.
-- **Letisztult grafika:** a színek a dátumhoz igazodó évszakos és ünnepi palettát használnak. A címsorok ecsetvonásos színfoltot, az elválasztók áttetsző festett vonalat kapnak; az olvashatóságot finom, üveghatású panelek segítik.
+- **Étlapfejléc:** bal oldalon, balra igazítva jelenik meg a napi vagy heti cím és a dátum; jobb oldalon az egyedi éttermi embléma, az étterem neve, címe és telefonszáma kap helyet.
 
 ## Indítás Windows alatt
 
@@ -53,7 +53,7 @@ A menüfogások akkor is önálló Menü rekordok, ha ugyanaz az étel az à la 
 
 ## Saját grafikák
 
-Az automatikus évszakos képek a `design_assets/` mappában vannak. A vizuális irány meleg, kézzel rajzolt éttermi vintage: krémszínű papír, automatikusan változó bordó/ünnepi árnyalatok, egyszerű festett címsávok és egy új séffigurás embléma. A `megyehaza_logo.png` a logó, a `brushstroke.png` a címsávok és a kategóriák visszafogott dísze. Új grafikát kérő AI prompt és a pontos importméretek: [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) és [TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md). A **Dizájn → Témacsomag importálása…** átlátszó hátterű PNG díszítőelemekből és színpalettából álló ZIP-et fogad. Az app nem hív automatikusan AI szolgáltatást.
+Az automatikus évszakos képek a `design_assets/` mappában vannak. A `megyehaza_emblem.png` egyedi embléma az étterem fejlécéhez és az alkalmazás ikonjához. A `spring_generic_background.jpg` általános tavaszi tájat, a `winter_generic_background.jpg` karácsonyi díszítés nélküli téli tájat mutat; a húsvéti és karácsonyi témák ezektől külön képet használnak. Új grafikát kérő AI prompt és a pontos importméretek: [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) és [TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md). A **Dizájn → Témacsomag importálása…** átlátszó hátterű PNG díszítőelemekből és színpalettából álló ZIP-et fogad. Az app nem hív automatikusan AI szolgáltatást.
 
 ## Projekt
 

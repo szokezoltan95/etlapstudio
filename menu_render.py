@@ -358,7 +358,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             heading_font=font(source,"category_title",category_size,True)
             heading_w=min(column_width-24,QFontMetricsF(heading_font).horizontalAdvance(value)+24)
             heading_h=max(size*2.4,category_size*1.8)
-            heading_y=y+(heading_h-size*1.62)/2
+            heading_y=y
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(x,heading_y,heading_w,heading_h),5,5);p.restore()
             heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
             text(p,source,"category_title",category_size,heading_text,x+10,heading_y+1,heading_w-20,heading_h-2,value,True,Qt.AlignmentFlag.AlignVCenter);continue

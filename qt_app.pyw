@@ -174,7 +174,7 @@ class PreviewLabel(QLabel):
             name,start,original=self._drag;scale=self.pixmap().width()/1440
             header_shift=self.regions.get("Fejléc vége",205)-205
             limits={"Fejléc vége":(195,235),"Napi menü vége":(420+header_shift,640+header_shift),
-                    "Heti menü kezdete":(200+header_shift,320+header_shift)}
+                    "Heti menü kezdete":(310+header_shift,430+header_shift)}
             low,high=limits.get(name,(100,1700))
             y=round(max(low,min(high,event.position().y()/scale)))
             self.regions[name]=y;self.regionChanged.emit(name,y);self.update();event.accept();return
@@ -192,10 +192,10 @@ class MainWindow(QMainWindow):
                                  "address":self.store.setting("address","Miskolc, Városház tér 1.") or "Miskolc, Városház tér 1.",
                                  "phone":self.store.setting("phone","+36 30 / 513 2605") or "+36 30 / 513 2605",
                                  "facebook_url":self.store.setting("facebook_url","https://www.facebook.com/share/1GQgCcNJXE/") or "https://www.facebook.com/share/1GQgCcNJXE/"})
-        if self.store.setting("guide_layout_version","0")!="6":
-            layout_defaults={"guide_layout_version":"6","guide_daily_header":"205",
+        if self.store.setting("guide_layout_version","0")!="7":
+            layout_defaults={"guide_layout_version":"7","guide_daily_header":"205",
                              "guide_daily_menu_end":"438","guide_weekly_header":"205",
-                             "guide_weekly_days":"220"}
+                             "guide_weekly_days":"330"}
             # Promote only untouched former defaults; preserve sizes the user tuned.
             for role,old,new in (("daily_title","10.5","18"),("header_date","10.5","14")):
                 if self.store.setting("font_size_"+role)==old:
@@ -654,7 +654,7 @@ class MainWindow(QMainWindow):
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
-                  "guide_layout_version":"6"}
+                  "guide_layout_version":"7"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         self.store.set_settings(defaults)
@@ -694,7 +694,7 @@ class MainWindow(QMainWindow):
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
         keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
             "header":"Fejléc vége","menu_end":"Napi menü vége"}
-        defaults={"header":205,"days":220,"menu_end":438}
+        defaults={"header":205,"days":330,"menu_end":438}
         header=int(self.store.setting(f"guide_{kind}_header",str(defaults["header"])))
         shift=header-defaults["header"]
         regions={label:header if key=="header" else int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key])))+shift

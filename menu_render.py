@@ -369,22 +369,23 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         result=[];col=0;y=top
         for category in CATEGORIES:
             rows=[d for d in dishes if d["category"]==category]
-            for index,d in enumerate(rows):
+            if not rows:continue
+            category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
+            line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
+            row_items=[]
+            for d in rows:
                 lines=wrapped_lines(d["name"],source,"dish_name",size,name_width-(62 if d.get("promo_enabled") and d.get("promo_price") is not None else 0))
-                line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
-                promo=bool(d.get("promo_enabled") and d.get("promo_price") is not None)
                 row_h=max(line_h*len(lines)+size*.18,size*1.25)
-                category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
-                heading_h=category_h if index==0 else 0
-                section_gap=14 if index==0 else 0
-                if y+section_gap+heading_h+row_h>max_y:
-                    col+=1;y=top
-                    if col>=columns:return None
-                    heading_h=category_h
-                    section_gap=0
-                if y+section_gap+heading_h+row_h>max_y:return None
-                y+=section_gap
-                if heading_h:result.append(("heading",col,y,category,size));y+=heading_h
+                row_items.append((d,row_h))
+            section_gap=14 if y>top else 0
+            section_height=section_gap+category_h+sum(row_h for _,row_h in row_items)
+            if y+section_height>max_y:
+                col+=1;y=top;section_height-=section_gap;section_gap=0
+                if col>=columns:return None
+            if section_height>max_y-top:return None
+            y+=section_gap
+            result.append(("heading",col,y,category,size));y+=category_h
+            for d,row_h in row_items:
                 result.append(("dish",col,y,d,size,row_h));y+=row_h
         return result
     chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
@@ -396,24 +397,29 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         else:lo=mid
     placements=plan(lo,chosen_columns) or plan(5.0,chosen_columns)
     if placements is None:raise ValueError("Túl sok étel az egyképes napi étlaphoz.")
-    # Spread each column's rows and category tabs evenly down to the available
-    # content boundary. This keeps short menus from bunching at the top while
-    # still preserving the per-dish line wrapping and font-size fit.
+    # Spread whole category sections down the available column height. Keep
+    # each heading attached to all of its dishes when adding the extra space.
     target_bottom=max_y
-    column_items={}
+    column_sections={}
     column_ends={}
+    active_section={}
     for item in placements:
         col=item[1]
         height=(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
                 if item[0]=="heading" else item[5])
-        column_items.setdefault(col,[]).append(item)
+        if item[0]=="heading":
+            active_section[col]=[]
+            column_sections.setdefault(col,[]).append(active_section[col])
+        active_section[col].append(item)
         column_ends[col]=max(column_ends.get(col,top),item[2]+height)
     adjusted=[]
-    for col,items in column_items.items():
+    for col,sections in column_sections.items():
         spare=max(0,target_bottom-column_ends[col])
-        step=spare/max(1,len(items)-1)
-        for index,item in enumerate(items):
-            adjusted.append((*item[:2],item[2]+step*index,*item[3:]))
+        step=spare/max(1,len(sections)-1)
+        for index,section in enumerate(sections):
+            offset=step*index
+            for item in section:
+                adjusted.append((*item[:2],item[2]+offset,*item[3:]))
     placements=adjusted
     mode=setting(source,"leader","none")
     gap=16;column_width=(1360-gap*(chosen_columns-1))/chosen_columns

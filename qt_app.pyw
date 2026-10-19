@@ -22,7 +22,7 @@ from themes import load_themes, import_theme
 
 BASE=Path(__file__).resolve().parent
 TEXT_STYLES=[
-    ("header_title","Étterem neve a fejlécben","Georgia",19.5,"title"),
+    ("header_title","Étterem neve · fejléc-adatmező","Segoe UI",11,"title"),
     ("header_date","Dátum a napi / heti panelben","Segoe UI",14,"special"),
     ("header_contact","Cím, telefonszám és Facebook link","Segoe UI",11,"special"),
     ("daily_title","Napi / heti étlap címsora","Georgia",18,"heading"),
@@ -192,14 +192,18 @@ class MainWindow(QMainWindow):
                                  "address":self.store.setting("address","Miskolc, Városház tér 1.") or "Miskolc, Városház tér 1.",
                                  "phone":self.store.setting("phone","+36 30 / 513 2605") or "+36 30 / 513 2605",
                                  "facebook_url":self.store.setting("facebook_url","https://www.facebook.com/share/1GQgCcNJXE/") or "https://www.facebook.com/share/1GQgCcNJXE/"})
-        if self.store.setting("guide_layout_version","0")!="4":
-            layout_defaults={"guide_layout_version":"4","guide_daily_header":"205",
+        if self.store.setting("guide_layout_version","0")!="5":
+            layout_defaults={"guide_layout_version":"5","guide_daily_header":"205",
                              "guide_daily_menu_end":"438","guide_weekly_header":"205",
                              "guide_weekly_days":"410"}
             # Promote only untouched former defaults; preserve sizes the user tuned.
             for role,old,new in (("daily_title","10.5","18"),("header_date","10.5","14")):
                 if self.store.setting("font_size_"+role)==old:
                     layout_defaults["font_size_"+role]=new
+            if self.store.setting("font_size_header_title")=="19.5":
+                layout_defaults["font_size_header_title"]="11"
+                if self.store.setting("font_header_title")=="Georgia":
+                    layout_defaults["font_header_title"]="Segoe UI"
             self.store.set_settings(layout_defaults)
         self.setWindowTitle(APP_NAME);self.resize(1620,920);self.setMinimumSize(1180,680)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None
@@ -650,7 +654,7 @@ class MainWindow(QMainWindow):
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
-                  "guide_layout_version":"4"}
+                  "guide_layout_version":"5"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         self.store.set_settings(defaults)

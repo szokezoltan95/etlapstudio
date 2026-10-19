@@ -23,23 +23,23 @@ from themes import load_themes, import_theme
 BASE=Path(__file__).resolve().parent
 TEXT_STYLES=[
     ("header_title","Étterem neve · fejléc-adatmező","Segoe UI",11,"title"),
-    ("header_date","Dátum a napi / heti panelben","Segoe UI",14,"special"),
+    ("header_date","Dátum a napi / heti panelben","Segoe UI",16,"special"),
     ("header_contact","Cím, telefonszám és Facebook link","Segoe UI",11,"special"),
-    ("daily_title","Napi / heti étlap címsora","Georgia",18,"heading"),
+    ("daily_title","Napi / heti étlap címsora","Georgia",22,"heading"),
     ("daily_label","Napi menü sorcímkéi · Leves / A / B","Segoe UI",13,"heading"),
     ("daily_value","Napi menü ételnevei","Segoe UI",13,"special"),
-    ("menu_price_label","Napi menü árának címkéje","Segoe UI",7.5,"special"),
-    ("menu_price_value","Napi menü ára","Georgia",15,"title"),
+    ("menu_price_label","Napi menü árának címkéje","Segoe UI",12,"special"),
+    ("menu_price_value","Napi menü ára","Georgia",20,"title"),
     ("category_title","À la carte kategóriacímek","Georgia",14,"heading"),
     ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",12.5,"dish"),
     ("dish_price","À la carte normál árak","Segoe UI",12.5,"dish"),
     ("promo_old_price","Akciós étel régi ára","Segoe UI",7,"dish"),
-    ("promo_new_price","Akciós étel új ára","Segoe UI",8,"dish"),
+    ("promo_new_price","Akciós étel új ára","Segoe UI",12.5,"dish"),
     ("promo_badge","AKCIÓ jelzés","Segoe UI",6,"dish"),
-    ("weekday_title","Heti menü napnevei","Georgia",13,"heading"),
-    ("weekly_label","Heti menü sorcímkéi · Leves / A / B","Segoe UI",10.5,"heading"),
-    ("weekly_value","Heti menü ételnevei","Segoe UI",13,"special"),
-    ("footer_note","Alsó megjegyzés","Georgia",7,"special"),
+    ("weekday_title","Heti menü napnevei","Georgia",16,"heading"),
+    ("weekly_label","Heti menü sorcímkéi · Leves / A / B","Segoe UI",15,"heading"),
+    ("weekly_value","Heti menü ételnevei","Segoe UI",15,"special"),
+    ("footer_note","Alsó megjegyzés","Georgia",10,"special"),
 ]
 LEADERS={"Nincs":"none","Pontozott":"dots","Szaggatott":"dashes","Folytonos vonal":"line"}
 
@@ -192,12 +192,17 @@ class MainWindow(QMainWindow):
                                  "address":self.store.setting("address","Miskolc, Városház tér 1.") or "Miskolc, Városház tér 1.",
                                  "phone":self.store.setting("phone","+36 30 / 513 2605") or "+36 30 / 513 2605",
                                  "facebook_url":self.store.setting("facebook_url","https://www.facebook.com/share/1GQgCcNJXE/") or "https://www.facebook.com/share/1GQgCcNJXE/"})
-        if self.store.setting("guide_layout_version","0")!="7":
-            layout_defaults={"guide_layout_version":"7","guide_daily_header":"205",
-                             "guide_daily_menu_end":"438","guide_weekly_header":"205",
-                             "guide_weekly_days":"330"}
+        if self.store.setting("guide_layout_version","0")!="8":
+            layout_defaults={"guide_layout_version":"8"}
+            for key,value in {"guide_daily_header":"205","guide_daily_menu_end":"438",
+                              "guide_weekly_header":"205","guide_weekly_days":"330"}.items():
+                if self.store.setting(key) is None:layout_defaults[key]=value
             # Promote only untouched former defaults; preserve sizes the user tuned.
-            for role,old,new in (("daily_title","10.5","18"),("header_date","10.5","14")):
+            for role,old,new in (("daily_title","18","22"),("header_date","14","16"),
+                                 ("menu_price_label","7.5","12"),("menu_price_value","15","20"),
+                                 ("weekday_title","13","16"),("weekly_label","10.5","15"),
+                                 ("weekly_value","13","15"),("promo_new_price","8","12.5"),
+                                 ("footer_note","7","10")):
                 if self.store.setting("font_size_"+role)==old:
                     layout_defaults["font_size_"+role]=new
             if self.store.setting("font_size_header_title")=="19.5":
@@ -654,7 +659,7 @@ class MainWindow(QMainWindow):
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
-                  "guide_layout_version":"7"}
+                  "guide_layout_version":"8"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         self.store.set_settings(defaults)

@@ -214,20 +214,21 @@ def glass(p,rect,opacity=216,radius=20):
     p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(255,255,255,opacity));p.drawRoundedRect(rect,radius,radius);p.restore()
 
 
-def divider(p,primary,accent,y,assets=None,target=None):
+def divider(p,primary,accent,y,assets=None,target=None,height=30):
     """Thin seasonal line-art divider; deliberately avoids filled image blocks."""
     path=assets.get("divider") if assets else None
-    if path and Path(path).suffix.lower()==".png" and draw_theme_asset(p,assets,"divider",QRectF(120,y-40,W-240,80),.95):return
+    if path and Path(path).suffix.lower()==".png" and draw_theme_asset(p,assets,"divider",QRectF(120,y-height/2,W-240,height),.95):return
     root=assets.get("divider_root") if assets else None
     if root:
         season=assets.get("divider_theme") or divider_season_key(target) if target else (assets.get("divider_theme") or "winter")
         variants=sorted((Path(root)/season).glob("divider_*.png"))
         if variants:
             variant=variants[(target.toordinal() if target else 0)%len(variants)]
-            if draw_theme_asset(p,{"divider":variant},"divider",QRectF(120,y-40,W-240,80),.92):return
+            if draw_theme_asset(p,{"divider":variant},"divider",QRectF(120,y-height/2,W-240,height),.92):return
     month=target.month if target else 1
     season="winter" if month in (12,1,2) else "spring" if month in (3,4,5) else "summer" if month in (6,7,8) else "autumn"
-    p.save();line=QColor(accent);line.setAlpha(145);orn=QColor(primary);orn.setAlpha(185)
+    p.save();p.translate(0,y);p.scale(1,height/80);p.translate(0,-y)
+    line=QColor(accent);line.setAlpha(145);orn=QColor(primary);orn.setAlpha(185)
     p.setBrush(Qt.BrushStyle.NoBrush);pen=QPen(line,1.7);pen.setCapStyle(Qt.PenCapStyle.RoundCap);pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin);p.setPen(pen)
     mid=W/2;gap=68
     p.drawLine(55,y,mid-gap,y);p.drawLine(mid+gap,y,W-55,y)
@@ -322,7 +323,9 @@ def draw_menu(p,source,kind,target):
                     days_y-330+panel_shift)
     note=setting(source,"note").strip()
     if note:
-        note_y=1940 if kind=="weekly" else 1710
+        # Keep the footer close to the bottom edge of the A4 canvas. The old
+        # fixed daily coordinate left a large, unused strip below the note.
+        note_y=H-76
         if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),205,8)
         text(p,source,"footer_note",style_size(source,"footer_note",10),dark,60,note_y+10,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
@@ -349,12 +352,12 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,1085,menu_y+58,260,34,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,1085,menu_y+92,260,58,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     alacarte_shift=header_shift+menu_gap_shift
-    if decorated:divider(p,primary,accent,460+alacarte_shift,assets,target)
+    if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,30)
     dishes=[dict(d) for d in source.selection(target)]
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),210,8)
         text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
-        return
+        return 550+alacarte_shift
     p.save();p.translate(0,alacarte_shift)
     max_y=1690;top=478
     def plan(size,columns):
@@ -445,7 +448,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             price_width_px=QFontMetricsF(font(source,"dish_price",price_size)).horizontalAdvance(price_text)
             if price_width_px>price_width:price_size=max(6,int(price_size*price_width/price_width_px))
             text_singleline(p,source,"dish_price",price_size,dark,price_x,price_y,price_width,line_h,price_text,False,Qt.AlignmentFlag.AlignRight)
+    content_end=max((item[2]+(item[4]*1.3 if item[0]=="heading" else item[5])
+                     for item in placements),default=top)
     p.restore()
+    return content_end+alacarte_shift
 
 
 def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,days_shift=0):
@@ -455,7 +461,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=330+i*310
         if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),195,6)
-        if decorated and i<4:divider(p,primary,accent,y+291,assets,mon+timedelta(days=i))
+        if decorated and i<4:divider(p,primary,accent,y+286,assets,mon+timedelta(days=i),20)
         weekday_size=style_size(source,"weekday_title",16)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
         p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()

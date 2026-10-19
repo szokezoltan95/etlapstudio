@@ -449,7 +449,7 @@ class MainWindow(QMainWindow):
         inner=QWidget();innerbox=QVBoxLayout(inner)
         for i,label in enumerate(WEEKDAYS):
             dayrow=QHBoxLayout();heading=QLabel(label);heading.setStyleSheet("font-weight:bold;color:#176246;margin-top:8px;")
-            dayrow.addWidget(heading);dayrow.addStretch();closed=QCheckBox("Zárva ezen a napon");closed.toggled.connect(self.schedule_week_save);dayrow.addWidget(closed);innerbox.addLayout(dayrow)
+            dayrow.addWidget(heading);dayrow.addStretch();closed=QCheckBox("Zárva a heti menün");closed.setToolTip("Csak a heti étlapon rejti el ezen a napnál a leves és az A/B menü sorait. A napi étlap adatait nem módosítja.");closed.toggled.connect(self.schedule_week_save);dayrow.addWidget(closed);innerbox.addLayout(dayrow)
             form=QFormLayout();group=[]
             for field in ("Leves","A menü","B menü"):
                 edit=QLineEdit();edit.textChanged.connect(self.schedule_week_save)

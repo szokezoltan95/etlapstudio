@@ -130,16 +130,21 @@ def colors(source,target):
 
 
 def theme_assets(source,target):
-    key=setting(source,"theme")
-    if key=="auto" or setting(source,"auto_theme","1")=="1":
-        return {"background":theme_background_path("auto",target)}
+    key=setting(source,"theme","auto")
+    automatic=key=="auto" or setting(source,"auto_theme","1")=="1"
+    root=BASE/"design_assets"/"dividers"
+    if automatic:
+        return {"background":theme_background_path("auto",target),"divider_root":root,"divider_theme":None}
     packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
     if key not in packs:
-        return {"background":theme_background_path(key,target)}
+        return {"background":theme_background_path(key,target),"divider_root":root,
+                "divider_theme":theme_season(key,target)}
     manifest,folder=packs[key]
     assets={name:folder/filename for name,filename in manifest.get("assets",{}).items()
             if name in ("divider","background") and filename.lower().endswith((".png",".jpg",".jpeg")) and (folder/filename).is_file()}
     assets.setdefault("background",theme_background_path(key,target))
+    assets["divider_root"]=root
+    assets["divider_theme"]=theme_season(key,target)
     return assets
 
 
@@ -165,12 +170,20 @@ def season_key(target):
     return "spring"
 
 
+def divider_season_key(target):
+    easter=_easter_sunday(target.year)
+    if easter-timedelta(days=4)<=target<=easter+timedelta(days=1):return "easter"
+    if target.month==12 or (target.month==1 and target.day<=2):return "christmas"
+    return season_key(target)
+
+
 def theme_season(key,target):
     key=(key or "").casefold()
-    for tokens,season in ((('christmas','winter'),'winter'),(('autumn','fall'),'autumn'),
-                          (('summer',),'summer'),(('spring','easter'),'spring')):
+    for tokens,season in ((('christmas',),'christmas'),(('easter',),'easter'),
+                          (('winter',),'winter'),(('autumn','fall'),'autumn'),
+                          (('summer',),'summer'),(('spring',),'spring'),(('classic',),'classic')):
         if any(token in key for token in tokens):return season
-    return season_key(target)
+    return divider_season_key(target)
 
 
 def theme_background_path(key,target):
@@ -205,6 +218,13 @@ def divider(p,primary,accent,y,assets=None,target=None):
     """Thin seasonal line-art divider; deliberately avoids filled image blocks."""
     path=assets.get("divider") if assets else None
     if path and Path(path).suffix.lower()==".png" and draw_theme_asset(p,assets,"divider",QRectF(120,y-40,W-240,80),.95):return
+    root=assets.get("divider_root") if assets else None
+    if root:
+        season=assets.get("divider_theme") or divider_season_key(target) if target else (assets.get("divider_theme") or "winter")
+        variants=sorted((Path(root)/season).glob("divider_*.png"))
+        if variants:
+            variant=variants[(target.toordinal() if target else 0)%len(variants)]
+            if draw_theme_asset(p,{"divider":variant},"divider",QRectF(120,y-40,W-240,80),.92):return
     month=target.month if target else 1
     season="winter" if month in (12,1,2) else "spring" if month in (3,4,5) else "summer" if month in (6,7,8) else "autumn"
     p.save();line=QColor(accent);line.setAlpha(145);orn=QColor(primary);orn.setAlpha(185)
@@ -435,7 +455,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=330+i*310
         if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),195,6)
-        if i<4:divider(p,primary,accent,y+291,assets,target)
+        if decorated and i<4:divider(p,primary,accent,y+291,assets,mon+timedelta(days=i))
         weekday_size=style_size(source,"weekday_title",16)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
         p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()

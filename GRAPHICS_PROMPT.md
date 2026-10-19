@@ -6,6 +6,8 @@ Az ÉtlapStúdió az étlap dátuma alapján automatikusan állítja a színeket
 
 Az alábbi promptban cseréld ki az évszakot és a színeket. A generált `divider.png` közvetlenül betehető az importálható témacsomagba.
 
+Az alap témákhoz készíts legalább öt különböző változatot. A prompt végén mindig adj meg öt eltérő motívumötletet, és kérd külön fájlokként, azonos vászonmérettel. Az alkalmazás a dátum alapján váltogatja ezeket, ezért ugyanazon témán belül a vonalvastagság, az áttetszőség és a színvilág maradjon egységes.
+
 ```text
 Készíts elegáns, finom LINE-ART jellegű vízszintes elválasztó díszt egy
 barátságos, modern magyar étterem nyomtatott étlapjához. Évszak / alkalom:

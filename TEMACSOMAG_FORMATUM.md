@@ -1,15 +1,14 @@
-# ÉtlapStúdió grafikai csomag – PNG formátum
+# ÉtlapStúdió témacsomag – PNG formátum
 
-A csomag ZIP-fájl, benne közvetlenül a gyökérben lévő fájlokkal. A grafikák teljes színű, valódi alfa-átlátszóságú PNG-k. A program az automatikus ünnepi palettát használja alapértelmezésként; egy importált téma kiválasztásakor a fejléc- és elválasztó PNG-k a címsor, illetve az ételcsoportok mögé kerülnek.
+A témacsomag ZIP-fájl. Az új formátum egy vonalas elválasztóból, színpalettából, és igény szerint egy teljes oldalas háttérképből áll. A régi `header.png` + `divider.png` + `corner.png` formátumú témacsomagok továbbra is importálhatók, de az új generálásokhoz már ne készíts címsor mögötti sávot vagy sarokképet.
 
-| Fájl | Méret | Helye az étlapon |
+| Fájl | Méret | Használat |
 | --- | ---: | --- |
-| `header.png` | 1200 × 200 px | Egyszerű ecsetvonás a címsor mögé |
-| `divider.png` | 1200 × 200 px | Áttetsző festett vonás az ételcsoportok között |
-| `corner.png` | 290 × 290 px | Apró, légies széli motívum |
-| `manifest.json` | UTF-8 | Témacímke, színek és fájlnevek |
+| `divider.png` | 1800 × 120 px | Átlátszó hátterű, vékony évszakos line-art; két szekció között jelenik meg. |
+| `background.png` | 1440 × 2037 px | Opcionális, teljes oldalas, visszafogott illusztráció; a lap közepén maradjon világos hely a szöveg számára. |
+| `manifest.json` | UTF-8 | A téma neve, azonosítója, színei és fájljai. |
 
-Példa `manifest.json`:
+Minimális témacsomag `manifest.json`:
 
 ```json
 {
@@ -22,13 +21,20 @@ Példa `manifest.json`:
     "background": "#F7F2E9"
   },
   "assets": {
-    "header": "header.png",
-    "divider": "divider.png",
-    "corner": "corner.png"
+    "divider": "divider.png"
   }
 }
 ```
 
-Az `id` 2–32 karakteres kisbetűs azonosító; használható benne szám, `_` és `-`. A grafika legyen légies, és hagyjon üres helyet a rákerülő szövegnek. Ne legyen rajta felirat, dátum, ár, logó vagy vízjel. A háttérgrafikát külön, 4:5 álló kép formájában importáld; ehhez ajánlott méret 1440 × 1800 px vagy nagyobb.
+Háttérrel a manifest `assets` részét így bővítsd:
 
-A témacsomagot a **Dizájn → Témacsomag importálása…** gombbal lehet betölteni. A csomag elemei ne tartalmazzanak mintás hátteret, keretezett panelt vagy színes téglalapot; a címsor mögötti ecsetvonás maradjon egyszerű és áttetsző.
+```json
+"assets": {
+  "divider": "divider.png",
+  "background": "background.png"
+}
+```
+
+Az `id` 2–32 karakteres kisbetűs azonosító; szám, `_` és `-` is használható. A színek `#RRGGBB` formátumúak legyenek. Mindkét kép PNG legyen, és pontosan a táblázatban megadott méretű. A divider valódi, átlátszó alfa-csatornát használjon; ne legyen rajta kitöltött sáv vagy téglalap. Az étlap közepén az olvashatóság miatt maradjon tiszta terület.
+
+A témacsomagot a **Dizájn → Témacsomag importálása…** gombbal lehet betölteni. A teljes oldalas háttér opcionális; háttér nélkül az app a választott évszakhoz tartozó beépített képet használja. A grafikai irányt és a generálható promptokat a [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) írja le.

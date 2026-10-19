@@ -1,4 +1,4 @@
-"""Portable vector theme packs with fixed asset geometry and safe ZIP import."""
+"""Safe seasonal PNG theme packs with backward-compatible legacy imports."""
 from __future__ import annotations
 
 import json
@@ -14,6 +14,8 @@ FILES = {"header": ("header.svg", "0 0 600 100"),
 PNG_FILES = {"header": ("header.png", (1200, 200)),
              "divider": ("divider.png", (1200, 200)),
              "corner": ("corner.png", (290, 290))}
+MODERN_PNG_FILES = {"divider": ("divider.png", (1800, 120)),
+                    "background": ("background.png", (1440, 2037))}
 SAFE_TAGS = {"svg", "g", "path", "circle", "ellipse", "line", "rect", "polygon", "polyline"}
 SAFE_ATTRS = {"xmlns", "viewBox", "width", "height", "d", "fill", "stroke",
               "stroke-width", "stroke-linecap", "stroke-linejoin", "opacity", "transform",
@@ -55,10 +57,11 @@ def validate_manifest(manifest: dict) -> None:
                                       for k in ("primary", "accent", "background")):
         raise ValueError("A téma színei #RRGGBB formátumúak legyenek.")
     assets=manifest.get("assets")
-    if not isinstance(assets,dict) or set(assets)!=set(FILES):
-        raise ValueError("A csomagban header, divider és corner grafika szükséges.")
+    if not isinstance(assets,dict) or not (set(assets)==set(FILES) or set(assets) in ({"divider"},{"divider","background"})):
+        raise ValueError("A csomagban divider grafika, opcionálisan háttérgrafika szükséges.")
     for key,filename in assets.items():
-        if filename not in (FILES[key][0],PNG_FILES[key][0]):
+        allowed=(FILES[key][0],PNG_FILES[key][0]) if key in FILES else (MODERN_PNG_FILES[key][0],)
+        if filename not in allowed:
             raise ValueError("Hibás grafikai fájlnév; SVG vagy PNG használható.")
 
 
@@ -79,9 +82,12 @@ def validate_png(data: bytes, size: tuple[int,int]) -> None:
 def validate_pack(folder: Path) -> dict:
     manifest=json.loads((folder/"manifest.json").read_text(encoding="utf-8"))
     validate_manifest(manifest)
+    modern=set(manifest["assets"])!=set(FILES)
     for key,filename in manifest["assets"].items():
         raw=(folder/filename).read_bytes()
-        if filename.endswith(".png"):validate_png(raw,PNG_FILES[key][1])
+        if filename.endswith(".png"):
+            size=MODERN_PNG_FILES[key][1] if modern else PNG_FILES[key][1]
+            validate_png(raw,size)
         else:validate_svg(raw,FILES[key][1])
     return manifest
 
@@ -116,8 +122,11 @@ def import_theme(zip_path: Path, destination: Path, existing: set[str]) -> str:
             raise ValueError("Hiányzó grafika vagy túl nagy csomag.")
         raw={n:archive.read(n) for n in required}
     validate_manifest(manifest)
+    modern=set(manifest["assets"])!=set(FILES)
     for key,filename in manifest["assets"].items():
-        if filename.endswith(".png"):validate_png(raw[filename],PNG_FILES[key][1])
+        if filename.endswith(".png"):
+            size=MODERN_PNG_FILES[key][1] if modern else PNG_FILES[key][1]
+            validate_png(raw[filename],size)
         else:validate_svg(raw[filename],FILES[key][1])
     original=manifest["id"]
     slug=original

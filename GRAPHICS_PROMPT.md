@@ -1,43 +1,65 @@
-# Prompt étlapgrafikák készítéséhez
+# Tematikus étlapgrafikák – AI promptok
 
-A program az étlap dátumához igazítja az alapszíneket. A kívánt hangulat kézzel rajzolt, barátságos éttermi vintage: meleg krémpapír, bordó és ünnep szerint változó kiegészítőszínek, finom tusos vagy festett részletek. A referencia a korszak hangulatát mutatja; ne másold le annak pontos elrendezését, emblémáját, feliratait vagy karaktereit. Hagyj bőséges, tiszta helyet az ételneveknek és áraknak.
+Az ÉtlapStúdió az étlap dátuma alapján automatikusan állítja a színeket és a beépített évszakos hátteret. A saját/importálható témacsomag legfontosabb grafikai eleme egy finom, átlátszó hátterű vonalas elválasztó. A háttérgrafika választható. Az étlap fejlécére, szövegpanelekre vagy kategóriák mögé ne készüljön külön téglalap vagy ecsetvonás.
 
-## Témacsomag prompt
+## 1. prompt – szezonális vonalas elválasztó
 
-Másold be a promptot egy képgeneráló modellnek, és cseréld ki a zárójeles részeket:
-
-```text
-Készíts átlátszó hátterű, raszteres PNG díszítőelemeket egy magyar étterem
-klasszikus, barátságos napi étlapjához. Téma: [ÉVSZAK VAGY ÜNNEP]. Színek:
-meleg krém és pergamen, mély bordó, valamint [SZEZONÁLIS KIEGÉSZÍTŐSZÍN].
-Kézzel rajzolt, elegáns vintage éttermi illusztráció legyen, tiszta és könnyen
-olvasható tipográfiával; az ételneveknek és áraknak maradjon hely.
-
-Készíts külön fájlt mindegyikhez, pontosan az alábbi méretben:
-1. header.png — 1200 × 200 px: egyetlen egyszerű, vízszintes bordó festéksáv
-   áttetsző háttéren. Címsor kerül rá, ezért legyen egyenletes és jól olvasható.
-2. divider.png — 1200 × 200 px: vékony, visszafogott kézzel festett vonás,
-   esetleg két apró növényi vagy konyhai tollrajz a két végén.
-3. corner.png — 290 × 290 px: egy apró, könnyed étel- vagy fűszernövényrajz
-   a lap széléhez, természetes, nyitott kompozícióval.
-
-Az ecsetvonás legyen egyszerű, egy színű és ne túl vastag. Ne használj
-ismétlődő mintát, sakktáblamintás keretet, panelt, feliratot, számot, logót
-vagy vízjelet. Tényleges alfa-átlátszóságot használj; a motívumokon kívüli
-terület legyen átlátszó. Minden fájlt külön PNG-ként adj vissza, a pontos
-kért méretben.
-```
-
-## Külön prompt az éttermi emblémához
+Az alábbi promptban cseréld ki az évszakot és a színeket. A generált `divider.png` közvetlenül betehető az importálható témacsomagba.
 
 ```text
-Készíts friss, barátságos, kézzel rajzolt éttermi emblémát a Megyeháza Étteremnek.
-Kis méretben is felismerhető, önálló séfkarakter vagy konyhai motívum legyen,
-krém, bordó, olívazöld és kevés meleg arany színekkel. Vintage nyomdai rajz
-enyhe akvarellkitöltéssel. Ne másold a referencia emblémáját, ne használj
-szöveget, betűket, vízjelet, keretet, hátteret vagy mockupot. Átlátszó PNG.
+Készíts elegáns, finom LINE-ART jellegű vízszintes elválasztó díszt egy
+barátságos, modern magyar étterem nyomtatott étlapjához. Évszak / alkalom:
+[TAVASZ / NYÁR / ŐSZ / TÉL / HÚSVÉT / KARÁCSONY]. Színpaletta: [ELSŐDLEGES
+SZÍN] és [KIEGÉSZÍTŐ SZÍN].
+
+Kép: pontosan 1800 × 120 px, vízszintes, teljesen átlátszó háttérrel (valódi
+alfa-csatorna). Középen fusson egy vékony, finoman stilizált vonal vagy
+indás szál, amelyhez az évszakot felismerhetővé tevő néhány apró vonalas dísz
+kapcsolódik: például tavasszal levelek vagy apró virág, nyáron növényindák,
+ősszel levél, télen hópehely. Ünnepi téma esetén csak visszafogott, kis
+motívumot használj. A dísz légies, aszimmetrikus és elegáns legyen, a vonalak
+ne legyenek vastagok. A grafika ne foglaljon el nagy felületet, a középső
+terület maradjon könnyű és áttekinthető.
+
+Ne készíts kitöltött téglalapot, színes sávot, ecsetvonást, kártyát, keretet,
+panelt, ismétlődő mintát, hátteret vagy árnyékot. Ne legyen rajta szöveg,
+betű, szám, logó, étel, vízjel vagy mockup. A motívumon kívül minden pixel
+legyen teljesen átlátszó. PNG-ként add vissza, pontosan 1800 × 120 px méretben.
 ```
 
-A fájlokat és a témaszíneket tartalmazó ZIP felépítését a
-[TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md) írja le. Kiinduló csomag:
-[`TEMA_SABLON.zip`](TEMA_SABLON.zip). Az app nem hív automatikusan AI-szolgáltatást.
+## 2. prompt – opcionális, visszafogott teljes oldalas háttér
+
+```text
+Készíts teljes oldalas, függőleges szezonális háttérillusztrációt egy A4-es
+éttermi étlaphoz. Évszak / alkalom: [TÉMA]. Hangulat és színek: [RÖVID
+LEÍRÁS]. Kép: pontosan 1440 × 2037 px.
+
+Kézzel festett, természetes, finoman részletgazdag illusztráció legyen,
+amelynek a szélein és sarkaiban jelennek meg a téma díszítő elemei. A lap
+középső 75 százaléka világos, alacsony kontrasztú és nyugodt maradjon, mert
+itt üveghatású, olvasható szövegpanelek fedik majd. A grafika legyen szép,
+teljes színű, de ne versenyezzen az étlap szövegével.
+
+Az általános téli témához ne tegyél karácsonyfát, díszt vagy ajándékot. Az
+általános tavaszi témához ne tegyél hímes tojást, nyulat vagy húsvéti díszt.
+Az ünnepi változatok ezektől különbözzenek. Ne tegyél a képre szöveget,
+betűt, számot, logót, vízjelet, keretet vagy panelt. PNG-ként add vissza,
+pontosan 1440 × 2037 px méretben.
+```
+
+## 3. Importálható témacsomag
+
+Az új formátum minimálisan egy `divider.png` fájlt és egy `manifest.json`-t kér. Opcionálisan `background.png` is tehető mellé. A pontos méreteket és a minta manifestet a [TEMACSOMAG_FORMATUM.md](TEMACSOMAG_FORMATUM.md) tartalmazza. Kiinduló csomag: [`TEMA_SABLON.zip`](TEMA_SABLON.zip).
+
+Ha a képgeneráló nem tud pontos képméretet vagy valódi átlátszóságot adni, utólag vágd/méretezd át, és ellenőrizd az alfa-csatornát. Az alkalmazás nem hív automatikusan AI-szolgáltatást.
+
+## Logóprompt
+
+```text
+Készíts egyszerű, friss vonalrajzos logót a Megyeháza Étterem számára,
+amelyben felismerhető a miskolci Megyeháza épülete. Használj kevés,
+visszafogott bordó, zöld és krémszínt. A rajz kis méretben is legyen tiszta,
+barátságos és jól olvasható; ne legyen túl díszes. Átlátszó hátterű PNG legyen,
+vízjel, mockup, keret és fölösleges díszítés nélkül. A logón jelenjen meg a
+„Megyeháza Étterem” felirat is.
+```

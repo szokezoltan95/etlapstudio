@@ -131,21 +131,14 @@ def colors(source,target):
 
 def theme_assets(source,target):
     key=setting(source,"theme")
-    season=theme_season(key,target)
     if key=="auto" or setting(source,"auto_theme","1")=="1":
-        return {"header":BASE/"design_assets"/"brushstroke.png",
-                "divider":BASE/"design_assets"/f"{season}_divider.jpg",
-                "background":theme_background_path("auto",target)}
+        return {"background":theme_background_path("auto",target)}
     packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
     if key not in packs:
-        return {"header":BASE/"design_assets"/"brushstroke.png",
-                "divider":BASE/"design_assets"/f"{season}_divider.jpg",
-                "background":theme_background_path(key,target)}
+        return {"background":theme_background_path(key,target)}
     manifest,folder=packs[key]
     assets={name:folder/filename for name,filename in manifest.get("assets",{}).items()
-            if filename.lower().endswith((".png",".jpg",".jpeg")) and (folder/filename).is_file()}
-    assets.setdefault("header",BASE/"design_assets"/"brushstroke.png")
-    assets.setdefault("divider",BASE/"design_assets"/f"{season}_divider.jpg")
+            if name in ("divider","background") and filename.lower().endswith((".png",".jpg",".jpeg")) and (folder/filename).is_file()}
     assets.setdefault("background",theme_background_path(key,target))
     return assets
 
@@ -156,16 +149,6 @@ def draw_theme_asset(p,assets,key,rect,opacity=0.75):
     image=QImage(str(path))
     if image.isNull():return False
     p.save();p.setOpacity(opacity);p.drawImage(rect,image);p.restore();return True
-
-
-_brush_tints={}
-def tinted_brush(color):
-    if color not in _brush_tints:
-        original=QImage(str(BASE/"design_assets"/"brushstroke.png")).convertToFormat(QImage.Format.Format_ARGB32_Premultiplied)
-        if original.isNull():return None
-        p=QPainter(original);p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        p.fillRect(original.rect(),QColor(color));p.end();_brush_tints[color]=original
-    return _brush_tints[color]
 
 
 def guide(source,kind,name,default):
@@ -218,20 +201,10 @@ def glass(p,rect,opacity=216,radius=20):
     p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(255,255,255,opacity));p.drawRoundedRect(rect,radius,radius);p.restore()
 
 
-def brushstroke(p,x,y,w,color,width=20):
-    image=tinted_brush(color)
-    if image is not None:
-        p.save();p.setOpacity(.76);p.drawImage(QRectF(x,y-width*.55,w,width),image);p.restore();return
-    p.save();c=QColor(color);c.setAlpha(60)
-    path=QPainterPath();path.moveTo(x,y)
-    path.cubicTo(x+w*.2,y-width*.35,x+w*.44,y+width*.3,x+w*.63,y-width*.08)
-    path.cubicTo(x+w*.78,y-width*.28,x+w*.9,y+width*.25,x+w,y)
-    pen=QPen(c,width);pen.setCapStyle(Qt.PenCapStyle.RoundCap);pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-    p.setPen(pen);p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(path);p.restore()
-
-
 def divider(p,primary,accent,y,assets=None,target=None):
     """Thin seasonal line-art divider; deliberately avoids filled image blocks."""
+    path=assets.get("divider") if assets else None
+    if path and Path(path).suffix.lower()==".png" and draw_theme_asset(p,assets,"divider",QRectF(120,y-40,W-240,80),.95):return
     month=target.month if target else 1
     season="winter" if month in (12,1,2) else "spring" if month in (3,4,5) else "summer" if month in (6,7,8) else "autumn"
     p.save();line=QColor(accent);line.setAlpha(145);orn=QColor(primary);orn.setAlpha(185)

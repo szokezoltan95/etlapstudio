@@ -10,7 +10,13 @@ from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
 from themes import HEX, load_themes
 from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, monday, price
 
-W,H=1440,1800
+W=1440
+H=round(W*297/210)
+A4_WIDTH_PT=595.27559055
+COORD_UNITS_PER_POINT=W/A4_WIDTH_PT
+EXPORT_DPI=300
+EXPORT_WIDTH=round(210/25.4*EXPORT_DPI)
+EXPORT_HEIGHT=round(297/25.4*EXPORT_DPI)
 BASE=Path(__file__).resolve().parent
 
 
@@ -19,8 +25,12 @@ def setting(source,key,default=""):
 
 
 def style_size(source,role,default):
-    try:return max(6,min(100,int(setting(source,"font_size_"+role,str(default)))))
-    except (TypeError,ValueError):return default
+    try:
+        stored=setting(source,"font_size_"+role)
+        value=float(stored) if stored else float(default)
+        if stored and setting(source,"font_size_unit","px")!="pt":value*=A4_WIDTH_PT/W
+        return max(4.0,min(48.0,value))*COORD_UNITS_PER_POINT
+    except (TypeError,ValueError):return default*COORD_UNITS_PER_POINT
 
 
 def asset_file(name):
@@ -237,18 +247,18 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
     address=setting(source,"address");phone=setting(source,"phone")
     title="Napi étlap" if kind=="daily" else "Heti étlap"
-    text(p,source,"header_title",style_size(source,"header_title",47),dark,72,42,640,56,title,True)
+    text(p,source,"header_title",style_size(source,"header_title",19.5),dark,72,42,640,56,title,True)
     stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
-    text(p,source,"header_date",style_size(source,"header_date",25),dark,74,101,650,32,stamp)
+    text(p,source,"header_date",style_size(source,"header_date",10.5),dark,74,101,650,32,stamp)
     contact=" · ".join(part for part in (address,phone) if part.strip())
     if kind=="weekly":
         try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
         except (TypeError,ValueError):menu_price=2800
-        text(p,source,"menu_price_label",style_size(source,"menu_price_label",18),primary,74,135,650,24,"Napi menü ára: "+price(menu_price),True)
+        text(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,74,135,650,24,"Napi menü ára: "+price(menu_price),True)
         contact_y=164
     else:
         contact_y=145
-    contact_size=style_size(source,"header_contact",26)
+    contact_size=style_size(source,"header_contact",11)
     contact_width=QFontMetricsF(font(source,"header_contact",contact_size)).horizontalAdvance(contact)
     if contact_width>700:contact_size=max(6,int(contact_size*700/contact_width))
     text_singleline(p,source,"header_contact",contact_size,dark,74,contact_y,700,36,contact)
@@ -283,7 +293,7 @@ def draw_menu(p,source,kind,target):
     note=setting(source,"note").strip()
     if note:
         if glass_enabled:glass(p,QRectF(40,1710,W-80,58),205,8)
-        text(p,source,"footer_note",style_size(source,"footer_note",17),dark,60,1720,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
+        text(p,source,"footer_note",style_size(source,"footer_note",7),dark,60,1720,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
 
 
@@ -292,10 +302,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     menu_shift=header_shift
     menu_y=220+menu_shift
     if glass_enabled:glass(p,QRectF(40,menu_y,W-80,205),224,8)
-    text(p,source,"daily_title",style_size(source,"daily_title",25),primary,72,menu_y+9,W-144,34,"Napi menü",True)
+    text(p,source,"daily_title",style_size(source,"daily_title",10.5),primary,72,menu_y+9,W-144,34,"Napi menü",True)
     fields=[("Leves",soup or "—"),("A menü",a or "—"),("B menü",b or "—")]
-    label_size=style_size(source,"daily_label",31)
-    value_size=style_size(source,"daily_value",31)
+    label_size=style_size(source,"daily_label",13)
+    value_size=style_size(source,"daily_value",13)
     label_size=min(label_size,max(6,int(label_size*150/max(1,max(QFontMetricsF(font(source,"daily_label",label_size)).horizontalAdvance(label) for label,_ in fields)))))
     value_size=min(value_size,max(6,int(value_size*760/max(1,max(QFontMetricsF(font(source,"daily_value",value_size)).horizontalAdvance(value) for _,value in fields)))))
     y=menu_y+53
@@ -306,14 +316,14 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         y+=height
     try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
     except (TypeError,ValueError):menu_price=2800
-    text(p,source,"menu_price_label",style_size(source,"menu_price_label",17),primary,1110,menu_y+59,230,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter)
-    text(p,source,"menu_price_value",style_size(source,"menu_price_value",36),dark,1110,menu_y+90,230,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter)
+    text(p,source,"menu_price_label",style_size(source,"menu_price_label",7),primary,1110,menu_y+59,230,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter)
+    text(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1110,menu_y+90,230,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter)
     alacarte_shift=header_shift+menu_gap_shift
     if decorated:divider(p,primary,accent,460+alacarte_shift,assets)
     dishes=[dict(d) for d in source.selection(target)]
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),210,8)
-        text(p,source,"dish_name",style_size(source,"dish_name",27),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
+        text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
         return
     p.save();p.translate(0,alacarte_shift)
     max_y=1690;top=478
@@ -328,7 +338,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
                 promo=bool(d.get("promo_enabled") and d.get("promo_price") is not None)
                 row_h=max(line_h*len(lines)+size*.18,size*1.25)
-                category_h=max(size*2.4,style_size(source,"category_title",size*1.14)*1.8)
+                category_h=max(size*2.4,style_size(source,"category_title",14)*1.8)
                 heading_h=category_h if index==0 else 0
                 if y+heading_h+row_h>max_y:
                     col+=1;y=top
@@ -338,9 +348,9 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 if heading_h:result.append(("heading",col,y,category,size));y+=heading_h
                 result.append(("dish",col,y,d,size,row_h));y+=row_h
         return result
-    chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",30))
+    chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
     if plan(8.0,2) is None:
-        chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",30))
+        chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",12.5))
     for _ in range(24):
         mid=(lo+hi)/2
         if plan(mid,chosen_columns) is None:hi=mid
@@ -354,7 +364,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     for item in placements:
         item_kind,col,y,value,size,*rest=item;x=col_x[col]
         if item_kind=="heading":
-            category_size=style_size(source,"category_title",size*1.14)
+            category_size=style_size(source,"category_title",14)
             heading_font=font(source,"category_title",category_size,True)
             heading_w=min(column_width-24,QFontMetricsF(heading_font).horizontalAdvance(value)+24)
             heading_h=max(size*2.4,category_size*1.8)
@@ -397,7 +407,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             p.save();p.setPen(QPen(QColor("#777777"),max(.7,size*.035)));p.drawLine(round(old_x),round(price_y+line_h*.53),round(old_x+old_w),round(price_y+line_h*.53));p.restore()
             text_singleline(p,source,"promo_new_price",new_size,"#9E3F3A",old_x+old_w+gap_px,price_y,new_w,line_h,new,True,Qt.AlignmentFlag.AlignRight)
         else:
-            price_size=min(size,style_size(source,"dish_price",30))
+            price_size=min(size,style_size(source,"dish_price",12.5))
             price_text=price(dish["price"])
             price_width_px=QFontMetricsF(font(source,"dish_price",price_size)).horizontalAdvance(price_text)
             if price_width_px>price_width:price_size=max(6,int(price_size*price_width/price_width_px))
@@ -413,14 +423,14 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
         y=220+i*282
         if glass_enabled:glass(p,QRectF(40,y-8,W-80,250),195,6)
         if i<4:divider(p,primary,accent,y+264,assets)
-        weekday_size=style_size(source,"weekday_title",32)
+        weekday_size=style_size(source,"weekday_title",13)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
         p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+9,heading_width,48),5,5);p.restore()
         heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
         text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,43,label,True,Qt.AlignmentFlag.AlignVCenter)
         values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
-        label_size=style_size(source,"weekly_label",25)
-        value_size=style_size(source,"weekly_value",31)
+        label_size=style_size(source,"weekly_label",10.5)
+        value_size=style_size(source,"weekly_value",13)
         yy=y+67
         for field,value in values:
             height=max(48,measure(value or "—",source,"weekly_value",value_size,1040)+4,
@@ -431,8 +441,9 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     p.restore()
 
 
-def render_image(source,kind,target,width=W,height=H):
+def render_image(source,kind,target,width=EXPORT_WIDTH,height=EXPORT_HEIGHT):
     image=QImage(width,height,QImage.Format.Format_RGB32);image.fill(Qt.GlobalColor.white)
+    image.setDotsPerMeterX(round(EXPORT_DPI/0.0254));image.setDotsPerMeterY(round(EXPORT_DPI/0.0254))
     p=QPainter(image);p.scale(width/W,height/H);draw_menu(p,source,kind,target);p.end();return image
 
 
@@ -445,6 +456,6 @@ def export_pdf(path,source,kind,target):
     writer=QPdfWriter(str(path))
     writer.setPageLayout(QPageLayout(QPageSize(QPageSize.PageSizeId.A4),QPageLayout.Orientation.Portrait,
                                     QMarginsF(0,0,0,0),QPageLayout.Unit.Millimeter))
-    writer.setResolution(300);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü")+" – "+display_date(target))
+    writer.setResolution(EXPORT_DPI);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü")+" – "+display_date(target))
     p=QPainter(writer);area=writer.pageLayout().paintRectPixels(writer.resolution())
     p.translate(area.x(),area.y());p.scale(area.width()/W,area.height()/H);draw_menu(p,source,kind,target);p.end()

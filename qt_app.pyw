@@ -455,7 +455,7 @@ class MainWindow(QMainWindow):
             try:saved_size=float(saved_size) if saved_size else None
             except ValueError:saved_size=default_size
             if saved_size is None:saved_size=default_size
-            elif self.store.setting("font_size_unit","px")!="pt":saved_size*=A4_WIDTH_PT/W
+            elif self.store.setting("font_size_unit","px")!="pt_a4_300":saved_size*=A4_WIDTH_PT/W
             size.setValue(saved_size)
             size.setToolTip("Betűméret nyomdai pontban. Az à la carte ételnevek a megadott maximális méretnél automatikusan kisebbre zsugorodnak, ha a hely vagy az egyoldalas elrendezés megkívánja.")
             size.valueChanged.connect(self.save_appearance)
@@ -624,7 +624,7 @@ class MainWindow(QMainWindow):
                 "decorations":"1" if self.decorations.isChecked() else "0",
                 "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
                 "daily_menu_price":self.daily_menu_price.text().strip() or "0",
-                "font_size_unit":"pt"}
+                "font_size_unit":"pt_a4_300"}
         if hasattr(self,"text_style_widgets"):
             for key,(combo,size) in self.text_style_widgets.items():
                 values["font_"+key]=combo.currentFont().family()
@@ -635,7 +635,7 @@ class MainWindow(QMainWindow):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
-                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt",
+                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4_300",
                   "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
                   "guide_layout_version":"3"}
         for key,_,family,size,_legacy in TEXT_STYLES:

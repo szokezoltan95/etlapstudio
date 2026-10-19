@@ -37,6 +37,25 @@ def measure(value,source,role,size,width,bold=False):
     return max(metrics.height(),rect.height())
 
 
+def wrapped_lines(value,source,role,size,width,bold=False):
+    """Word-wrap explicitly so the price can align with the dish's final line."""
+    metrics=QFontMetricsF(font(source,role,size,bold));lines=[]
+    for paragraph in str(value).splitlines() or [""]:
+        words=paragraph.split();line=""
+        for word in words:
+            candidate=(line+" "+word).strip()
+            if line and metrics.horizontalAdvance(candidate)>width:
+                lines.append(line);line=word
+            else:line=candidate
+        lines.append(line)
+    return lines
+
+
+def text_singleline(p,source,role,size,color,x,y,w,h,value,bold=False,align=Qt.AlignmentFlag.AlignLeft):
+    p.setFont(font(source,role,size,bold));p.setPen(QColor(color))
+    p.drawText(QRectF(x,y,w,h),align|Qt.AlignmentFlag.AlignVCenter,str(value))
+
+
 def _easter_sunday(year):
     a=year%19;b=year//100;c=year%100;d=b//4;e=b%4;f=(b+8)//25;g=(b-f+1)//3
     h=(19*a+b-d-g+15)%30;i=c//4;k=c%4;l=(32+2*e+2*i-h-k)%7;m=(a+11*h+22*l)//451
@@ -75,15 +94,24 @@ def colors(source,target):
 
 
 def theme_assets(source,target):
-    if setting(source,"auto_theme","1")=="1":
-        return {"header":BASE/"design_assets"/"brushstroke.png",
-                "divider":BASE/"design_assets"/"brushstroke.png"}
     key=setting(source,"theme")
+    season=theme_season(key,target)
+    if key=="auto" or setting(source,"auto_theme","1")=="1":
+        return {"header":BASE/"design_assets"/"brushstroke.png",
+                "divider":BASE/"design_assets"/f"{season}_divider.jpg",
+                "background":BASE/"design_assets"/f"{season}_background.jpg"}
     packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
-    if key not in packs:return {}
+    if key not in packs:
+        return {"header":BASE/"design_assets"/"brushstroke.png",
+                "divider":BASE/"design_assets"/f"{season}_divider.jpg",
+                "background":BASE/"design_assets"/f"{season}_background.jpg"}
     manifest,folder=packs[key]
-    return {name:folder/filename for name,filename in manifest.get("assets",{}).items()
-            if filename.endswith(".png") and (folder/filename).is_file()}
+    assets={name:folder/filename for name,filename in manifest.get("assets",{}).items()
+            if filename.lower().endswith((".png",".jpg",".jpeg")) and (folder/filename).is_file()}
+    assets.setdefault("header",BASE/"design_assets"/"brushstroke.png")
+    assets.setdefault("divider",BASE/"design_assets"/f"{season}_divider.jpg")
+    assets.setdefault("background",BASE/"design_assets"/f"{season}_background.jpg")
+    return assets
 
 
 def draw_theme_asset(p,assets,key,rect,opacity=0.75):
@@ -118,6 +146,14 @@ def season_key(target):
     return "spring"
 
 
+def theme_season(key,target):
+    key=(key or "").casefold()
+    for tokens,season in ((('christmas','winter'),'winter'),(('autumn','fall'),'autumn'),
+                          (('summer',),'summer'),(('spring','easter'),'spring')):
+        if any(token in key for token in tokens):return season
+    return season_key(target)
+
+
 def seasonal_art(target,kind):
     path=BASE/"design_assets"/f"{season_key(target)}_{kind}.jpg"
     if path.is_file():
@@ -148,97 +184,101 @@ def divider(p,primary,accent,y,assets=None):
 
 
 def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets):
-    if glass_enabled:glass(p,QRectF(130,68,1180,365),225,22)
-    if decorated:
+    if glass_enabled:glass(p,QRectF(80,38,1280,290),222,22)
+    if decorated and kind!="daily":
         path=assets.get("header") if assets else None
         if path and Path(path).name!="brushstroke.png":
-            draw_theme_asset(p,assets,"header",QRectF(120,218,1200,200),.74)
+            draw_theme_asset(p,assets,"header",QRectF(420,185,600,42),.66)
         else:
-            brushstroke(p,230,339,980,accent,250)
-    else:
-        p.setPen(QPen(QColor(accent),1.2));p.drawLine(180,270,1260,270)
+            brushstroke(p,470,209,500,accent,38)
     logo=BASE/"design_assets"/"megyehaza_logo.png"
     if logo.is_file():
         image=QImage(str(logo))
-        if not image.isNull():p.drawImage(QRectF(140,78,130,130),image)
-    text(p,source,"restaurant",37,dark,275,105,W-550,68,
+        if not image.isNull():p.drawImage(QRectF(115,54,92,92),image)
+    text(p,source,"restaurant",34,dark,220,57,W-440,55,
          setting(source,"restaurant","Megyeháza Étterem") or "Megyeháza Étterem",True,Qt.AlignmentFlag.AlignHCenter)
     address=setting(source,"address");phone=setting(source,"phone")
-    text(p,source,"special",21,dark,120,176,W-240,34,
+    text(p,source,"special",19,dark,120,120,W-240,31,
          address+("  •  " if address and phone else "")+phone,align=Qt.AlignmentFlag.AlignHCenter)
     title="Napi étlap" if kind=="daily" else "Heti menü"
-    text(p,source,"title",60,paper if decorated else dark,120,296,W-240,86,title,True,Qt.AlignmentFlag.AlignHCenter)
+    text(p,source,"title",45,dark,120,172,W-240,60,title,True,Qt.AlignmentFlag.AlignHCenter)
     stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
-    text(p,source,"special",27,dark,120,390,W-240,43,stamp,align=Qt.AlignmentFlag.AlignHCenter)
+    text(p,source,"special",23,dark,120,238,W-240,36,stamp,align=Qt.AlignmentFlag.AlignHCenter)
 
 
 def draw_menu(p,source,kind,target):
     p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
     primary,accent,paper=colors(source,target);dark="#2D342E"
+    assets=theme_assets(source,target)
     p.fillRect(QRectF(0,0,W,H),QColor(paper))
-    background=seasonal_art(target,"background")
-    if setting(source,"background_enabled","1")=="1" and background is not None:
+    background_path=assets.get("background") if assets else None
+    background=QImage(str(background_path)) if background_path else seasonal_art(target,"background")
+    if background is not None and background.isNull():background=seasonal_art(target,"background")
+    if background is not None:
         p.save();p.setOpacity(.48);p.drawImage(QRectF(0,0,W,H),background);p.restore()
         p.fillRect(QRectF(0,0,W,H),QColor(QColor(paper).red(),QColor(paper).green(),QColor(paper).blue(),143))
     glass_enabled=setting(source,"glass_panels","1")=="1"
     decorated=setting(source,"decorations","1")=="1"
-    assets=theme_assets(source,target)
-    header_y=guide(source,kind,"header",430)
-    p.save();p.translate(0,header_y-430)
+    header_default=340 if kind=="daily" else 360
+    header_y=guide(source,kind,"header",header_default)
+    p.save();p.translate(0,header_y-header_default)
     draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets)
     p.restore()
     if kind=="daily":
-        menu_end=guide(source,kind,"menu_end",710)
+        menu_end=guide(source,kind,"menu_end",570)
         draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
-                   header_y-430,menu_end-710)
+                   header_y-header_default,menu_end-570)
     else:
-        days_y=guide(source,kind,"days",520)
-        draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,days_y-520)
+        days_y=guide(source,kind,"days",420)
+        draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,days_y-420)
     note=setting(source,"note").strip()
-    if note:text(p,source,"special",17,dark,120,1733,W-240,40,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
+    if note:
+        if glass_enabled:glass(p,QRectF(80,1710,W-160,58),205,16)
+        text(p,source,"special",17,dark,100,1720,W-200,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
 
 
 def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,header_shift=0,menu_gap_shift=0):
     soup,a,b=source.week_entry(target)
     menu_shift=header_shift
-    menu_y=475+menu_shift
-    if glass_enabled:glass(p,QRectF(120,menu_y,W-240,235),224,22)
-    elif decorated:brushstroke(p,150,530+menu_shift,1090,primary,24)
-    text(p,source,"heading",27,primary,152,497+menu_shift,W-300,45,"Mai menü",True)
+    menu_y=375+menu_shift
+    if glass_enabled:glass(p,QRectF(80,menu_y,W-160,225),224,22)
+    text(p,source,"heading",24,primary,112,menu_y+15,W-224,38,"Mai menü",True)
     fields=[("Leves",soup or "—"),("A menü",a or "—"),("B menü",b or "—")]
     special_size=24
     for candidate in range(24,7,-1):
-        total=sum(max(35,measure(value,source,"special",candidate,835)+5) for _,value in fields)
-        if total<=156:special_size=candidate;break
-    y=548+menu_shift
+        total=sum(max(32,measure(value,source,"special",candidate,1030)+3) for _,value in fields)
+        if total<=155:special_size=candidate;break
+    y=menu_y+58
     for label,value in fields:
-        height=max(35,measure(value,source,"special",special_size,835)+5)
-        text(p,source,"heading",special_size,primary,152,y,180,height,label,True)
-        text(p,source,"special",special_size,dark,360,y,870,height,value);y+=height
+        height=max(31,measure(value,source,"special",special_size,1030)+3)
+        text(p,source,"heading",special_size,primary,112,y,170,height,label,True)
+        text(p,source,"special",special_size,dark,300,y,1020,height,value);y+=height
     alacarte_shift=header_shift+menu_gap_shift
-    if decorated:divider(p,primary,accent,775+alacarte_shift,assets)
+    if decorated:divider(p,primary,accent,625+alacarte_shift,assets)
     dishes=[dict(d) for d in source.selection(target)]
     if not dishes:
-        text(p,source,"dish",27,dark,170,844+alacarte_shift,W-340,100,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
+        if glass_enabled:glass(p,QRectF(80,670+alacarte_shift,W-160,85),210,18)
+        text(p,source,"dish",27,dark,100,690+alacarte_shift,W-200,50,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
         return
     p.save();p.translate(0,alacarte_shift)
-    max_y=1690+alacarte_shift;top=813+alacarte_shift
+    max_y=1690+alacarte_shift;top=660+alacarte_shift
     def plan(size,columns):
-        column_width=1140/columns;col_x=[120+column*(column_width+20) for column in range(columns)]
-        name_width=column_width-155
+        column_width=1280/columns;col_x=[80+column*(column_width+20) for column in range(columns)]
+        name_width=column_width-(180 if columns==2 else 165)
         result=[];col=0;y=top
         for category in CATEGORIES:
             rows=[d for d in dishes if d["category"]==category]
             for index,d in enumerate(rows):
-                name_h=measure(d["name"],source,"dish",size,name_width)
+                lines=wrapped_lines(d["name"],source,"dish",size,name_width-(52 if d.get("promo_enabled") and d.get("promo_price") is not None else 0))
+                line_h=QFontMetricsF(font(source,"dish",size)).height()*1.05
                 promo=bool(d.get("promo_enabled") and d.get("promo_price") is not None)
-                row_h=max(name_h+size*.24,size*(2.25 if promo else 1.35))
-                heading_h=size*1.9 if index==0 else 0
+                row_h=max(line_h*len(lines)+size*.18,size*1.25)
+                heading_h=size*2.0 if index==0 else 0
                 if y+heading_h+row_h>max_y:
                     col+=1;y=top
                     if col>=columns:return None
-                    heading_h=size*1.9
+                    heading_h=size*2.0
                 if y+heading_h+row_h>max_y:return None
                 if heading_h:result.append(("heading",col,y,category,size));y+=heading_h
                 result.append(("dish",col,y,d,size,row_h));y+=row_h
@@ -253,29 +293,46 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     placements=plan(lo,chosen_columns) or plan(5.0,chosen_columns)
     if placements is None:raise ValueError("Túl sok étel az egyképes napi étlaphoz.")
     mode=setting(source,"leader","none")
-    column_width=1140/chosen_columns
-    col_x=[120+column*(column_width+20) for column in range(chosen_columns)]
-    name_width=column_width-155
+    column_width=1280/chosen_columns
+    col_x=[80+column*(column_width+20) for column in range(chosen_columns)]
+    name_width=column_width-(180 if chosen_columns==2 else 165)
     for item in placements:
         item_kind,col,y,value,size,*rest=item;x=col_x[col]
         if item_kind=="heading":
-            if decorated:brushstroke(p,x,y+size*.86,column_width-20,accent,size*1.35)
+            heading_font=font(source,"heading",size*1.14,True)
+            heading_w=min(column_width-24,QFontMetricsF(heading_font).horizontalAdvance(value)+30)
+            if decorated:
+                asset=assets.get("header") if assets else None
+                if asset and Path(asset).name!="brushstroke.png":draw_theme_asset(p,assets,"header",QRectF(x,y+size*.28,heading_w,size*1.35),.68)
+                else:brushstroke(p,x+3,y+size*.92,heading_w,accent,max(18,size*1.05))
+            if glass_enabled:glass(p,QRectF(x,y-2,heading_w,size*1.7),185,10)
             text(p,source,"heading",size*1.14,primary,x,y,column_width,size*1.8,value,True);continue
         dish=value;row_h=rest[0];promo=bool(dish.get("promo_enabled") and dish.get("promo_price") is not None)
-        text(p,source,"dish",size,dark,x,y,name_width,row_h,dish["name"])
-        price_x=x+name_width+5;price_width=column_width-name_width-5
+        price_width=column_width-name_width-10;price_x=x+name_width+10
+        label_width=name_width-(52 if promo else 0)
+        lines=wrapped_lines(dish["name"],source,"dish",size,label_width)
+        metrics=QFontMetricsF(font(source,"dish",size));line_h=metrics.height()*1.05
+        if glass_enabled:glass(p,QRectF(x-4,y-2,column_width-18,max(row_h,size*1.4)),170,8)
+        for li,line in enumerate(lines):
+            yy=y+li*line_h
+            text_singleline(p,source,"dish",size,dark,x,yy,label_width,line_h,line)
+        if promo:
+            badge_x=x+name_width-47;badge_y=y+(len(lines)-1)*line_h
+            badge=QRectF(badge_x,badge_y+line_h*.12,46,line_h*.72)
+            p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor("#a9433b"));p.drawRoundedRect(badge,6,6);p.restore()
+            text_singleline(p,source,"dish",max(8,size*.52),"#ffffff",badge_x+2,badge_y+line_h*.12,42,line_h*.72,"AKCIÓ",True,Qt.AlignmentFlag.AlignHCenter)
+        price_y=y+(len(lines)-1)*line_h
         if mode!="none":
             pen=QPen(QColor(accent));pen.setWidthF(.8)
             if mode=="dots":pen.setStyle(Qt.PenStyle.DotLine)
             elif mode=="dashes":pen.setStyle(Qt.PenStyle.DashLine)
-            p.setPen(pen);p.drawLine(round(price_x-8),round(y+size*.83),round(price_x),round(y+size*.83))
+            p.setPen(pen);p.drawLine(round(price_x-8),round(price_y+line_h*.55),round(price_x),round(price_y+line_h*.55))
         if promo:
-            old=price(dish["price"]);new=price(dish["promo_price"])
-            text(p,source,"dish",size*.67,"#687269",price_x,y,price_width,size*1.08,old,align=Qt.AlignmentFlag.AlignRight)
-            fm=QFontMetricsF(font(source,"dish",size*.79));old_w=fm.horizontalAdvance(old)
-            p.setPen(QPen(QColor("#687269"),1.2));p.drawLine(round(x+column_width-old_w),round(y+size*.59),round(x+column_width),round(y+size*.59))
-            text(p,source,"dish",size*.62,"#9E3F3A",price_x,y+size*.95,price_width,size*1.3,"AKCIÓ · "+new,True,Qt.AlignmentFlag.AlignRight)
-        else:text(p,source,"dish",size*.82,dark,price_x,y,price_width,row_h,price(dish["price"]),align=Qt.AlignmentFlag.AlignRight)
+            old=price(dish["price"]);new=price(dish["promo_price"]);price_label=old+" → "+new
+            price_font=max(7,min(size*.69,price_width*.088))
+            text_singleline(p,source,"dish",price_font,"#9E3F3A",price_x,price_y,price_width,line_h,price_label,True,Qt.AlignmentFlag.AlignRight)
+        else:
+            text_singleline(p,source,"dish",min(size*.82,price_width*.105),dark,price_x,price_y,price_width,line_h,price(dish["price"]),False,Qt.AlignmentFlag.AlignRight)
     p.restore()
 
 
@@ -285,7 +342,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=548+i*222
-        if glass_enabled:glass(p,QRectF(132,y-10,W-264,196),195,16)
+        if glass_enabled:glass(p,QRectF(80,y-10,W-160,196),195,16)
         if decorated:brushstroke(p,150,y+29,225,accent,19)
         if i<4:divider(p,primary,accent,y+201,assets)
         text(p,source,"heading",31,primary,155,y,235,52,label,True)

@@ -6,7 +6,7 @@ import textwrap
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt
-from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
@@ -207,27 +207,63 @@ class MainWindow(QMainWindow):
         self.schedule_preview()
         self.setStyleSheet('''
             QMainWindow { background:#efe8dc; }
-            QWidget { color:#362f2b; font-size:13px; }
-            QSplitter::handle { background:#d9cabb; width:5px; }
+            QWidget { background-color:#f8f3eb; color:#362f2b; font-size:13px; }
+            QMainWindow,QWidget#previewPanel { background-color:#efe8dc; color:#362f2b; }
+            QFrame { background-color:#f8f3eb; color:#362f2b; }
+            QSplitter { background-color:#efe8dc; }
+            QSplitter::handle { background:#d2c2b2; width:5px; }
             QTabWidget::pane { border:0; border-radius:16px; background:#fffaf2; }
-            QTabBar::tab { padding:11px 18px; margin-right:4px; background:#e8d8c3; color:#655046; border-radius:11px 11px 0 0; font-weight:600; }
-            QTabBar::tab:selected { background:#fffaf2; color:#9d463b; }
-            QPushButton { padding:9px 13px; background:#d8e5d7; color:#344b3a; border:0; border-radius:10px; font-weight:600; }
-            QPushButton:hover { background:#bed2c0; }
-            QPushButton:pressed { background:#91ad96; }
+            QTabBar { background:#efe8dc; }
+            QTabBar::tab { padding:11px 18px; margin-right:4px; background:#e6d8c8; color:#604c42; border-radius:11px 11px 0 0; font-weight:600; }
+            QTabBar::tab:selected { background:#fffaf2; color:#963f36; }
+            QTabBar::tab:hover { background:#f1e4d6; color:#793c32; }
+            QPushButton { padding:9px 13px; background:#d9e5d8; color:#344b3a; border:0; border-radius:10px; font-weight:600; }
+            QPushButton:hover { background:#c2d5c1; color:#263e2e; }
+            QPushButton:pressed { background:#a8c1a9; color:#203b2a; }
+            QPushButton:disabled { background:#e8e1d8; color:#999087; }
             QPushButton[role="category"] { padding:4px 6px; min-height:25px; background:#f0e3d1; color:#66503f; font-size:12px; font-weight:650; border:0; border-radius:8px; }
-            QPushButton[role="category"][active="true"] { background:#b85a4a; color:white; }
-            QPushButton[role="food"] { padding:10px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
-            QPushButton[role="food"][selected="true"] { background:#e2ecdc; border:1px solid #86a184; }
-            QLineEdit,QComboBox,QDateEdit,QFontComboBox { background:#fffdf9; padding:8px; border:1px solid #dacbbb; border-radius:9px; selection-background-color:#bc6957; }
-            QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { border:2px solid #bf715b; }
-            QCheckBox { spacing:8px; color:#50453e; }
-            QTreeWidget,QListWidget { background:#fffcf7; alternate-background-color:#f6eee2; border:1px solid #ddcbb7; border-radius:11px; }
-            QDockWidget::title { background:#b35d4b; padding:10px; color:white; font-weight:bold; }
+            QPushButton[role="category"][active="true"] { background:#b85a4a; color:#ffffff; }
+            QPushButton[role="food"] { padding:8px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
+            QPushButton[role="food"][selected="true"] { background:#deeadb; color:#263e2e; border:1px solid #7f9c7c; }
+            QPushButton[role="foodEdit"] { padding:6px 5px; min-width:54px; background:#f0e5d9; color:#6c4436; border:1px solid #dfcbbb; border-radius:9px; }
+            QPushButton[role="foodEdit"]:hover { background:#e7d2c0; color:#55382d; }
+            QLineEdit,QComboBox,QDateEdit,QFontComboBox { background:#fffdf9; color:#362f2b; padding:8px; border:1px solid #dacbbb; border-radius:9px; selection-background-color:#bc6957; selection-color:#ffffff; }
+            QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { background:#ffffff; border:2px solid #bf715b; color:#2e2824; }
+            QLineEdit:disabled,QComboBox:disabled,QDateEdit:disabled,QFontComboBox:disabled { background:#ece5dc; color:#898076; }
+            QComboBox::drop-down,QDateEdit::drop-down { background:#eadfd2; border:0; border-top-right-radius:8px; border-bottom-right-radius:8px; width:26px; }
+            QComboBox QAbstractItemView { background:#fffdf9; color:#362f2b; selection-background-color:#b85a4a; selection-color:#ffffff; border:1px solid #d7c4b2; outline:0; }
+            QCheckBox { spacing:8px; color:#50453e; background:transparent; }
+            QCheckBox::indicator { width:19px; height:19px; background:#fffdf9; border:1px solid #b8a896; border-radius:5px; }
+            QCheckBox::indicator:hover { background:#f2e8dc; border-color:#a35545; }
+            QCheckBox::indicator:checked { background:#a94e41; border:1px solid #87392f; }
+            QTreeWidget,QListWidget { background:#fffcf7; color:#362f2b; alternate-background-color:#f3eadf; border:1px solid #ddcbb7; border-radius:11px; selection-background-color:#ead8c8; selection-color:#392d27; }
+            QTreeWidget::item,QListWidget::item { background:transparent; color:#362f2b; padding:5px; }
+            QTreeWidget::item:hover,QListWidget::item:hover { background:#f3e6d9; color:#362f2b; }
+            QDockWidget { background:#f8f3eb; color:#362f2b; }
+            QDockWidget::title { background:#a64d40; padding:10px; color:#ffffff; font-weight:bold; }
             QLabel#appTitle { color:#874739; font-size:20px; font-weight:bold; padding:4px; }
             QLabel#previewTitle { color:#864637; font-size:18px; font-weight:bold; }
             QLabel#dailySpecial { background:#e2ecdc; border-radius:12px; color:#42583f; padding:12px; }
-            QScrollArea { border:0; background:transparent; }
+            QLabel { background:transparent; color:#362f2b; }
+            QScrollArea { border:0; background:#f8f3eb; }
+            QScrollBar:vertical { background:#eee5da; width:14px; margin:2px; border-radius:6px; }
+            QScrollBar::handle:vertical { background:#c5b09b; min-height:28px; border-radius:6px; }
+            QScrollBar::handle:vertical:hover { background:#a98e76; }
+            QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical { height:0; background:transparent; }
+            QScrollBar:horizontal { background:#eee5da; height:14px; margin:2px; border-radius:6px; }
+            QScrollBar::handle:horizontal { background:#c5b09b; min-width:28px; border-radius:6px; }
+            QScrollBar::add-line:horizontal,QScrollBar::sub-line:horizontal { width:0; background:transparent; }
+            QToolTip { background:#382f2a; color:#fffaf2; border:1px solid #6c5a4f; padding:5px 7px; border-radius:5px; }
+            QMenuBar { background:#e6d8c8; color:#43372f; }
+            QMenuBar::item { background:transparent; color:#43372f; padding:7px 10px; }
+            QMenuBar::item:selected { background:#b85a4a; color:#ffffff; }
+            QMenu { background:#fffaf2; color:#362f2b; border:1px solid #d8c7b6; }
+            QMenu::item { background:transparent; color:#362f2b; padding:6px 28px 6px 18px; }
+            QMenu::item:selected { background:#ead8c8; color:#362f2b; }
+            QDialog,QMessageBox { background:#f8f3eb; color:#362f2b; }
+            QCalendarWidget QWidget { background:#fffaf2; color:#362f2b; }
+            QCalendarWidget QToolButton { background:#a64d40; color:#ffffff; }
+            QCalendarWidget QAbstractItemView { background:#fffdf9; color:#362f2b; selection-background-color:#b85a4a; selection-color:#ffffff; }
             QStatusBar { background:#ddcbb7; color:#4e443d; }
         ''')
 
@@ -236,7 +272,7 @@ class MainWindow(QMainWindow):
         heading=QLabel(title);heading.setWordWrap(True);layout.addWidget(heading);return outer,layout
 
     def build_daily(self):
-        page,box=self.pane("Napi étlap · kattints egy ételre a felvételhez vagy módosításhoz")
+        page,box=self.pane("Napi étlap · az étel gombja hozzáad vagy levesz, a Szerk. gombbal az ár és az akció módosítható")
         self.tabs.addTab(page,"Napi")
         row=QHBoxLayout();self.day=QDateEdit(qdate(date.today()));self.day.setCalendarPopup(True)
         self.day.setDisplayFormat("yyyy.MM.dd.");self.day.dateChanged.connect(self.daily_date_changed)
@@ -295,19 +331,39 @@ class MainWindow(QMainWindow):
             cols=max(1,min(3,self.food_scroll.viewport().width()//235))
             chars=max(15,int((self.food_scroll.viewport().width()/cols-40)/8))
             name="\n".join(textwrap.wrap(dish["name"],width=chars,break_long_words=True,break_on_hyphens=False))
-            label=("✓  " if is_selected else "")+name+"\n"+dish["category"]+"  ·  "+price(dish["price"])
-            b=button(label,lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
+            promo=bool(dish["promo_enabled"] and dish["promo_price"] is not None)
+            label=("✓  " if is_selected else "+  ")+name+"\n"+price(dish["price"])+("  ·  AKCIÓ "+price(dish["promo_price"]) if promo else "")
+            card=QWidget();card.setStyleSheet("background:transparent")
+            cardbox=QHBoxLayout(card);cardbox.setContentsMargins(0,0,0,0);cardbox.setSpacing(5)
+            b=button(label,lambda checked=False,dish_id=dish["id"]:self.toggle_daily_dish(dish_id))
             b.setProperty("role","food");b.setProperty("selected",is_selected)
             lines=len(name.splitlines())+1
             b.setMinimumHeight(max(72,24+lines*21));b.setMinimumWidth(0);b.setSizePolicy(QSizePolicy.Policy.Expanding,QSizePolicy.Policy.Preferred)
             b.setStyleSheet("text-align:left;white-space:pre-wrap")
+            edit=button("Szerk.",lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
+            edit.setProperty("role","foodEdit");edit.setToolTip("Étel, ár és napi akció szerkesztése")
+            edit.setAccessibleName("Szerkesztés: "+dish["name"]);edit.setMinimumHeight(48);edit.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Fixed)
+            cardbox.addWidget(b,1);cardbox.addWidget(edit)
             cols=max(1,min(3,self.food_scroll.viewport().width()//235))
-            self.food_grid.addWidget(b,n//cols,n%cols)
+            self.food_grid.addWidget(card,n//cols,n%cols)
         cols=max(1,min(3,self.food_scroll.viewport().width()//235))
         for col in range(cols):self.food_grid.setColumnStretch(col,1)
         self.food_grid.setRowStretch((len(foods)+cols-1)//cols,1)
         self.daily_count.setText(f"{len(selected)} étel szerepel a mai étlapon"+ (" · nincs találat" if not foods else ""))
         self.schedule_preview()
+
+    def toggle_daily_dish(self,dish_id):
+        selected={row["id"]:dict(row) for row in self.store.selection(self.current_day())}
+        if dish_id in selected:
+            row=selected.pop(dish_id)
+            self.store.save_daily_dish(self.current_day(),dish_id,int(row["price"]),False)
+            self.status.setText("Az étel lekerült a mai étlapról.")
+        else:
+            dish=self.store.db.execute("SELECT price FROM dishes WHERE id=? AND active=1",(dish_id,)).fetchone()
+            if not dish:return
+            self.store.save_daily_dish(self.current_day(),dish_id,int(dish["price"]),True)
+            self.status.setText("Az étel felkerült a mai étlapra.")
+        self.preview_archive=None;self.refresh_daily();self.refresh_archive()
 
     def build_weekly(self):
         page,box=self.pane("Heti menü · leves, A és B menü külön az à la carte kínálattól")
@@ -358,7 +414,7 @@ class MainWindow(QMainWindow):
         form.addRow("",button("Ételadatbázis kezelése…",self.catalog_manager))
         form.addRow("",button("Adatbázis biztonsági másolata…",self.backup))
         self.theme=QComboBox();self.theme_keys=[];self.reload_themes()
-        self.theme.currentIndexChanged.connect(self.save_appearance);form.addRow("Színvilág",self.theme)
+        self.theme.currentIndexChanged.connect(self.save_appearance);form.addRow("Téma · színek és háttér",self.theme)
         self.fonts={}
         for role,label in FONT_ROLES:
             default_font="Georgia" if role in ("restaurant","title","heading") else "Segoe UI"
@@ -376,9 +432,6 @@ class MainWindow(QMainWindow):
         self.decorations=QCheckBox("Egyszerű ecsetvonásos címsorok és áttetsző elválasztók")
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
-        self.background=QCheckBox("Automatikus évszakos háttérgrafika")
-        self.background.setChecked(self.store.setting("background_enabled","1")=="1")
-        self.background.toggled.connect(self.save_appearance);form.addRow("",self.background)
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
         reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
         form.addRow("",reset)
@@ -518,9 +571,9 @@ class MainWindow(QMainWindow):
     def reload_themes(self):
         self.theme_packs=load_themes(BASE/"themes_builtin",data_dir()/"themes")
         self.theme.blockSignals(True)
-        self.theme.clear();self.theme.addItem("Automatikus ünnepi színek","auto");self.theme_keys=["auto",*self.theme_packs]
+        self.theme.clear();self.theme.addItem("Automatikus évszakos téma · színek + háttér","auto");self.theme_keys=["auto",*self.theme_packs]
         for key in self.theme_keys:
-            self.theme.addItem("Automatikus ünnepi színek" if key=="auto" else self.theme_packs[key][0]["name"],key)
+            self.theme.addItem("Automatikus évszakos téma · színek + háttér" if key=="auto" else self.theme_packs[key][0]["name"],key)
         default_theme="auto" if self.store.setting("auto_theme","1")=="1" else self.store.setting("theme","classic")
         index=self.theme.findData(default_theme);self.theme.setCurrentIndex(max(index,0))
         self.theme.blockSignals(False)
@@ -529,8 +582,7 @@ class MainWindow(QMainWindow):
         if not hasattr(self,"glass"):return
         values={"theme":self.theme.currentData() or "auto","auto_theme":"1" if self.theme.currentData()=="auto" else "0",
                 "decorations":"1" if self.decorations.isChecked() else "0",
-                "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
-                "background_enabled":"1" if self.background.isChecked() else "0"}
+                "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none"}
         values.update({"font_"+key:combo.currentFont().family() for key,combo in self.fonts.items()})
         self.store.set_settings(values);self.schedule_preview()
 
@@ -538,14 +590,14 @@ class MainWindow(QMainWindow):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE key LIKE 'guide_%' OR key LIKE 'layout_%'")
         self.store.set_settings({"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
-                                 "background_enabled":"1","background_path":"","leader":"none",
+                                 "background_path":"","leader":"none",
                                  "theme_primary":"","theme_accent":"",
                                  "font_restaurant":"Georgia","font_title":"Georgia","font_heading":"Georgia",
                                  "font_special":"Segoe UI","font_dish":"Segoe UI"})
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
         for role,combo in self.fonts.items():
             combo.blockSignals(True);combo.setCurrentFont(QFont("Georgia" if role in ("restaurant","title","heading") else "Segoe UI"));combo.blockSignals(False)
-        self.glass.setChecked(True);self.decorations.setChecked(True);self.background.setChecked(True)
+        self.glass.setChecked(True);self.decorations.setChecked(True)
         idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))
         self.update_guides();self.schedule_preview()
 
@@ -576,7 +628,7 @@ class MainWindow(QMainWindow):
         kind="weekly" if self.tabs.currentIndex()==1 else "daily"
         keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
             "header":"Fejléc vége","menu_end":"Napi menü vége"}
-        defaults={"header":430,"days":520,"menu_end":710}
+        defaults={"header":360 if kind=="weekly" else 340,"days":420,"menu_end":570}
         regions={label:int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key]))) for key,label in keys.items()}
         self.preview.set_guides(self.guides.isChecked(),regions)
 
@@ -629,6 +681,14 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv);app.setApplicationName(APP_NAME)
+    palette=QPalette()
+    palette.setColor(QPalette.ColorRole.Window,QColor("#f8f3eb"));palette.setColor(QPalette.ColorRole.WindowText,QColor("#362f2b"))
+    palette.setColor(QPalette.ColorRole.Base,QColor("#fffdf9"));palette.setColor(QPalette.ColorRole.AlternateBase,QColor("#f3eadf"))
+    palette.setColor(QPalette.ColorRole.Text,QColor("#362f2b"));palette.setColor(QPalette.ColorRole.Button,QColor("#d9e5d8"))
+    palette.setColor(QPalette.ColorRole.ButtonText,QColor("#344b3a"));palette.setColor(QPalette.ColorRole.Highlight,QColor("#b85a4a"))
+    palette.setColor(QPalette.ColorRole.HighlightedText,QColor("#ffffff"));palette.setColor(QPalette.ColorRole.ToolTipBase,QColor("#382f2a"))
+    palette.setColor(QPalette.ColorRole.ToolTipText,QColor("#fffaf2"));palette.setColor(QPalette.ColorGroup.Disabled,QPalette.ColorRole.Text,QColor("#999087"))
+    palette.setColor(QPalette.ColorGroup.Disabled,QPalette.ColorRole.ButtonText,QColor("#999087"));app.setPalette(palette)
     window=MainWindow();window.show();sys.exit(app.exec())
 
 if __name__=="__main__":main()

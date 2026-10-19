@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QTabWidget, QTreeWidget, QTreeWidgetItem,
-    QVBoxLayout, QWidget,
+    QVBoxLayout, QWidget, QSpinBox,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
@@ -21,8 +21,26 @@ from menu_render import export_pdf, export_png, render_image
 from themes import load_themes, import_theme
 
 BASE=Path(__file__).resolve().parent
-FONT_ROLES=[("title","Főcím"),("heading","Alcímek"),
-            ("special","Menüszövegek"),("dish","Ételek és árak")]
+TEXT_STYLES=[
+    ("header_title","Fejléc címe · Napi étlap / Heti étlap","Georgia",47,"title"),
+    ("header_date","Dátum / heti dátumtartomány","Segoe UI",25,"special"),
+    ("header_contact","Cím és telefonszám · egy banner","Segoe UI",26,"special"),
+    ("daily_title","Napi menü címsora","Georgia",25,"heading"),
+    ("daily_label","Napi menü sorcímkéi · Leves / A / B","Segoe UI",31,"heading"),
+    ("daily_value","Napi menü ételnevei","Segoe UI",31,"special"),
+    ("menu_price_label","Napi menü árának címkéje","Segoe UI",17,"special"),
+    ("menu_price_value","Napi menü ára","Georgia",36,"title"),
+    ("category_title","À la carte kategóriacímek","Georgia",34,"heading"),
+    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",30,"dish"),
+    ("dish_price","À la carte normál árak","Segoe UI",30,"dish"),
+    ("promo_old_price","Akciós étel régi ára","Segoe UI",17,"dish"),
+    ("promo_new_price","Akciós étel új ára","Segoe UI",20,"dish"),
+    ("promo_badge","AKCIÓ jelzés","Segoe UI",13,"dish"),
+    ("weekday_title","Heti menü napnevei","Georgia",32,"heading"),
+    ("weekly_label","Heti menü sorcímkéi · Leves / A / B","Segoe UI",25,"heading"),
+    ("weekly_value","Heti menü ételnevei","Segoe UI",31,"special"),
+    ("footer_note","Alsó megjegyzés","Georgia",17,"special"),
+]
 LEADERS={"Nincs":"none","Pontozott":"dots","Szaggatott":"dashes","Folytonos vonal":"line"}
 
 
@@ -425,13 +443,19 @@ class MainWindow(QMainWindow):
         form.addRow("",button("Adatbázis biztonsági másolata…",self.backup))
         self.theme=QComboBox();self.theme_keys=[];self.reload_themes()
         self.theme.currentIndexChanged.connect(self.save_appearance);form.addRow("Téma · színek és háttér",self.theme)
-        self.fonts={}
-        for role,label in FONT_ROLES:
-            default_font="Georgia" if role in ("title","heading") else "Segoe UI"
-            combo=QFontComboBox();saved=self.store.setting("font_"+role,default_font)
+        self.text_style_widgets={}
+        for key,label,default_font,default_size,legacy_role in TEXT_STYLES:
+            row=QWidget();row_layout=QHBoxLayout(row);row_layout.setContentsMargins(0,0,0,0);row_layout.setSpacing(8)
+            combo=QFontComboBox();combo.setMinimumWidth(210)
+            saved=self.store.setting("font_"+key) or self.store.setting("font_"+legacy_role,default_font)
             saved={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(saved,saved)
             combo.setCurrentFont(QFont(saved));combo.currentFontChanged.connect(self.save_appearance)
-            self.fonts[role]=combo;form.addRow(label,combo)
+            size=QSpinBox();size.setRange(6,100);size.setSuffix(" px");size.setValue(int(self.store.setting("font_size_"+key,str(default_size)) or default_size))
+            size.setToolTip("Betűméret pixelben. Az à la carte ételnevek a megadott méretnél kisebbre automatikusan zsugorodhatnak.")
+            size.valueChanged.connect(self.save_appearance)
+            row_layout.addWidget(combo,1);row_layout.addWidget(size)
+            self.text_style_widgets[key]=(combo,size)
+            form.addRow(label,row)
         self.leader=QComboBox()
         for label,value in LEADERS.items():self.leader.addItem(label,value)
         index=self.leader.findData(self.store.setting("leader","none"));self.leader.setCurrentIndex(max(index,0))
@@ -594,24 +618,30 @@ class MainWindow(QMainWindow):
                 "decorations":"1" if self.decorations.isChecked() else "0",
                 "glass_panels":"1" if self.glass.isChecked() else "0","leader":self.leader.currentData() or "none",
                 "daily_menu_price":self.daily_menu_price.text().strip() or "0"}
-        values.update({"font_"+key:combo.currentFont().family() for key,combo in self.fonts.items()})
+        if hasattr(self,"text_style_widgets"):
+            for key,(combo,size) in self.text_style_widgets.items():
+                values["font_"+key]=combo.currentFont().family()
+                values["font_size_"+key]=str(size.value())
         self.store.set_settings(values);self.schedule_preview()
 
     def reset_design(self):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
-        self.store.set_settings({"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
-                                 "background_path":"","leader":"none",
-                                 "theme_primary":"","theme_accent":"",
-                                 "font_title":"Georgia","font_heading":"Georgia",
-                                 "font_special":"Segoe UI","font_dish":"Segoe UI",
-                                 "guide_layout_version":"3"})
+        defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
+                  "background_path":"","leader":"none","theme_primary":"","theme_accent":"",
+                  "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
+                  "guide_layout_version":"3"}
+        for key,_,family,size,_legacy in TEXT_STYLES:
+            defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
+        self.store.set_settings(defaults)
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
-        for role,combo in self.fonts.items():
-            combo.blockSignals(True);combo.setCurrentFont(QFont("Georgia" if role in ("title","heading") else "Segoe UI"));combo.blockSignals(False)
+        for key,(combo,size) in self.text_style_widgets.items():
+            definition=next(item for item in TEXT_STYLES if item[0]==key)
+            combo.blockSignals(True);combo.setCurrentFont(QFont(definition[2]));combo.blockSignals(False)
+            size.blockSignals(True);size.setValue(definition[3]);size.blockSignals(False)
         self.glass.setChecked(True);self.decorations.setChecked(True)
         idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))
-        self.update_guides();self.schedule_preview()
+        self.update_guides();self.save_appearance()
 
     def import_theme(self):
         path,_=QFileDialog.getOpenFileName(self,"Témacsomag importálása","","ZIP (*.zip)")
@@ -623,7 +653,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:QMessageBox.warning(self,APP_NAME,str(exc))
 
     def save_settings(self):
-        if not hasattr(self,"settings") or len(self.settings)!=4:return
+        if not hasattr(self,"settings") or not self.settings:return
         self.store.set_settings({key:edit.text().strip() for key,edit in self.settings.items()})
         self.schedule_preview()
     def backup(self):

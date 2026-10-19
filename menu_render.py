@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+import math
 from pathlib import Path
 import sys
-from PyQt6.QtCore import QMarginsF, QRectF, Qt
+from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
                          QPageSize, QPdfWriter, QPainterPath, QPen)
 from themes import HEX, load_themes
@@ -229,10 +230,37 @@ def brushstroke(p,x,y,w,color,width=20):
     p.setPen(pen);p.setBrush(Qt.BrushStyle.NoBrush);p.drawPath(path);p.restore()
 
 
-def divider(p,primary,accent,y,assets=None):
-    path=assets.get("divider") if assets else None
-    if path and Path(path).name!="brushstroke.png" and draw_theme_asset(p,assets,"divider",QRectF(120,y-18,W-240,38),.32):return
-    p.save();c=QColor(accent);c.setAlpha(75);p.setPen(QPen(c,1.2));p.drawLine(48,y, W-48,y);p.restore()
+def divider(p,primary,accent,y,assets=None,target=None):
+    """Thin seasonal line-art divider; deliberately avoids filled image blocks."""
+    month=target.month if target else 1
+    season="winter" if month in (12,1,2) else "spring" if month in (3,4,5) else "summer" if month in (6,7,8) else "autumn"
+    p.save();line=QColor(accent);line.setAlpha(145);orn=QColor(primary);orn.setAlpha(185)
+    p.setBrush(Qt.BrushStyle.NoBrush);pen=QPen(line,1.7);pen.setCapStyle(Qt.PenCapStyle.RoundCap);pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin);p.setPen(pen)
+    mid=W/2;gap=68
+    p.drawLine(55,y,mid-gap,y);p.drawLine(mid+gap,y,W-55,y)
+    # Short accent strokes soften the ends and connect the motif to the line.
+    p.setPen(QPen(orn,1.25))
+    if season=="winter":
+        for cx,cy,r in ((mid,y,17),(mid-34,y,8),(mid+34,y,8)):
+            for angle in (0,60,120):
+                dx=r*math.cos(math.radians(angle));dy=r*math.sin(math.radians(angle))
+                p.drawLine(QPointF(cx-dx,cy-dy),QPointF(cx+dx,cy+dy))
+    elif season=="spring":
+        for cx in (mid-34,mid,mid+34):
+            p.drawEllipse(QPointF(cx,y),3.2,3.2)
+            for angle in range(0,360,72):
+                rad=math.radians(angle);p.drawEllipse(QPointF(cx+8*math.cos(rad),y+8*math.sin(rad)),3.2,3.2)
+        p.drawLine(QPointF(mid-60,y),QPointF(mid-43,y));p.drawLine(QPointF(mid+43,y),QPointF(mid+60,y))
+    elif season=="summer":
+        p.drawLine(QPointF(mid-47,y+6),QPointF(mid+47,y-6))
+        for offset in (-30,-10,10,30):
+            yy=y-offset*.13
+            leaf=QPainterPath();leaf.moveTo(mid+offset,yy);leaf.quadTo(mid+offset-12,yy-13,mid+offset-20,yy-2);leaf.quadTo(mid+offset-12,yy+5,mid+offset,yy);p.drawPath(leaf)
+            leaf=QPainterPath();leaf.moveTo(mid+offset,yy);leaf.quadTo(mid+offset+12,yy+13,mid+offset+20,yy+2);leaf.quadTo(mid+offset+12,yy-5,mid+offset,yy);p.drawPath(leaf)
+    else:
+        for cx,tilt in ((mid-28,-1),(mid,1),(mid+28,-1)):
+            leaf=QPainterPath();leaf.moveTo(cx,y+13);leaf.cubicTo(cx-tilt*15,y+4,cx-tilt*12,y-10,cx,y-17);leaf.cubicTo(cx+tilt*14,y-9,cx+tilt*15,y+5,cx,y+13);leaf.moveTo(cx,y+13);leaf.lineTo(cx,y-15);leaf.moveTo(cx,y+3);leaf.lineTo(cx-tilt*7,y-3);leaf.moveTo(cx,y-5);leaf.lineTo(cx+tilt*7,y-11);p.drawPath(leaf)
+    p.restore()
 
 
 def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets):
@@ -251,9 +279,9 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
              setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
     title="Napi étlap" if kind=="daily" else "Heti menü"
     stamp=display_date(target) if kind=="daily" else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
-    title_size=style_size(source,"daily_title",18)
+    title_size=style_size(source,"daily_title",22)
     text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-    text_singleline(p,source,"header_date",style_size(source,"header_date",14),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     name_size=style_size(source,"header_title",11)
     name_metrics=QFontMetricsF(font(source,"header_title",name_size)).horizontalAdvance(name)
     if name_metrics>410:name_size=max(6,name_size*410/name_metrics)
@@ -294,15 +322,16 @@ def draw_menu(p,source,kind,target):
         if glass_enabled:glass(p,QRectF(40,220+panel_shift,W-80,88),224,8)
         try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
         except (TypeError,ValueError):menu_price=2800
-        text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,470,228+panel_shift,500,24,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-        text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,470,252+panel_shift,500,48,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,470,222+panel_shift,500,30,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,470,252+panel_shift,500,52,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
         days_y=guide(source,kind,"days",330)
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
                     days_y-330+panel_shift)
     note=setting(source,"note").strip()
     if note:
-        if glass_enabled:glass(p,QRectF(40,1710,W-80,58),205,8)
-        text(p,source,"footer_note",style_size(source,"footer_note",7),dark,60,1720,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
+        note_y=1940 if kind=="weekly" else 1710
+        if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),205,8)
+        text(p,source,"footer_note",style_size(source,"footer_note",10),dark,60,note_y+10,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
 
 
@@ -324,10 +353,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         y+=44
     try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
     except (TypeError,ValueError):menu_price=2800
-    text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",7.5),primary,1085,menu_y+62,260,28,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-    text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",15),dark,1085,menu_y+90,260,54,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,1085,menu_y+58,260,34,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,1085,menu_y+92,260,58,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     alacarte_shift=header_shift+menu_gap_shift
-    if decorated:divider(p,primary,accent,460+alacarte_shift,assets)
+    if decorated:divider(p,primary,accent,460+alacarte_shift,assets,target)
     dishes=[dict(d) for d in source.selection(target)]
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),210,8)
@@ -405,7 +434,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             p.setPen(pen);p.drawLine(round(price_x-8),round(price_y+line_h*.55),round(price_x),round(price_y+line_h*.55))
         if promo:
             old=price(dish["price"]);new=price(dish["promo_price"])
-            old_size=min(size,style_size(source,"promo_old_price",17));new_size=min(size,style_size(source,"promo_new_price",20))
+            old_size=min(size,style_size(source,"promo_old_price",7));new_size=min(size,style_size(source,"promo_new_price",12.5))
             old_metrics=QFontMetricsF(font(source,"promo_old_price",old_size));new_metrics=QFontMetricsF(font(source,"promo_new_price",new_size,True))
             old_w=old_metrics.horizontalAdvance(old);new_w=new_metrics.horizontalAdvance(new);gap_px=7
             total=old_w+gap_px+new_w
@@ -431,24 +460,24 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     p.save();p.translate(0,days_shift)
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
-        y=330+i*270
-        if glass_enabled:glass(p,QRectF(40,y-8,W-80,242),195,6)
-        if i<4:divider(p,primary,accent,y+252,assets)
-        weekday_size=style_size(source,"weekday_title",13)
+        y=330+i*310
+        if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),195,6)
+        if i<4:divider(p,primary,accent,y+291,assets,target)
+        weekday_size=style_size(source,"weekday_title",16)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
-        p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+9,heading_width,48),5,5);p.restore()
+        p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
         heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
-        text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,43,label,True,Qt.AlignmentFlag.AlignVCenter)
+        text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
         values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
-        label_size=style_size(source,"weekly_label",10.5)
-        value_size=style_size(source,"weekly_value",13)
-        yy=y+67
+        label_size=style_size(source,"weekly_label",15)
+        value_size=style_size(source,"weekly_value",15)
+        yy=y+78
         for field,value in values:
-            height=max(48,measure(value or "—",source,"weekly_value",value_size,1040)+4,
+            height=max(56,measure(value or "—",source,"weekly_value",value_size,1040)+8,
                        measure(field,source,"weekly_label",label_size,190,True)+4)
             text(p,source,"weekly_label",label_size,primary,92,yy,190,height,field,True)
             text(p,source,"weekly_value",value_size,dark,292,yy,1040,height,value or "—")
-            yy+=height
+            yy+=height+3
     p.restore()
 
 

@@ -193,9 +193,14 @@ class MainWindow(QMainWindow):
                                  "phone":self.store.setting("phone","+36 30 / 513 2605") or "+36 30 / 513 2605",
                                  "facebook_url":self.store.setting("facebook_url","https://www.facebook.com/share/1GQgCcNJXE/") or "https://www.facebook.com/share/1GQgCcNJXE/"})
         if self.store.setting("guide_layout_version","0")!="4":
-            self.store.set_settings({"guide_layout_version":"4","guide_daily_header":"205",
-                                     "guide_daily_menu_end":"438","guide_weekly_header":"205",
-                                     "guide_weekly_days":"410"})
+            layout_defaults={"guide_layout_version":"4","guide_daily_header":"205",
+                             "guide_daily_menu_end":"438","guide_weekly_header":"205",
+                             "guide_weekly_days":"410"}
+            # Promote only untouched former defaults; preserve sizes the user tuned.
+            for role,old,new in (("daily_title","10.5","18"),("header_date","10.5","14")):
+                if self.store.setting("font_size_"+role)==old:
+                    layout_defaults["font_size_"+role]=new
+            self.store.set_settings(layout_defaults)
         self.setWindowTitle(APP_NAME);self.resize(1620,920);self.setMinimumSize(1180,680)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)

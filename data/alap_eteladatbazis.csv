@@ -1,342 +1,349 @@
 ﻿kategoria,etel,ar_ft,megjegyzes
-Levesek,Csontleves,1200,
-Levesek,Tyúkhúsleves,1500,
-Levesek,Vegyes gyümölcsleves,1200,
-Levesek,Paradicsomleves,1000,
-Levesek,Gyömbéres csirkemell raguleves,1500,
-Levesek,Zöldséges tarhonyaleves,1000,
-Levesek,Frankfurti leves,1200,
-Levesek,Habart bableves,1000,
-Levesek,Zöldséges májgaluska leves,1200,
-Levesek,Palócleves,1500,
-Levesek,Zöldséges gombaleves,1000,
-Levesek,Fokhagyma krémleves,1000,
-Levesek,Tejfölös karfiolleves,1000,
-Levesek,Lecskés bableves,1200,
-Levesek,Sertésragu leves,1500,
-Levesek,Lebbencsleves,1000,
-Levesek,Kolbászos burgonyaleves,1000,
 Levesek,Babgulyás,1500,
-Levesek,Zöldborsóleves,1000,
-Levesek,Fahéjas szilvaleves,1000,
-Levesek,Zöldbableves,1000,
 Levesek,Bográcsgulyás,1500,
+Levesek,Csontleves,1200,
 Levesek,Daragaluska leves,1000,
-Levesek,Jókai bableves,1500,
+Levesek,Eperkrémleves,1300,
+Levesek,Fahéjas szilvaleves,1000,
+Levesek,Fokhagyma krémleves,1000,
+Levesek,Frankfurti leves,1200,
+Levesek,Gyömbéres csirkemell raguleves,1500,
+Levesek,Habart bableves,1000,
+Levesek,Halászlé,1500,
 Levesek,Hideg gyümölcsleves,1200,
 Levesek,Hideg zöldbableves,1000,
+Levesek,Jókai bableves,1600,
 Levesek,Kapros zöldbableves,1000,
-Levesek,Halászlé,1500,
-Levesek,Olaszos zöldségleves,1000,
-Levesek,Tejfölös burgonyaleves,1000,
-Levesek,Tavaszi zöldségleves,1000,
-Levesek,Tarhonyaleves,1000,
+Levesek,Kolbászos burgonyaleves,1000,
+Levesek,Lebbencsleves,1000,
+Levesek,Lecskés bableves,1200,
 Levesek,Májgaluska leves,1000,
+Levesek,Olaszos zöldségleves,1000,
+Levesek,Palócleves,1500,
+Levesek,Paradicsomleves,1000,
+Levesek,Sertésragu leves,1500,
+Levesek,Tarhonyaleves,1000,
+Levesek,Tavaszi zöldségleves,1000,
+Levesek,Tejfölös burgonyaleves,1000,
 Levesek,Tejfölös gombaleves,1000,
-Főzelékek,Tejfölös burgonyafőzelék,1500,
+Levesek,Tejfölös karfiolleves,1000,
+Levesek,Tyúkhúsleves,1600,
+Levesek,Vegyes gyümölcsleves,1200,
+Levesek,Zöldbableves,1000,
+Levesek,Zöldborsóleves,1000,
+Levesek,Zöldséges gombaleves,1000,
+Levesek,Zöldséges májgaluska leves,1200,
+Levesek,Zöldséges tarhonyaleves,1000,
+Főzelékek,Kapros zöldbabfőzelék,1500,
 Főzelékek,Kelkáposzta-főzelék,1500,
 Főzelékek,Lencsefőzelék,1500,
+Főzelékek,Paradicsomos káposztafőzelék,1500,
 Főzelékek,Sárgaborsó-főzelék,1700,
 Főzelékek,Sárgaborsópüré-főzelék,1500,
 Főzelékek,Szemesbab-főzelék,1500,
-Főzelékek,Zöldborsófőzelék,1500,
-Főzelékek,Paradicsomos káposztafőzelék,1500,
 Főzelékek,Tejfölös babfőzelék,1500,
+Főzelékek,Tejfölös burgonyafőzelék,1500,
 Főzelékek,Tejfölös tökfőzelék,1500,
-Főzelékek,Kapros zöldbabfőzelék,1500,
+Főzelékek,Zöldborsófőzelék,1500,
 Feltétek,Sertéspörkölt,1000,
-Feltétek,Tükörtojás,500,
-Feltétek,Sült kolbász,800,
 Feltétek,Stefánia vagdalt,700,
-Köretek,Párolt rizs,800,
-Köretek,Petrezselymes burgonya,900,
-Köretek,Hasábburgonya,900,
-Köretek,Édes burgonya hasáb,1100,
-Köretek,Steak burgonya,900,
+Feltétek,Sült kolbász,800,
+Feltétek,Tükörtojás,500,
 Köretek,Burgonyapüré,900,
-Köretek,Galuska köret,900,
-Köretek,Vegyes köret,900,
-Köretek,Párolt zöldség,900,
+Köretek,Édes burgonya hasáb,1200,
 Köretek,Francia köret,900,
+Köretek,Friss saláta + tzataziki,1000,
+Köretek,Galuska köret,900,
+Köretek,Hasábburgonya,900,
+Köretek,Párolt rizs,800,
+Köretek,Párolt zöldség,900,
+Köretek,Petrezselymes burgonya,900,
+Köretek,Steak burgonya,900,
 Köretek,Tarhonya köret,900,
+Köretek,Vegyes köret,900,
 Köretek,Zöldséges bulgur,900,
-Savanyúságok,Káposztasaláta,800,
+Savanyúságok,Céklasaláta,800,
 Savanyúságok,Csemege uborka,800,
 Savanyúságok,Ecetes almapaprika,800,
+Savanyúságok,Káposztasaláta,800,
 Savanyúságok,Kovászos uborka,800,
-Savanyúságok,Céklasaláta,800,
 Savanyúságok,Uborkasaláta,900,
-Készételek,Sertéspörkölt,1900,
-Készételek,Mátrai borzas,1900,
-Készételek,Pirított sertésmáj,1600,
-Készételek,Magyaróvári csirkemell,1900,
-Készételek,Chilis bab,2500,
-Készételek,Csirkehússal töltött gomba zöldsaláta tzatziki,2500,
-Készételek,Harcsapaprikás túrós csusza,3000,
-Készételek,Rántott gombafejek,1600,
-Készételek,Brassói aprópecsenye,2500,
-Készételek,Bakonyi sertéstokány,1900,
-Készételek,Milánói sertésszelet,2500,
-Készételek,Currys csirkemellragu,1900,
-Készételek,Parajos fokhagymás tészta sajtszórással,1900,
-Készételek,Tócsni fokhagymás tejföllel,1600,
-Készételek,Vörösboros gombás szarvasragu vadász módra,2700,
-Készételek,Rablóhús rántva zöldsaláta tzatziki,2500,
-Készételek,Dubarry csirkemell,1900,
-Készételek,"Cheddarral, paradicsommal grillezett halfilé",1900,
-Készételek,Hekk roston sütve,2000,
-Készételek,Zúzapörkölt,1800,
-Készételek,Gombás szarvasragu,2100,
-Készételek,Mézes-mustáros csirkemell,1900,
-Készételek,Töltött csirkecomb,1900,
-Készételek,Csülökpörkölt,1900,
-Készételek,"Mustáros karaj sajttal, sonkával grillezve",1900,
-Készételek,Tejszínes gombás csirkemell,1900,
-Készételek,Franciasaláta szezámmagos csirkemellel,2500,
-Készételek,"Konfitált kacsacomb burgonyával, párolt káposztával",2800,
-Készételek,Paradicsomos húsgombóc fél adag főtt burgonyával,2500,
-Készételek,Őszibarackos csirkemell hagymaágyon,1900,
-Készételek,Zöldséges tejszínes csirkemell,1900,
-Készételek,Szecsuáni csirkemell pirított tésztával,2500,
-Készételek,Magyaróvári sertésszelet,1900,
-Készételek,"Gyümölcsmártás főtt hússal, töltelékkel, főtt burgonyával",2500,
-Készételek,Kentucky csirkecomb coleslaw salátával,2500,
-Készételek,Vörösboros gombás szarvasragu,2000,
-Készételek,"Fűszeres csirkemell paradicsommal, sajttal grillezve",1900,
-Készételek,Csirkehúsos tortilla zöldsaláta tzatziki,2500,
-Készételek,Brokkolis palacsinta rántva,1600,
-Készételek,Erdélyi rakott káposzta,,Az ár az OCR-képen nem olvasható biztosan; ellenőrzendő
-Készételek,Cigánypecsenye,1900,
-Készételek,Fűszeres csirkemell tejszínes gombamártással,1900,
-Készételek,Rántott burgonya sajtmártással,1600,
+Készételek,Aszalt szilvás szűzérme,2000,
+Készételek,Aszalt szilvás szűzérme burgonyafánkkal,2700,
 Készételek,Aszalt szilvás szűzérme hercegnő burgonyával,2700,
+Készételek,Aszalt szilvás szűzérme lilahagymás burgonyafánkkal,2800,
+Készételek,Baconbe tekert csirkemáj,1800,
 Készételek,Baconbe tekert szűzérme,2000,
 Készételek,Bakonyi sertésszelet,1900,
+Készételek,Bakonyi sertéstokány,1900,
 Készételek,Bazsalikomos csirkegolyók pestós spagettivel,2500,
+Készételek,Bazsalikomos húsgolyók pestós spagettiágyon,2500,
 Készételek,BBQ csirkecomb,1900,
 Készételek,Borzas tarja zöldsaláta tzatziki,2500,
+Készételek,Brassói aprópecsenye,2500,
+Készételek,Brokkolis palacsinta rántva,1600,
 Készételek,Cheddar sajtos csirkemellragu,1900,
+Készételek,"Cheddarral, paradicsommal grillezett halfilé",1900,
+Készételek,Chilis bab,2500,
+Készételek,Cigánypecsenye,1900,
 Készételek,Cornflakeses karaj rántott hagymakarikával,2000,
+Készételek,Cukkinis makaróni sajtszórással,1900,
+Készételek,Currys csirkemellragu,1900,
 Készételek,"Csemege csülök főtt burgonyával, párolt káposztával",2500,
 Készételek,Csirkehúsos lepény zöldsaláta tzatziki,2500,
 Készételek,Csirkehúsos palacsinta csőben sütve,2500,
+Készételek,Csirkehúsos palacsinta csőben sütve zöldsalátával,2500,
+Készételek,Csirkehúsos palacsinta zöldsaláta tzatziki,2500,
+Készételek,Csirkehúsos tortilla zöldsaláta tzatziki,2500,
+Készételek,Csirkehússal töltött gomba zöldsaláta tzatziki,2500,
 Készételek,Csirkehússal töltött gombafejek sajttal grillezve,1900,
-Készételek,"Csirkemell paradicsommal, cheddarral grillezve",1900,
 Készételek,Csirkemáj baconbe tekerve,1900,
-Készételek,Cukkinis makaróni sajtszórással,1900,
+Készételek,"Csirkemell paradicsommal, cheddarral grillezve",1900,
+Készételek,Csülkös pacalpörkölt,,A normál ár nem olvasható biztosan; ellenőrzendő
+Készételek,Csülökpörkölt,1900,
 Készételek,Debreceni sertésszelet,1900,
+Készételek,Dubarry csirkemell,1900,
 Készételek,Emődi tehéntánc,1900,
+Készételek,Erdélyi rakott káposzta,,Az ár az OCR-képen nem olvasható biztosan; ellenőrzendő
+Készételek,Fetasajttal töltött szűzérme baconbe tekerve,2000,
 Készételek,Fokhagymás parajos tészta sajtszórással,1900,
+Készételek,Franciasaláta szezámmagos csirkemellel,2500,
+Készételek,"Fűszeres csirkemell paradicsommal, sajttal grillezve",1900,
+Készételek,Fűszeres csirkemell tejszínes gombamártással,1900,
 Készételek,Fűszeres csirkeszárny pankómorzsában,1600,
 Készételek,"Fűszeres csülök burgonyával, párolt káposztával",2500,
 Készételek,"Fűszeres oldalas burgonyával, párolt káposztával",2500,
 Készételek,Fűszeres szűzérme tejszínes borsmártással,2000,
+Készételek,Gombás sajtos galuska,2200,
 Készételek,Gombás sajtos tészta,2000,
 Készételek,Gombás sertéstokány,1900,
-Készételek,Gyrosos lángos zöldsaláta tzatziki,2500,
+Készételek,Gombás szarvasragu,2100,
+Készételek,Gödöllői sertésszelet,,A normál ár nem olvasható biztosan; ellenőrzendő
+Készételek,Görög csirkemell,1900,
 Készételek,Görögös csirkemell,1900,
+Készételek,Gyrosos lángos zöldsaláta tzatziki,2500,
+Készételek,"Gyümölcsmártás főtt hússal, töltelékkel, főtt burgonyával",2500,
 Készételek,Haltepertő,1900,
+Készételek,Harcsapaprikás túrós csusza,3000,
 Készételek,Hekk Orly módra,2000,
+Készételek,Hekk roston sütve,2000,
 Készételek,Hortobágyi húsos palacsinta,2500,
 Készételek,"Hurka burgonyával, párolt káposztával",1900,
 Készételek,Kaszáspecsenye,2500,
+Készételek,Kentucky csirkecomb coleslaw salátával,2500,
+Készételek,Kínai csirkemell pirított tésztával,2500,
+Készételek,Kocsonya,,A normál ár nem olvasható biztosan; ellenőrzendő
 Készételek,Kolbászos rakott burgonya,2200,
 Készételek,"Konfitált csülök tócsniágyon, sült hagymakarikával",3500,
+Készételek,"Konfitált kacsacomb burgonyával, párolt káposztával",2800,
 Készételek,Konfitált tarja sült hagymakarikával,2000,
-Készételek,Krumplis tészta,1600,
 Készételek,Krémsajtos csirkemellragu,1900,
-Készételek,Kínai csirkemell pirított tésztával,2500,
+Készételek,Krumplis tészta,1600,
 Készételek,Lecsós sertésszelet kakastaréjjal,1900,
+Készételek,Magyaróvári csirkemell,1900,
+Készételek,Magyaróvári sertésszelet,1900,
 Készételek,Majoránnás csirkecomb,1900,
 Készételek,Marhapörkölt,1900,
 Készételek,Matyópecsenye,1900,
-Készételek,Mézes-mustáros csirkemellragu,1900,
+Készételek,Mátrai borzas,1900,
+Készételek,Mézes-mustáros csirkemell,1900,
+Készételek,Mézes-mustáros csirkemellragu,2000,
+Készételek,Milánói sertésszelet,2500,
 Készételek,Mozzarellás paradicsomos csirkemell,1900,
+Készételek,"Mustáros karaj sajttal, sonkával grillezve",1900,
+Készételek,Ördöglángos zöldsaláta tzatziki,2500,
+Készételek,Őszibarackos csirkemell hagymaágyon,1900,
 Készételek,Pankómorzsás sertéskaraj rántott hagymakarikával,2000,
 Készételek,Paprikás csirkecomb,1900,
+Készételek,Paradicsomos húsgombóc fél adag főtt burgonyával,2500,
+Készételek,Parajos csirkemellrolád baconbe tekerve,1900,
+Készételek,Parajos fokhagymás tészta sajtszórással,1900,
 Készételek,Párolt szárnyasmáj,1700,
+Készételek,Pirított sertésmáj,1600,
 Készételek,Póréhagymás cukkinis tejszínes csirkemell,1900,
 Készételek,Rablóhús nyárson zöldsaláta tzatziki,2500,
+Készételek,Rablóhús rántva zöldsaláta tzatziki,2500,
 Készételek,Ragacsos csirkemell pirított tésztával,2500,
 Készételek,Rakott burgonya,2200,
 Készételek,Rántott borjúmáj,1600,
 Készételek,Rántott brokkoli,1500,
+Készételek,Rántott burgonya sajtmártással,1600,
 Készételek,Rántott cukkini,1500,
-Készételek,Rántott karfiol,1500,
+Készételek,Rántott gombafejek,1600,
+Készételek,Rántott karaj rántott hagymakarikával,2000,
+Készételek,Rántott karfiol,1600,
 Készételek,Sajtos parajos tészta csőben sütve,1900,
+Készételek,Sertéspörkölt,2000,
 Készételek,"Sonkával, cheddarral grillezett csirkemell",1900,
-"Tészták, desszertek",Somlói galuska,1100,
-Készételek,Szigetvári pecsenye,1900,
-Készételek,Székelykáposzta,2500,
 Készételek,"Sóskamártás főtt hússal, töltelékkel, főtt burgonyával",2500,
 Készételek,"Sült hurka burgonyával, párolt káposztával",2500,
 Készételek,"Sült oldalas burgonyával, párolt káposztával",2500,
+Készételek,Szecsuáni csirkemell pirított tésztával,2500,
+Készételek,Székelykáposzta,2500,
+Készételek,Szigetvári pecsenye,1900,
 Készételek,Tanyasi paprikás csirkecomb,1900,
 Készételek,Tavaszi csirkehúsos lepény zöldsaláta tzatziki,2500,
 Készételek,Tejszínes bazsalikomos csirkemellragu,1900,
+Készételek,Tejszínes gombás csirkemell,1900,
 Készételek,Tejszínes gombás csirkemell hercegnő burgonyával,2500,
 Készételek,Tejszínes gombás szűzérme,2000,
 Készételek,Tejszínes zöldségek pestós spagettivel,2000,
 Készételek,Tejszínes zöldségek spagettiágyon,1600,
+Készételek,Toros káposzta,,A normál ár nem olvasható biztosan; ellenőrzendő
 Készételek,Toszkán csirkemellragu,1900,
-Készételek,Töltött paprika fél adag főtt burgonyával,2500,
+Készételek,Tócsni fokhagymás tejföllel,1600,
+Készételek,Töltött csirkecomb,1900,
+Készételek,Töltött paprika fél adag főtt burgonyával,2600,
 Készételek,Túrós sztrapacska,2200,
 Készételek,Vadas sertésszelet szalvétagombóccal,2500,
-Készételek,Ördöglángos zöldsaláta tzatziki,2500,
-Frissensültek,Gordon csirkemell,1900,
-Frissensültek,Sajttal töltött csirkemell,1900,
-Frissensültek,Lilahagymás juhtúróval töltött csirkemell rántva,1900,
-Frissensültek,Szezámmagos csirkemell,1900,
-Frissensültek,Natúr csirkemell,1500,
-Frissensültek,Rántott sertésszelet,1900,
-Frissensültek,Rántott sertésmáj,1600,
-Frissensültek,Rántott sajt,1900,
-Frissensültek,Rántott camembert áfonyalekvárral,1900,
-Frissensültek,Rántott halfilé,1900,
+Készételek,Vörösboros gombás szarvasragu,2000,
+Készételek,Vörösboros gombás szarvasragu vadász módra,2700,
+Készételek,Zöldséges tejszínes csirkemell,1900,
+Készételek,Zúzapörkölt,1800,
+Frissensültek,Gordon csirkemell,2000,
+Frissensültek,Lilahagymás juhtúróval töltött csirkemell rántva,2000,
+Frissensültek,Natúr csirkemell,1600,
+Frissensültek,Rántott camembert áfonyalekvárral,2000,
 Frissensültek,Rántott gomba,1600,
-"Tészták, desszertek",Mogyorókrémes palacsinta,1000,
-"Tészták, desszertek",Túrós palacsinta,1100,
-"Tészták, desszertek",Ízes palacsinta,900,
-"Tészták, desszertek",Fánk barackízzel,1400,
-"Tészták, desszertek",Túrós csusza,2000,
+Frissensültek,Rántott halfilé,2000,
+Frissensültek,Rántott sajt,1700,
+Frissensültek,Rántott sertésmáj,1600,
+Frissensültek,Rántott sertésszelet,2000,
+Frissensültek,Sajttal töltött csirkemell,2000,
+Frissensültek,Szezámmagos csirkemell,2000,
 "Tészták, desszertek",Farsangi fánk gyümölcsízzel,1400,
+"Tészták, desszertek",Fánk barackízzel,1400,
 "Tészták, desszertek",Házi nudli gyümölcsízzel,1500,
-"Tészták, desszertek",Öntött kifli vaníliasodóval,1600,
-"Tészták, desszertek",Túróval töltött zsemle vaníliasodóval,1700,
+"Tészták, desszertek",Ízes palacsinta,1000,
 "Tészták, desszertek",Káposztával töltött palacsinta rántva,1400,
-"Mártások, öntetek",Tartármártás,400,
-"Mártások, öntetek",Ketchup,400,
+"Tészták, desszertek",Mogyorókrémes palacsinta,1000,
+"Tészták, desszertek",Öntött kifli vaníliasodóval,1600,
+"Tészták, desszertek",Somlói galuska,1100,
+"Tészták, desszertek",Túrós csusza,2000,
+"Tészták, desszertek",Túrós palacsinta,1200,
+"Tészták, desszertek",Túróval töltött zsemle vaníliasodóval,1700,
 "Mártások, öntetek",Áfonyalekvár,400,
+"Mártások, öntetek",Ketchup,400,
+"Mártások, öntetek",Tartármártás,400,
 "Mártások, öntetek",Tejföl,300,
 "Mártások, öntetek",Tzatziki,400,
-Egyéb,Kenyér,100,
+Egyéb,Csomagolás,100,
 Egyéb,Főtt kukorica,1300,
+Egyéb,Kenyér,100,
+Egyéb,Szatyor,50,
 Egyéb,Zöldborsós nokedli,1800,
-Menü,Gyömbéres csirkemell raguleves,,Nincs önálló ár; napi menü része
-Menü,Zöldséges tarhonyaleves,,Nincs önálló ár; napi menü része
-Menü,Frankfurti leves,,Nincs önálló ár; napi menü része
-Menü,Habart bableves,,Nincs önálló ár; napi menü része
-Menü,Zöldséges májgaluska leves,,Nincs önálló ár; napi menü része
-Menü,Palócleves,,Nincs önálló ár; napi menü része
-Menü,Zöldséges gombaleves,,Nincs önálló ár; napi menü része
-Menü,Fokhagyma krémleves,,Nincs önálló ár; napi menü része
-Menü,Tejfölös karfiolleves,,Nincs önálló ár; napi menü része
-Menü,Lecskés bableves,,Nincs önálló ár; napi menü része
-Menü,Sertésragu leves,,Nincs önálló ár; napi menü része
-Menü,Lebbencsleves,,Nincs önálló ár; napi menü része
-Menü,Gyümölcsleves,,Nincs önálló ár; napi menü része
-Menü,Csontleves,,Nincs önálló ár; napi menü része
-Menü,Kolbászos burgonyaleves,,Nincs önálló ár; napi menü része
-Menü,Babgulyás,,Nincs önálló ár; napi menü része
-Menü,Paradicsomleves,,Nincs önálló ár; napi menü része
-Menü,Zöldborsóleves,,Nincs önálló ár; napi menü része
-Menü,Fahéjas szilvaleves,,Nincs önálló ár; napi menü része
-Menü,Zöldbableves,,Nincs önálló ár; napi menü része
-Menü,Bográcsgulyás,,Nincs önálló ár; napi menü része
-Menü,Daragaluska leves,,Nincs önálló ár; napi menü része
-Menü,Jókai bableves,,Nincs önálló ár; napi menü része
-Menü,Hideg gyümölcsleves,,Nincs önálló ár; napi menü része
-Menü,Hideg zöldbableves,,Nincs önálló ár; napi menü része
-Menü,Zöldséges daragaluska leves,,Nincs önálló ár; napi menü része
-Menü,Eperkrémleves,,Nincs önálló ár; napi menü része
-Menü,Kapros zöldbableves,,Nincs önálló ár; napi menü része
-Menü,Halászlé,,Nincs önálló ár; napi menü része
-Menü,Olaszos zöldségleves,,Nincs önálló ár; napi menü része
-Menü,Tejfölös burgonyaleves,,Nincs önálló ár; napi menü része
-Menü,Tavaszi zöldségleves,,Nincs önálló ár; napi menü része
-Menü,Tejfölös gombaleves,,Nincs önálló ár; napi menü része
-Menü,Vegyes gyümölcsleves,,Nincs önálló ár; napi menü része
-Menü,Rizsfelfújt csokiöntettel,,Nincs önálló ár; napi menü része
-Menü,Párizsi csirkemell petrezselymes burgonyával,,Nincs önálló ár; napi menü része
-Menü,Tejfölös burgonyafőzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
-Menü,Bakonyi sertéstokány tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Füstölt sajttal töltött csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
-Menü,Rakott karfiol,,Nincs önálló ár; napi menü része
-Menü,Budapest sertésszelet petrezselymes burgonyával,,Nincs önálló ár; napi menü része
-Menü,Paprikás csirkecomb tésztával,,Nincs önálló ár; napi menü része
-Menü,"Rántott harcsafilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
 Menü,Aranygaluska vaníliasodóval,,Nincs önálló ár; napi menü része
-Menü,Tarhonyás hús,,Nincs önálló ár; napi menü része
-Menü,Kelkáposzta-főzelék Stefánia vagdalttal,,Nincs önálló ár; napi menü része
-Menü,Szezámmagos csirkemell párolt rizzsel,,Nincs önálló ár; napi menü része
-Menü,Kijevi csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
-Menü,Kolbászos rakott burgonya,,Nincs önálló ár; napi menü része
-Menü,Majoránnás csirkecomb rizi-bizivel,,Nincs önálló ár; napi menü része
-Menü,"Pankómorzsás harcsafilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
-Menü,Székelykáposzta,,Nincs önálló ár; napi menü része
-Menü,Krumplis tészta,,Nincs önálló ár; napi menü része
-Menü,Gödöllői sertésszelet párolt rizzsel,,Nincs önálló ár; napi menü része
-Menü,Lencsefőzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
-Menü,Csikóstokány tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Cheddarral töltött csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
-Menü,Vadas sertésszelet tésztával,,Nincs önálló ár; napi menü része
-Menü,Matyópecsenye petrezselymes burgonyával,,Nincs önálló ár; napi menü része
-Menü,Milánói sertésszelet,,Nincs önálló ár; napi menü része
-Menü,"Szezámmagos harcsafilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
-Menü,Túrós sztrapacska,,Nincs önálló ár; napi menü része
-Menü,Sertéskaraj Orly módra rizi-bizivel,,Nincs önálló ár; napi menü része
-Menü,Paradicsomos káposztafőzelék vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Babgulyás,,Nincs önálló ár; napi menü része
 Menü,Bakonyi csirkemellragu tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Gordon csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
-Menü,Szecsuáni csirkemell pirított tésztával,,Nincs önálló ár; napi menü része
-Menü,Pásztor sajt párolt rizzsel,,Nincs önálló ár; napi menü része
-Menü,Sertéspörkölt tarhonyakörettel,,Nincs önálló ár; napi menü része
-Menü,"Mustáros karaj sajttal, sonkával grillezve, petrezselymes burgonyával",,Nincs önálló ár; napi menü része
-Menü,Sárgaborsó-főzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
-Menü,Tejszínes cheddaros csirkemell tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Emődi tehéntánc vegyes körettel,,Nincs önálló ár; napi menü része
-Menü,"Gyümölcsmártás főtt hússal, töltelékkel, főtt burgonyával",,Nincs önálló ár; napi menü része
-Menü,Matyópecsenye zöldséges rizzsel,,Nincs önálló ár; napi menü része
-Menü,"Pankómorzsás halfilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
-Menü,Csülökpörkölt tarhonyakörettel,,Nincs önálló ár; napi menü része
-Menü,Paradicsomos káposztafőzelék Stefánia vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Bakonyi sertéstokány tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Bográcsgulyás,,Nincs önálló ár; napi menü része
 Menü,Brassói aprópecsenye,,Nincs önálló ár; napi menü része
-Menü,Sertéspaprikás tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Rántott csirkemell rizi-bizivel,,Nincs önálló ár; napi menü része
-Menü,Húsos makaróni,,Nincs önálló ár; napi menü része
+Menü,Budapest sertésszelet petrezselymes burgonyával,,Nincs önálló ár; napi menü része
 Menü,"Cheddarral töltött csirkemell pankómorzsában, vegyes körettel",,Nincs önálló ár; napi menü része
-Menü,Túrós csusza,,Nincs önálló ár; napi menü része
-Menü,"Mustáros pácban érlelt karaj rántva, párolt rizzsel",,Nincs önálló ár; napi menü része
+Menü,Cheddarral töltött csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
+Menü,"Cornflakeses halfilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,"Csemege sertéssült burgonyával, párolt káposztával",,Nincs önálló ár; napi menü része
+Menü,"Csemege sült burgonyával, párolt káposztával",,Nincs önálló ár; napi menü része
+Menü,Csikóstokány tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Csontleves,,Nincs önálló ár; napi menü része
+Menü,Csülökpörkölt tarhonyakörettel,,Nincs önálló ár; napi menü része
+Menü,Csülökpörkölt tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Daragaluska leves,,Nincs önálló ár; napi menü része
+Menü,Debreceni sertésszelet tarhonyakörettel,,Nincs önálló ár; napi menü része
+Menü,Emődi tehéntánc vegyes körettel,,Nincs önálló ár; napi menü része
+Menü,Eperkrémleves,,Nincs önálló ár; napi menü része
+Menü,Erdélyi rakott káposzta,,Nincs önálló ár; napi menü része
+Menü,Fahéjas szilvaleves,,Nincs önálló ár; napi menü része
+Menü,Fokhagyma krémleves,,Nincs önálló ár; napi menü része
+Menü,Frankfurti leves,,Nincs önálló ár; napi menü része
+Menü,Füstölt sajttal töltött csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
 Menü,Füstölt tarjával töltött csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
 Menü,"Fűszeres csülök burgonyával, párolt káposztával",,Nincs önálló ár; napi menü része
-Menü,Töltött csirkecomb rizi-bizivel,,Nincs önálló ár; napi menü része
-Menü,"Cornflakeses halfilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
 Menü,Gombás sertéstokány tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Káposztás tészta,,Nincs önálló ár; napi menü része
-Menü,Szemesbab-főzelék Stefánia vagdalttal,,Nincs önálló ár; napi menü része
-Menü,Pankómorzsás sertéskaraj petrezselymes burgonyával,,Nincs önálló ár; napi menü része
-Menü,Debreceni sertésszelet tarhonyakörettel,,Nincs önálló ár; napi menü része
-Menü,"Rántott sajt párolt rizzsel, tartármártással",,Nincs önálló ár; napi menü része
+Menü,Gordon csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
+Menü,Gödöllői sertésszelet párolt rizzsel,,Nincs önálló ár; napi menü része
+Menü,Gyömbéres csirkemell raguleves,,Nincs önálló ár; napi menü része
 Menü,Gyros tál,,Nincs önálló ár; napi menü része
-Menü,"Csemege sült burgonyával, párolt káposztával",,Nincs önálló ár; napi menü része
-Menü,Rántott borjúmáj burgonyapürével,,Nincs önálló ár; napi menü része
-Menü,Csülökpörkölt tésztakörettel,,Nincs önálló ár; napi menü része
-Menü,Rántott sertéskaraj párolt rizzsel,,Nincs önálló ár; napi menü része
-Menü,Sárgaborsópüré-főzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
-Menü,Erdélyi rakott káposzta,,Nincs önálló ár; napi menü része
-Menü,Mákos metélt,,Nincs önálló ár; napi menü része
-Menü,Vasvári sertéskaraj párolt rizzsel,,Nincs önálló ár; napi menü része
-Menü,Lencsefőzelék vagdalttal,,Nincs önálló ár; napi menü része
-Menü,Tejfölös babfőzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
-Menü,Pankómorzsás karaj párolt rizzsel,,Nincs önálló ár; napi menü része
-Menü,Vasvári csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
-Menü,Sertésflekken petrezselymes burgonyával,,Nincs önálló ár; napi menü része
-Menü,Krémsajtos csirkemellragu spagettikörettel,,Nincs önálló ár; napi menü része
-Menü,"Szezámmagos halfilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,Gyümölcsleves,,Nincs önálló ár; napi menü része
+Menü,"Gyümölcsmártás főtt hússal, töltelékkel, főtt burgonyával",,Nincs önálló ár; napi menü része
+Menü,Habart bableves,,Nincs önálló ár; napi menü része
+Menü,Halászlé,,Nincs önálló ár; napi menü része
+Menü,Hideg gyümölcsleves,,Nincs önálló ár; napi menü része
+Menü,Hideg zöldbableves,,Nincs önálló ár; napi menü része
+Menü,Húsos makaróni,,Nincs önálló ár; napi menü része
+Menü,Jókai bableves,,Nincs önálló ár; napi menü része
+Menü,Kapros zöldbableves,,Nincs önálló ár; napi menü része
 Menü,Káposztás kocka,,Nincs önálló ár; napi menü része
-Menü,"Csemege sertéssült burgonyával, párolt káposztával",,Nincs önálló ár; napi menü része
-Menü,Tihanyi sertésszelet tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Káposztás tészta,,Nincs önálló ár; napi menü része
+Menü,Kelkáposzta-főzelék Stefánia vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Kijevi csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
+Menü,Kolbászos burgonyaleves,,Nincs önálló ár; napi menü része
+Menü,Kolbászos rakott burgonya,,Nincs önálló ár; napi menü része
+Menü,Krémsajtos csirkemellragu spagettikörettel,,Nincs önálló ár; napi menü része
+Menü,Krumplis tészta,,Nincs önálló ár; napi menü része
+Menü,Lebbencsleves,,Nincs önálló ár; napi menü része
+Menü,Lecskés bableves,,Nincs önálló ár; napi menü része
+Menü,Lencsefőzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
+Menü,Lencsefőzelék vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Majoránnás csirkecomb rizi-bizivel,,Nincs önálló ár; napi menü része
+Menü,Matyópecsenye petrezselymes burgonyával,,Nincs önálló ár; napi menü része
+Menü,Matyópecsenye zöldséges rizzsel,,Nincs önálló ár; napi menü része
+Menü,Mákos metélt,,Nincs önálló ár; napi menü része
+Menü,Milánói sertésszelet,,Nincs önálló ár; napi menü része
+Menü,"Mustáros karaj sajttal, sonkával grillezve, petrezselymes burgonyával",,Nincs önálló ár; napi menü része
+Menü,"Mustáros pácban érlelt karaj rántva, párolt rizzsel",,Nincs önálló ár; napi menü része
+Menü,Olaszos zöldségleves,,Nincs önálló ár; napi menü része
+Menü,Palócleves,,Nincs önálló ár; napi menü része
 Menü,Pankómorzsás csirkemell párolt rizzsel,,Nincs önálló ár; napi menü része
-Készételek,Aszalt szilvás szűzérme burgonyafánkkal,2700,
-Készételek,Aszalt szilvás szűzérme,2000,
-Készételek,Fetasajttal töltött szűzérme baconbe tekerve,2000,
-Készételek,Csirkehúsos palacsinta zöldsaláta tzatziki,2500,
-Készételek,Parajos csirkemellrolád baconbe tekerve,1900,
-Készételek,Gödöllői sertésszelet,,A normál ár nem olvasható biztosan; ellenőrzendő
-Készételek,Toros káposzta,,A normál ár nem olvasható biztosan; ellenőrzendő
-Készételek,Csülkös pacalpörkölt,,A normál ár nem olvasható biztosan; ellenőrzendő
-Készételek,Kocsonya,,A normál ár nem olvasható biztosan; ellenőrzendő
-Készételek,Csirkehúsos palacsinta csőben sütve zöldsalátával,2500,
-Készételek,Bazsalikomos húsgolyók pestós spagettiágyon,2500,
-Készételek,Görög csirkemell,1900,
-Készételek,Rántott karaj rántott hagymakarikával,2000,
+Menü,"Pankómorzsás halfilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,"Pankómorzsás harcsafilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,Pankómorzsás karaj párolt rizzsel,,Nincs önálló ár; napi menü része
+Menü,Pankómorzsás sertéskaraj petrezselymes burgonyával,,Nincs önálló ár; napi menü része
+Menü,Paprikás csirkecomb tésztával,,Nincs önálló ár; napi menü része
+Menü,Paradicsomleves,,Nincs önálló ár; napi menü része
+Menü,Paradicsomos káposztafőzelék Stefánia vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Paradicsomos káposztafőzelék vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Párizsi csirkemell petrezselymes burgonyával,,Nincs önálló ár; napi menü része
+Menü,Pásztor sajt párolt rizzsel,,Nincs önálló ár; napi menü része
+Menü,Rakott karfiol,,Nincs önálló ár; napi menü része
+Menü,Rántott borjúmáj burgonyapürével,,Nincs önálló ár; napi menü része
+Menü,Rántott csirkemell rizi-bizivel,,Nincs önálló ár; napi menü része
+Menü,"Rántott harcsafilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,"Rántott sajt párolt rizzsel, tartármártással",,Nincs önálló ár; napi menü része
+Menü,Rántott sertéskaraj párolt rizzsel,,Nincs önálló ár; napi menü része
+Menü,Rizsfelfújt csokiöntettel,,Nincs önálló ár; napi menü része
+Menü,Sárgaborsó-főzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
+Menü,Sárgaborsópüré-főzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
+Menü,Sertésflekken petrezselymes burgonyával,,Nincs önálló ár; napi menü része
+Menü,Sertéskaraj Orly módra rizi-bizivel,,Nincs önálló ár; napi menü része
+Menü,Sertéspaprikás tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Sertéspörkölt tarhonyakörettel,,Nincs önálló ár; napi menü része
+Menü,Sertésragu leves,,Nincs önálló ár; napi menü része
+Menü,Szecsuáni csirkemell pirított tésztával,,Nincs önálló ár; napi menü része
+Menü,Szemesbab-főzelék Stefánia vagdalttal,,Nincs önálló ár; napi menü része
+Menü,Szezámmagos csirkemell párolt rizzsel,,Nincs önálló ár; napi menü része
+Menü,"Szezámmagos halfilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,"Szezámmagos harcsafilé burgonyapürével, tartármártással",,Nincs önálló ár; napi menü része
+Menü,Székelykáposzta,,Nincs önálló ár; napi menü része
+Menü,Tarhonyás hús,,Nincs önálló ár; napi menü része
+Menü,Tavaszi zöldségleves,,Nincs önálló ár; napi menü része
+Menü,Tejfölös babfőzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
+Menü,Tejfölös burgonyafőzelék sertéspörkölttel,,Nincs önálló ár; napi menü része
+Menü,Tejfölös burgonyaleves,,Nincs önálló ár; napi menü része
+Menü,Tejfölös gombaleves,,Nincs önálló ár; napi menü része
+Menü,Tejfölös karfiolleves,,Nincs önálló ár; napi menü része
+Menü,Tejszínes cheddaros csirkemell tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Tihanyi sertésszelet tésztakörettel,,Nincs önálló ár; napi menü része
+Menü,Töltött csirkecomb rizi-bizivel,,Nincs önálló ár; napi menü része
+Menü,Túrós csusza,,Nincs önálló ár; napi menü része
+Menü,Túrós sztrapacska,,Nincs önálló ár; napi menü része
+Menü,Vadas sertésszelet tésztával,,Nincs önálló ár; napi menü része
+Menü,Vasvári csirkemell vegyes körettel,,Nincs önálló ár; napi menü része
+Menü,Vasvári sertéskaraj párolt rizzsel,,Nincs önálló ár; napi menü része
+Menü,Vegyes gyümölcsleves,,Nincs önálló ár; napi menü része
+Menü,Zöldbableves,,Nincs önálló ár; napi menü része
+Menü,Zöldborsóleves,,Nincs önálló ár; napi menü része
+Menü,Zöldséges daragaluska leves,,Nincs önálló ár; napi menü része
+Menü,Zöldséges gombaleves,,Nincs önálló ár; napi menü része
+Menü,Zöldséges májgaluska leves,,Nincs önálló ár; napi menü része
+Menü,Zöldséges tarhonyaleves,,Nincs önálló ár; napi menü része

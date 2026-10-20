@@ -965,20 +965,26 @@ class MainWindow(QMainWindow):
             title=name.text().strip() or "[a dizájn neve]"
             prompt.setPlainText(
                 f"Készíts új, nyomtatható étlaphoz illő vizuális témát: {title}, alkalom: {event}. "
-                "Az összhatás legyen ízléses, igényes, jól olvasható és az alkalomhoz illő; a díszítés maradjon a lap szélein, "
-                "ne zavarja a rákerülő ételszöveget. Ne tegyél feliratot, ételnevet, logót vagy vízjelet a grafikákra. "
+                "Az összhatás legyen ízléses, jól olvasható és az alkalomhoz illő. A háttérre SEMMILYEN keretet, szegélyt, "
+                "körbefutó vonalat, vastag díszcsíkot vagy oldalsó vonalat ne rajzolj: az étlap tartalma rá fog kerülni, "
+                "és a keret kitakarná vagy összenyomná. A háttér középső és oldalsó területe maradjon világos, nyugodt és "
+                "szinte üres; legfeljebb nagyon halvány, ritka motívumok kerülhetnek a sarkokba, a szövegmezőktől távol. "
+                "Ne tegyél feliratot, ételnevet, logót vagy vízjelet a grafikákra. "
                 "Készíts egy 1440 × 2037 px-es, álló background.png hátteret és öt egymástól jól megkülönböztethető, "
-                "1800 × 120 px-es, finom line-art divider_1.png–divider_5.png elválasztót. A divider képek háttere legyen teljesen átlátszó, "
-                "vonalas motívumuk az alkalomra utaljon, és középen hagyjanak tiszta helyet. "
+                "1800 × 120 px-es, finom line-art elválasztót: divider_1.png, divider_2.png, divider_3.png, divider_4.png és divider_5.png. "
+                "MIND AZ ÖT ELVÁLASZTÓ KÜLÖN KÉPFÁJL LEGYEN: ne tedd őket egy közös képre, kontaktlapra vagy rácsba, "
+                "és ne adj előnézeti montázst. Mindegyik önálló, vízszintes, átlátszó hátterű PNG legyen; a motívum finom, "
+                "vékony vonalas, az alkalomra utaló, és középen hagyjon tiszta helyet. "
                 "A program a külön képeket automatikusan PNG-vé alakítja és megfelelő vászonra illeszti. "
-                "Ha tudsz ZIP-et készíteni, add át egy ZIP-ben a background.png, divider.png (az első változat), "
+                "Ha ZIP-et tudsz készíteni, add át egy ZIP-ben a background.png, divider.png (az első változat), "
                 "divider_1.png–divider_5.png és manifest.json fájlokat, mindet közvetlenül a ZIP gyökerében. "
                 'A manifest legyen UTF-8 JSON ilyen szerkezettel: {"schema_version":1,"id":"tema_azonosito",'
                 '"name":"Dizájn neve","occasion":"Alkalom neve",'
                 '"palette":{"primary":"#526044","accent":"#B85A42","background":"#F1E9D7"},'
                 '"assets":{"divider":"divider.png","background":"background.png"},'
                 '"divider_variants":["divider_1.png","divider_2.png","divider_3.png","divider_4.png","divider_5.png"]}. '
-                "Ha ZIP-et nem tudsz készíteni, add át a háttérképet és az öt elválasztót külön képfájlokként."
+                "Ha ZIP-et nem tudsz készíteni, add át a háttérképet és mind az öt elválasztót különálló képfájlként; "
+                "ne egyetlen képre összeállított ötös montázsként."
             )
         occasion.currentTextChanged.connect(make_prompt);name.textChanged.connect(make_prompt);make_prompt()
         actions=QHBoxLayout();layout.addLayout(actions)

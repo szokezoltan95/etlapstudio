@@ -531,11 +531,9 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor("#a9433b"));p.drawRoundedRect(badge,6,6);p.restore()
             text_singleline(p,source,"promo_badge",style_size(source,"promo_badge",6),"#ffffff",badge_x+2,badge_y+line_h*.12,52,line_h*.72,"AKCIÓ",True,Qt.AlignmentFlag.AlignHCenter)
         price_y=y+(len(lines)-1)*line_h
-        if mode!="none":
-            pen=QPen(QColor(accent));pen.setWidthF(.8)
-            if mode=="dots":pen.setStyle(Qt.PenStyle.DotLine)
-            elif mode=="dashes":pen.setStyle(Qt.PenStyle.DashLine)
-            p.setPen(pen);p.drawLine(round(price_x-8),round(price_y+line_h*.55),round(price_x),round(price_y+line_h*.55))
+        dish_font=font(source,"dish_name",size)
+        dish_end_x=x+min(label_width,QFontMetricsF(dish_font).horizontalAdvance(lines[-1]))+4
+        leader_y=price_y+line_h*.55
         if promo:
             old=price(dish["price"]);new=price(dish["promo_price"])
             old_size=min(size,style_size(source,"promo_old_price",7));new_size=min(size,style_size(source,"promo_new_price",12.5))
@@ -550,12 +548,28 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             text_singleline(p,source,"promo_old_price",old_size,"#777777",old_x,price_y,old_w,line_h,old,False)
             p.save();p.setPen(QPen(QColor("#777777"),max(.7,size*.035)));p.drawLine(round(old_x),round(price_y+line_h*.53),round(old_x+old_w),round(price_y+line_h*.53));p.restore()
             text_singleline(p,source,"promo_new_price",new_size,"#9E3F3A",old_x+old_w+gap_px,price_y,new_w,line_h,new,True,Qt.AlignmentFlag.AlignRight)
+            leader_start=max(dish_end_x,badge_x+56+4)
+            leader_end=old_x-4
+            if mode!="none" and leader_start<leader_end:
+                pen=QPen(QColor(accent));pen.setWidthF(.8)
+                if mode=="dots":pen.setStyle(Qt.PenStyle.DotLine)
+                elif mode=="dashes":pen.setStyle(Qt.PenStyle.DashLine)
+                p.setPen(pen);p.drawLine(QPointF(leader_start,leader_y),QPointF(leader_end,leader_y))
         else:
             price_size=min(size,style_size(source,"dish_price",12.5))
             price_text=price(dish["price"])
             price_width_px=QFontMetricsF(font(source,"dish_price",price_size)).horizontalAdvance(price_text)
-            if price_width_px>price_width:price_size=max(6,int(price_size*price_width/price_width_px))
+            if price_width_px>price_width:
+                price_size=max(6,int(price_size*price_width/price_width_px))
+                price_width_px=QFontMetricsF(font(source,"dish_price",price_size)).horizontalAdvance(price_text)
             text_singleline(p,source,"dish_price",price_size,dark,price_x,price_y,price_width,line_h,price_text,False,Qt.AlignmentFlag.AlignRight)
+            leader_start=dish_end_x
+            leader_end=price_x+price_width-price_width_px-4
+            if mode!="none" and leader_start<leader_end:
+                pen=QPen(QColor(accent));pen.setWidthF(.8)
+                if mode=="dots":pen.setStyle(Qt.PenStyle.DotLine)
+                elif mode=="dashes":pen.setStyle(Qt.PenStyle.DashLine)
+                p.setPen(pen);p.drawLine(QPointF(leader_start,leader_y),QPointF(leader_end,leader_y))
     content_end=max((item[2]+(item[4]*1.3 if item[0]=="heading" else item[5])
                      for item in placements),default=top)
     p.restore()

@@ -39,11 +39,47 @@ def normalized_name(name: str) -> str:
     return unicodedata.normalize("NFKC", name).casefold().strip()
 
 
+_HU_LETTERS = (
+    "a", "á", "b", "c", "cs", "d", "dz", "dzs", "e", "é", "f", "g", "gy",
+    "h", "i", "í", "j", "k", "l", "ly", "m", "n", "ny", "o", "ó", "ö", "ő",
+    "p", "q", "r", "s", "sz", "t", "ty", "u", "ú", "ü", "ű", "v", "w", "x", "y", "z", "zs",
+)
+_HU_LETTER_INDEX = {letter: index for index, letter in enumerate(_HU_LETTERS)}
+_HU_DIGRAPHS = tuple(sorted((letter for letter in _HU_LETTERS if len(letter) > 1), key=len, reverse=True))
+
+
+def hungarian_sort_key(value: str):
+    """Return a case-insensitive key following Hungarian alphabet order, including digraphs."""
+    text = unicodedata.normalize("NFC", value).casefold()
+    tokens = []
+    i = 0
+    while i < len(text):
+        digraph = next((letter for letter in _HU_DIGRAPHS if text.startswith(letter, i)), None)
+        if digraph:
+            tokens.append((_HU_LETTER_INDEX[digraph], ""))
+            i += len(digraph)
+            continue
+        char = text[i]
+        if char in _HU_LETTER_INDEX:
+            tokens.append((_HU_LETTER_INDEX[char], ""))
+        else:
+            # Keep spaces and punctuation deterministic while sorting them before letters.
+            tokens.append((-1, char))
+        i += 1
+    return tuple(tokens)
+
+
+def _hungarian_collation(left: str, right: str) -> int:
+    left_key, right_key = hungarian_sort_key(left), hungarian_sort_key(right)
+    return (left_key > right_key) - (left_key < right_key)
+
+
 class Store:
     def __init__(self, path: Path):
         self.path = path
         self.db = sqlite3.connect(path)
         self.db.row_factory = sqlite3.Row
+        self.db.create_collation("HUNGARIAN", _hungarian_collation)
         self.db.execute("PRAGMA foreign_keys = ON")
         with self.db:
             self.db.executescript("""
@@ -121,7 +157,7 @@ class Store:
     def dishes(self, query: str = ""):
         return self.db.execute(
             "SELECT * FROM dishes WHERE active=1 AND (name LIKE ? OR category LIKE ?) "
-            "ORDER BY category, name COLLATE NOCASE, id",
+            "ORDER BY category COLLATE HUNGARIAN, name COLLATE HUNGARIAN, id",
             (f"%{query}%", f"%{query}%"),
         ).fetchall()
 
@@ -131,7 +167,7 @@ class Store:
     def menu_suggestions(self):
         return [row[0] for row in self.db.execute(
             "SELECT name FROM dishes WHERE active=1 AND category='Menü' "
-            "ORDER BY name COLLATE NOCASE")]
+            "ORDER BY name COLLATE HUNGARIAN")]
 
     def add_dish(self, name: str, category: str, amount: int, dish_id=None,
                  promo_enabled=False, promo_price=None):
@@ -162,7 +198,7 @@ class Store:
                    COALESCE(dp.promo_price,d.promo_price) AS promo_price
             FROM daily_selection s JOIN dishes d ON d.id=s.dish_id
             LEFT JOIN daily_promotions dp ON dp.day=s.day AND dp.dish_id=d.id
-            WHERE s.day=? ORDER BY d.category, d.name COLLATE NOCASE
+            WHERE s.day=? ORDER BY d.category COLLATE HUNGARIAN, d.name COLLATE HUNGARIAN
         """, (day.isoformat(),)).fetchall()
 
     def set_selected(self, day: date, dish_ids: list[int]):

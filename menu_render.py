@@ -9,7 +9,7 @@ from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
                          QPageSize, QPdfWriter, QPainterPath, QPen, QTextDocument)
 from themes import HEX, load_themes
-from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, monday, price
+from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, hungarian_sort_key, monday, price
 
 W=1440
 H=round(W*297/210)
@@ -442,7 +442,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,1085,menu_y+92,260,58,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     alacarte_shift=header_shift+menu_gap_shift
     if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,60)
-    dishes=[dict(d) for d in source.selection(target)]
+    dishes=sorted((dict(d) for d in source.selection(target)), key=lambda dish:hungarian_sort_key(dish["name"]))
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),205,8,primary,source)
         text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)

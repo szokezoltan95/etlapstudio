@@ -459,6 +459,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for category in CATEGORIES:
             rows=[d for d in dishes if d["category"]==category]
             if not rows:continue
+            dish_sort=setting(source,"daily_menu_sort","name")
+            if dish_sort in ("price_asc","price_desc"):
+                rows.sort(key=lambda dish:int(dish.get("promo_price") if dish.get("promo_enabled") and dish.get("promo_price") is not None else dish.get("price",0)),
+                          reverse=dish_sort=="price_desc")
             category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
             line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
             row_items=[]

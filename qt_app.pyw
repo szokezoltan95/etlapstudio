@@ -313,6 +313,7 @@ class MainWindow(QMainWindow):
             QTabBar#categoryTabs { background:transparent; }
             QTabBar#categoryTabs::tab { padding:7px 10px 8px; margin:4px 2px 0 0; background:#e6d8c8; color:#604c42; border:1px solid #d2c0ad; border-bottom-color:#c6b09b; border-top-left-radius:8px; border-top-right-radius:8px; font-size:12px; font-weight:600; }
             QTabBar#categoryTabs::tab:selected { background:#fffaf2; color:#963f36; border-bottom-color:#fffaf2; }
+            QTabBar#categoryTabs[inactiveRow="true"]::tab:selected { background:#e6d8c8; color:#604c42; border-bottom-color:#c6b09b; }
             QTabBar#categoryTabs::tab:hover:!selected { background:#f1e4d6; color:#793c32; }
             QTabBar#categoryTabs::scroller { width:18px; }
             QTabBar#categoryTabs QToolButton { padding:2px; min-width:18px; background:#eadfd2; color:#604c42; border:1px solid #d2c0ad; border-radius:5px; }
@@ -366,19 +367,20 @@ class MainWindow(QMainWindow):
         date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today()))))
         self.active_category="Összes";self.build_category_tabs()
         box.addWidget(self.category_tab_widget)
-        search_row=QHBoxLayout();search_row.setSpacing(7)
         self.search=QLineEdit();self.search.setPlaceholderText("Keresés az ételek között…");self.search.textChanged.connect(self.refresh_food_grid)
         self.search.returnPressed.connect(self.handle_search_enter)
         self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
-        search_row.addWidget(self.search,1)
-        self.food_sort=QComboBox();self.food_sort.addItem("Ábécé szerint","name")
-        self.food_sort.addItem("Ár szerint növekvő","price_asc")
-        self.food_sort.addItem("Ár szerint csökkenő","price_desc")
-        self.food_sort.setMinimumWidth(174);self.food_sort.setMaximumWidth(205)
-        self.food_sort.setToolTip("Az ételek rendezése név vagy ár alapján.")
-        self.food_sort.currentIndexChanged.connect(self.refresh_food_grid)
-        search_row.addWidget(self.food_sort)
-        box.addLayout(search_row)
+        box.addWidget(self.search)
+        order_row=QHBoxLayout();order_row.setSpacing(7)
+        order_row.addWidget(QLabel("Sorrend a kész étlapon"))
+        self.menu_order=QComboBox();self.menu_order.addItem("Magyar ábécé szerint","name")
+        self.menu_order.addItem("Ár szerint növekvő","price_asc")
+        self.menu_order.addItem("Ár szerint csökkenő","price_desc")
+        saved_order=self.store.setting("daily_menu_sort","name")
+        saved_index=self.menu_order.findData(saved_order)
+        if saved_index>=0:self.menu_order.setCurrentIndex(saved_index)
+        self.menu_order.currentIndexChanged.connect(self.save_menu_order)
+        order_row.addWidget(self.menu_order,1);box.addLayout(order_row)
         self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
@@ -389,6 +391,12 @@ class MainWindow(QMainWindow):
         self.daily_count=QLabel();box.addWidget(self.daily_count)
         box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
 
+    def save_menu_order(self,*_):
+        if not hasattr(self,"menu_order"):return
+        self.store.set_settings({"daily_menu_sort":self.menu_order.currentData()})
+        self.preview_archive=None
+        self.schedule_preview()
+
     def build_category_tabs(self):
         self.category_names=["Összes"]+[name for name in CATEGORIES if name!="Menü"]
         wrapper=QWidget();layout=QVBoxLayout(wrapper);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
@@ -398,6 +406,7 @@ class MainWindow(QMainWindow):
             bar=QTabBar();bar.setObjectName("categoryTabs");bar.setShape(QTabBar.Shape.RoundedNorth)
             bar.setExpanding(False);bar.setUsesScrollButtons(True);bar.setElideMode(Qt.TextElideMode.ElideNone)
             for name in self.category_names[start:end]:bar.addTab(name)
+            bar.setProperty("inactiveRow",True)
             bar.setCurrentIndex(-1)
             bar.currentChanged.connect(lambda local_index,offset=start:self.choose_category_index(offset+local_index) if local_index>=0 else None)
             layout.addWidget(bar);self.category_tabs.append(bar);self._category_tab_offsets.append(start)
@@ -412,8 +421,11 @@ class MainWindow(QMainWindow):
         self.active_category=self.category_names[index]
         for bar,offset in zip(self.category_tabs,self._category_tab_offsets):
             bar.blockSignals(True)
-            local_index=index-offset if offset<=index<offset+bar.count() else -1
+            row_is_active=offset<=index<offset+bar.count()
+            bar.setProperty("inactiveRow",not row_is_active)
+            local_index=index-offset if row_is_active else -1
             bar.setCurrentIndex(local_index)
+            bar.style().unpolish(bar);bar.style().polish(bar);bar.update()
             bar.blockSignals(False)
         self.refresh_food_grid()
 
@@ -440,10 +452,8 @@ class MainWindow(QMainWindow):
         if self.active_category!="Összes" and not query:
             foods=[x for x in foods if x["category"]==self.active_category]
         selected={r["id"]:r for r in self.store.selection(self.current_day())}
-        sort_mode=self.food_sort.currentData() if hasattr(self,"food_sort") else "name"
-        if sort_mode in ("price_asc","price_desc"):
-            foods.sort(key=lambda dish:int(dish["promo_price"] if dish["promo_enabled"] and dish["promo_price"] is not None else dish["price"]),
-                       reverse=sort_mode=="price_desc")
+        # Keep available matches alphabetical, but put dishes already on this day's menu first.
+        foods.sort(key=lambda dish:dish["id"] not in selected)
         self._food_rows={r["id"]:r for r in foods}
         self._food_action_buttons={}
         for n,dish in enumerate(foods):

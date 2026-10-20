@@ -211,6 +211,32 @@ class Store:
                                 ",".join("?"*len(dish_ids))+")",(day.isoformat(),*dish_ids))
             else:self.db.execute("DELETE FROM daily_promotions WHERE day=?",(day.isoformat(),))
 
+    def copy_daily_menu(self, source_day: date, target_day: date) -> bool:
+        """Replace a day's selection and weekday menu text with the exact prior day's data."""
+        source_key,target_key=source_day.isoformat(),target_day.isoformat()
+        rows=list(self.selection(source_day))
+        source_exists=bool(rows) or bool(self.db.execute(
+            "SELECT 1 FROM saved_menus WHERE kind='daily' AND menu_date=?",(source_key,)).fetchone())
+        if not source_exists:return False
+        # A saved daily snapshot can outlive the editable rows (for example after
+        # restoring an older database). Use it as a fallback source when needed.
+        if not rows:
+            saved=self.db.execute("SELECT definition FROM saved_menus WHERE kind='daily' AND menu_date=?",(source_key,)).fetchone()
+            if saved:
+                try:rows=json.loads(saved[0]).get("dishes",[])
+                except (TypeError,ValueError):rows=[]
+        with self.db:
+            self.db.execute("DELETE FROM daily_selection WHERE day=?",(target_key,))
+            self.db.execute("DELETE FROM daily_promotions WHERE day=?",(target_key,))
+            self.db.executemany("INSERT OR IGNORE INTO daily_selection(day,dish_id) VALUES(?,?)",
+                [(target_key,row["id"]) for row in rows])
+            self.db.executemany("INSERT OR REPLACE INTO daily_promotions(day,dish_id,promo_price) VALUES(?,?,?)",
+                [(target_key,row["id"],row["promo_price"]) for row in rows
+                 if row["promo_enabled"] and row["promo_price"] is not None])
+        soup,a,b=self.week_entry(source_day)
+        self.set_week_entry(target_day,soup,a,b)
+        return True
+
     def copy_previous_daily(self, day: date) -> bool:
         """Use the most recent saved working selection as the starting point for a new day."""
         current=day.isoformat()

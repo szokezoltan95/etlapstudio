@@ -60,12 +60,13 @@ def price_edit(value=0):
 
 
 class DishDialog(QDialog):
-    def __init__(self,parent,row=None,initial_name=""):
+    def __init__(self,parent,row=None,initial_name="",initial_category=None):
         super().__init__(parent);self.setWindowTitle("Étel szerkesztése" if row else "Új étel")
         layout=QVBoxLayout(self);form=QFormLayout();layout.addLayout(form)
         self.name=QLineEdit(row["name"] if row else initial_name);form.addRow("Étel neve",self.name)
         self.category=QComboBox();self.category.addItems(CATEGORIES)
         if row:self.category.setCurrentText(row["category"])
+        elif initial_category in CATEGORIES:self.category.setCurrentText(initial_category)
         form.addRow("Étel kategóriája",self.category)
         self.amount=price_edit(row["price"] if row else 0);form.addRow("Ár (Ft)",self.amount)
         self.amount_label=QLabel("A Menü kategóriában a 0 Ft azt jelenti, hogy nincs külön feltüntetett ár.")
@@ -339,6 +340,8 @@ class MainWindow(QMainWindow):
             QPushButton[role="destructive"] { background:#f1dfdc; color:#923d34; border:1px solid #d8aaa3; }
             QPushButton[role="destructive"]:hover { background:#e9cbc5; color:#762f28; }
             QPushButton[role="food"] { padding:8px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
+            QPushButton[role="newFoodCard"] { padding:12px; min-height:82px; text-align:center; background:#d9e5d8; color:#344b3a; border:1px dashed #8ca78a; border-radius:12px; font-weight:700; }
+            QPushButton[role="newFoodCard"]:hover { background:#c2d5c1; border-color:#607f5e; }
             QPushButton[role="food"][selected="true"] { background:#deeadb; color:#263e2e; border:1px solid #7f9c7c; }
             QPushButton[role="foodEdit"] { padding:6px 5px; min-width:54px; background:#f0e5d9; color:#6c4436; border:1px solid #dfcbbb; border-radius:9px; }
             QPushButton[role="foodEdit"]:hover { background:#e7d2c0; color:#55382d; }
@@ -420,6 +423,10 @@ class MainWindow(QMainWindow):
         self.search.returnPressed.connect(self.handle_search_enter)
         self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
         box.addWidget(self.search)
+        self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
+        self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
+        self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
         order_row=QHBoxLayout();order_row.setSpacing(7)
         order_row.addWidget(QLabel("Sorrend a kész étlapon"))
         self.menu_order=QComboBox();self.menu_order.addItem("Magyar ábécé szerint","name")
@@ -432,13 +439,9 @@ class MainWindow(QMainWindow):
         order_row.addWidget(self.menu_order,1)
         self.section_order_button=button("Szekciók sorrendje…",self.edit_daily_section_order)
         order_row.addWidget(self.section_order_button);box.addLayout(order_row)
-        self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
-        self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
-        self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
-        self.new_food_button=button("＋  Új étel",self.add_catalogue_dish)
+        self.copy_previous_button=button("Előző napi étlap másolása",self.copy_previous_daily_menu)
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
-        action_row=QHBoxLayout();action_row.addWidget(self.new_food_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
+        action_row=QHBoxLayout();action_row.addWidget(self.copy_previous_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
 
     def edit_daily_section_order(self):
@@ -480,6 +483,19 @@ class MainWindow(QMainWindow):
         self.store.set_selected(day,[]);self.preview_archive=None
         self.refresh_daily();self.refresh_archive();self.status.setText("A napi étlap kiürült.")
 
+    def copy_previous_daily_menu(self):
+        target=self.current_day();source=target-timedelta(days=1)
+        answer=QMessageBox.question(self,"Előző napi étlap másolása",
+            f"A(z) {display_date(source)} étlapját bemásoljam erre a napra: {display_date(target)}?\n\n"
+            "A jelenlegi napi étlap tartalma lecserélődik.",
+            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
+        if answer!=QMessageBox.StandardButton.Yes:return
+        if not self.store.copy_daily_menu(source,target):
+            QMessageBox.information(self,APP_NAME,f"A(z) {display_date(source)} dátumhoz nem található másolható napi étlap.")
+            return
+        self.preview_archive=None;self.refresh_daily();self.refresh_archive()
+        self.status.setText(f"Az előző napi étlap átmásolva: {display_date(source)} → {display_date(target)}.")
+
     def refresh_food_grid(self,*_):
         if not hasattr(self,"food_grid"):return
         while self.food_grid.count():
@@ -494,6 +510,11 @@ class MainWindow(QMainWindow):
         foods.sort(key=lambda dish:dish["id"] not in selected)
         self._food_rows={r["id"]:r for r in foods}
         self._food_action_buttons={}
+        cols=max(1,min(3,self.food_scroll.viewport().width()//235))
+        new_category=None if self.active_category=="Összes" else self.active_category
+        new_food=button("＋\nÚj étel",lambda checked=False,category=new_category:self.add_catalogue_dish(initial_category=category))
+        new_food.setProperty("role","newFoodCard");new_food.setToolTip("Új étel felvétele"+(" · válaszd ki a kategóriát" if self.active_category=="Összes" else f" · kategória: {self.active_category}"))
+        self.food_grid.addWidget(new_food,0,0)
         for n,dish in enumerate(foods):
             is_selected=dish["id"] in selected
             cols=max(1,min(3,self.food_scroll.viewport().width()//235))
@@ -527,9 +548,8 @@ class MainWindow(QMainWindow):
                 action.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Fixed)
                 actions.addWidget(action)
             cardbox.addLayout(actions)
-            cols=max(1,min(3,self.food_scroll.viewport().width()//235))
-            self.food_grid.addWidget(card,n//cols,n%cols)
-        cols=max(1,min(3,self.food_scroll.viewport().width()//235))
+            position=n+1
+            self.food_grid.addWidget(card,position//cols,position%cols)
         for col in range(cols):self.food_grid.setColumnStretch(col,1)
         self.food_grid.setRowStretch((len(foods)+cols-1)//cols,1)
         self.daily_count.setText(f"{len(selected)} étel szerepel a kiválasztott napi étlapon"+ (" · nincs találat" if not foods else ""))
@@ -572,15 +592,15 @@ class MainWindow(QMainWindow):
         selected={row["id"] for row in self.store.selection(self.current_day())}
         (self.remove_daily_dish if dish_id in selected else self.add_daily_dish)(dish_id)
 
-    def add_catalogue_dish(self,checked=False,initial_name=""):
-        form=DishDialog(self,initial_name=initial_name)
+    def add_catalogue_dish(self,checked=False,initial_name="",initial_category=None):
+        form=DishDialog(self,initial_name=initial_name,initial_category=initial_category)
         if form.exec()!=QDialog.DialogCode.Accepted:return
         try:
             dish_id=self.store.add_dish(form.name.text().strip(),form.category.currentText(),int(form.amount.text()))
             self.store.save_daily_dish(self.current_day(),dish_id,int(form.amount.text()),True)
         except (ValueError,sqlite3.Error) as exc:
             QMessageBox.warning(self,APP_NAME,"Nem sikerült elmenteni az új ételt.\n"+str(exc));return
-        self.search.clear();self.choose_category("Összes")
+        self.search.clear();self.choose_category(initial_category or "Összes")
         self.refresh_menu_suggestions();self.refresh_daily()
         self.status.setText("Az új étel bekerült az adatbázisba és a kiválasztott napi étlapra.")
 

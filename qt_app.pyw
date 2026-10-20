@@ -42,6 +42,27 @@ TEXT_STYLES=[
     ("weekly_value","Heti menü ételnevei","Segoe UI",15,"special"),
     ("footer_note","Alsó megjegyzés","Georgia",10,"special"),
 ]
+MIT_LICENSE_TEXT='''MIT License
+
+Copyright (c) 2026 szokezoltan95
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.'''
 LEADERS={"Nincs":"none","Pontozott":"dots","Szaggatott":"dashes","Folytonos vonal":"line"}
 
 
@@ -224,6 +245,14 @@ class PreviewLabel(QLabel):
         if self._drag and event.button()==Qt.MouseButton.LeftButton:
             self._drag=None;self.unsetCursor();event.accept();return
         super().mouseReleaseEvent(event)
+
+
+class DishCatalogItem(QTreeWidgetItem):
+    def __lt__(self,other):
+        tree=self.treeWidget();column=tree.sortColumn() if tree else 0
+        if column==2:
+            return int(self.data(2,Qt.ItemDataRole.UserRole+1) or 0)<int(other.data(2,Qt.ItemDataRole.UserRole+1) or 0)
+        return self.text(column).casefold()<other.text(column).casefold()
 
 
 class CalendarDateEdit(QDateEdit):
@@ -771,14 +800,6 @@ class MainWindow(QMainWindow):
         buttons.addWidget(open_button);buttons.addWidget(delete_button);buttons.addStretch();buttons.addWidget(close_button)
         body_layout.addLayout(buttons)
 
-        # Az adatkezelő és az archívum az első két menüpont.
-        database_action=QAction("Adatkezelő…",self)
-        database_action.triggered.connect(self.database_manager)
-        self.menuBar().addAction(database_action)
-        archive_action=QAction("Korábbi étlapok",self)
-        archive_action.triggered.connect(self.open_archive_window)
-        self.menuBar().addAction(archive_action)
-
         file_menu=self.menuBar().addMenu("Fájl")
         for label,callback in (("Mentés",self.save_current),("Megnyitás…",self.open_archive_window)):
             action=file_menu.addAction(label);action.triggered.connect(callback)
@@ -786,6 +807,12 @@ class MainWindow(QMainWindow):
         for label,callback in (("Exportálás PDF-be…",lambda:self.export("pdf")),("Exportálás képként…",lambda:self.export("png"))):
             action=file_menu.addAction(label);action.triggered.connect(callback)
         file_menu.addSeparator();action=file_menu.addAction("Kilépés");action.triggered.connect(self.close)
+        restaurant_action=QAction("Étterem",self)
+        restaurant_action.triggered.connect(lambda:self.database_manager(0));self.menuBar().addAction(restaurant_action)
+        dishes_action=QAction("Ételek",self)
+        dishes_action.triggered.connect(lambda:self.database_manager(1));self.menuBar().addAction(dishes_action)
+        data_action=QAction("Adatok",self)
+        data_action.triggered.connect(lambda:self.database_manager(2));self.menuBar().addAction(data_action)
         help_menu=self.menuBar().addMenu("Súgó")
         action=help_menu.addAction("Névjegy…");action.triggered.connect(self.about_dialog)
 
@@ -806,16 +833,13 @@ class MainWindow(QMainWindow):
             self.store.delete_saved_menu(menu_id);self.refresh_archive();self.schedule_preview()
 
     def about_dialog(self):
-        dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(520,360)
-        layout=QVBoxLayout(dialog);tabs=QTabWidget();layout.addWidget(tabs,1)
-        about=QWidget();about_layout=QVBoxLayout(about)
-        about_layout.addWidget(QLabel(f"<h2>{APP_NAME}</h2><p><b>Készítette:</b> Szőke Zoltán</p><p>Az alkalmazás a Megyeháza Étterem napi, heti és alkalmi étlapjainak összeállítására, szerkesztésére, mentésére és nyomtatható vagy megosztható formátumban történő exportálására készült.</p><p>Forráskód és változások: <a href='https://github.com/szokezoltan95/etlapstudio'>GitHub projektoldal</a></p>"))
-        about_layout.addStretch();tabs.addTab(about,"Névjegy")
-        license_page=QWidget();license_layout=QVBoxLayout(license_page)
-        license_text=QTextEdit();license_text.setReadOnly(True)
-        license_text.setPlainText("A projekt forráskódja az MIT licenc alatt érhető el. Ez engedélyezi a szoftver használatát, módosítását és továbbterjesztését, az eredeti szerzői jogi és licencmegjelölés megtartásával. A szoftver garancia nélkül, „ahogy van” állapotban kerül közzétételre.\n\nA licenc teljes szövege a GitHub-projekt LICENSE fájljában olvasható. A külső függőségek, betűkészletek és egyéb, külön licenccel rendelkező mellékelt eszközök saját licencfeltételei ettől függetlenül érvényesek.")
-        license_layout.addWidget(license_text);tabs.addTab(license_page,"Licenc")
-        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Close);buttons.rejected.connect(dialog.close);buttons.accepted.connect(dialog.close);layout.addWidget(buttons)
+        dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(760,760)
+        layout=QVBoxLayout(dialog)
+        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Készítette:</b> Szőke Zoltán<br><b>Copyright:</b> © 2026 szokezoltan95<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
+        heading.setOpenExternalLinks(True);layout.addWidget(heading)
+        license_text=QTextEdit();license_text.setReadOnly(True);license_text.setPlainText(MIT_LICENSE_TEXT);layout.addWidget(license_text,1)
+        note=QLabel("A külső függőségek, betűkészletek és külön licencű mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek.");note.setWordWrap(True);layout.addWidget(note)
+        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Close);buttons.rejected.connect(dialog.close);layout.addWidget(buttons)
         dialog.exec()
 
     def build_appearance(self):
@@ -1085,7 +1109,7 @@ class MainWindow(QMainWindow):
         self.refresh_daily();self.refresh_menu_suggestions()
         QMessageBox.information(self,APP_NAME,f"{count} hiányzó étel bekerült az adatbázisba.")
 
-    def database_manager(self):
+    def database_manager(self,initial_tab=0):
         """Central place for restaurant details, dishes, and database import/export."""
         dialog=QDialog(self);dialog.setWindowTitle("Adatbázis kezelő");dialog.resize(900,680)
         layout=QVBoxLayout(dialog);tabs=QTabWidget();layout.addWidget(tabs,1)
@@ -1111,8 +1135,14 @@ class MainWindow(QMainWindow):
         tabs.addTab(restaurant_page,"Étterem adatai")
 
         dishes_page=QWidget();dishes_layout=QVBoxLayout(dishes_page)
-        search=QLineEdit();search.setPlaceholderText("Keresés név vagy kategória szerint…");dishes_layout.addWidget(search)
-        tree=QTreeWidget();tree.setHeaderLabels(["Étel","Kategória","Normál ár"]);tree.setAlternatingRowColors(True)
+        filter_row=QHBoxLayout();dishes_layout.addLayout(filter_row)
+        search=QLineEdit();search.setPlaceholderText("Keresés név szerint…");filter_row.addWidget(search,1)
+        category_filter=QComboBox();category_filter.addItem("Minden kategória","")
+        for category in CATEGORIES:category_filter.addItem(category,category)
+        category_filter.setToolTip("Az étellista szűrése kategória szerint")
+        filter_row.addWidget(category_filter)
+        tree=QTreeWidget();tree.setHeaderLabels(["Étel","Kategória","Normál ár"]);tree.setAlternatingRowColors(True);tree.setSortingEnabled(True)
+        tree.setToolTip("A táblázat oszlopfejléceire kattintva sorba rendezheted a listát.")
         dishes_layout.addWidget(tree,1)
         actions=QHBoxLayout();dishes_layout.addLayout(actions)
         tabs.addTab(dishes_page,"Ételek")
@@ -1136,8 +1166,9 @@ class MainWindow(QMainWindow):
         def reload(*_):
             tree.clear()
             for row in self.store.dishes(search.text()):
-                item=QTreeWidgetItem([row["name"],row["category"],price(row["price"])])
-                item.setData(0,Qt.ItemDataRole.UserRole,row["id"]);tree.addTopLevelItem(item)
+                if category_filter.currentData() and row["category"]!=category_filter.currentData():continue
+                item=DishCatalogItem([row["name"],row["category"],price(row["price"])])
+                item.setData(0,Qt.ItemDataRole.UserRole,row["id"]);item.setData(2,Qt.ItemDataRole.UserRole+1,int(row["price"]));tree.addTopLevelItem(item)
         def selected_row():
             item=tree.currentItem()
             return self.store.db.execute("SELECT * FROM dishes WHERE id=?",(item.data(0,Qt.ItemDataRole.UserRole),)).fetchone() if item else None
@@ -1154,8 +1185,8 @@ class MainWindow(QMainWindow):
         actions.addWidget(button("Szerkesztés",lambda:edit(selected_row())))
         actions.addWidget(button("Eltávolítás",delete));actions.addStretch()
         actions.addWidget(button("Hiányzó alapételek betöltése",self.import_starter))
-        search.textChanged.connect(reload);tree.itemDoubleClicked.connect(lambda *_:edit(selected_row()))
-        reload();dialog.exec()
+        search.textChanged.connect(reload);category_filter.currentIndexChanged.connect(reload);tree.itemDoubleClicked.connect(lambda *_:edit(selected_row()))
+        tabs.setCurrentIndex(max(0,min(2,int(initial_tab))));reload();dialog.exec()
 
     def catalog_manager(self):
         # Backward-compatible entry point used by older UI actions.

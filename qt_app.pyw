@@ -7,14 +7,14 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QAction, QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
+from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMenu,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QStackedWidget, QTabBar, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
-    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox, QSlider,
+    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox, QSlider, QSplashScreen,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
@@ -44,7 +44,7 @@ TEXT_STYLES=[
 ]
 MIT_LICENSE_TEXT='''MIT License
 
-Copyright (c) 2026 szokezoltan95
+Copyright (c) 2026 Szőke Zoltán
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -68,6 +68,13 @@ LEADERS={"Nincs":"none","Pontozott":"dots","Szaggatott":"dashes","Folytonos vona
 
 def qdate(value):return QDate(value.year,value.month,value.day)
 def pydate(value):return date(value.year(),value.month(),value.day())
+
+
+def app_asset(name):
+    candidates=[BASE/"design_assets"/name,
+                Path(getattr(sys,"_MEIPASS",BASE))/"design_assets"/name,
+                Path(sys.executable).resolve().parent/"design_assets"/name]
+    return next((path for path in candidates if path.is_file()),candidates[0])
 
 
 def button(label,callback):
@@ -337,7 +344,7 @@ class MainWindow(QMainWindow):
             for key in ("font_heading","daily_font_heading","weekly_font_heading","special_font_heading"):
                 if self.store.setting(key) in ("Georgia","Trebuchet MS"):font_defaults[key]="Candara"
             self.store.set_settings(font_defaults)
-        self.setWindowTitle(APP_NAME);self.setMinimumSize(760,540)
+        self.setWindowTitle(APP_NAME);self.setWindowIcon(QIcon(str(app_asset("megyehaza_emblem.png"))));self.setMinimumSize(760,540)
         screen=QApplication.primaryScreen()
         available=screen.availableGeometry() if screen else None
         if available:self.resize(min(1500,max(760,available.width()-48)),min(900,max(540,available.height()-72)))
@@ -843,7 +850,7 @@ class MainWindow(QMainWindow):
     def about_dialog(self):
         dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(760,760)
         layout=QVBoxLayout(dialog)
-        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Készítette:</b> Szőke Zoltán<br><b>Copyright:</b> © 2026 szokezoltan95<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
+        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> 1.0.0<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
         heading.setOpenExternalLinks(True);layout.addWidget(heading)
         license_text=QTextEdit();license_text.setReadOnly(True);license_text.setPlainText(MIT_LICENSE_TEXT);layout.addWidget(license_text,1)
         note=QLabel("A külső függőségek, betűkészletek és külön licencű mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek.");note.setWordWrap(True);layout.addWidget(note)
@@ -1661,6 +1668,8 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv);app.setApplicationName(APP_NAME)
+    app.setApplicationVersion("1.0.0")
+    app.setWindowIcon(QIcon(str(app_asset("megyehaza_emblem.png"))))
     palette=QPalette()
     palette.setColor(QPalette.ColorRole.Window,QColor("#f8f3eb"));palette.setColor(QPalette.ColorRole.WindowText,QColor("#362f2b"))
     palette.setColor(QPalette.ColorRole.Base,QColor("#fffdf9"));palette.setColor(QPalette.ColorRole.AlternateBase,QColor("#f3eadf"))
@@ -1669,7 +1678,15 @@ def main():
     palette.setColor(QPalette.ColorRole.HighlightedText,QColor("#ffffff"));palette.setColor(QPalette.ColorRole.ToolTipBase,QColor("#382f2a"))
     palette.setColor(QPalette.ColorRole.ToolTipText,QColor("#fffaf2"));palette.setColor(QPalette.ColorGroup.Disabled,QPalette.ColorRole.Text,QColor("#999087"))
     palette.setColor(QPalette.ColorGroup.Disabled,QPalette.ColorRole.ButtonText,QColor("#999087"));app.setPalette(palette)
-    window=MainWindow();window.show();sys.exit(app.exec())
+    logo=QPixmap(str(app_asset("megyehaza_wordmark.png")))
+    splash_pixmap=QPixmap(1040,520);splash_pixmap.fill(QColor("#f8f3eb"))
+    if not logo.isNull():
+        painter=QPainter(splash_pixmap);painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        fitted=logo.scaled(980,480,Qt.AspectRatioMode.KeepAspectRatio,Qt.TransformationMode.SmoothTransformation)
+        painter.drawPixmap((splash_pixmap.width()-fitted.width())//2,(splash_pixmap.height()-fitted.height())//2,fitted)
+        painter.end()
+    splash=QSplashScreen(splash_pixmap,Qt.WindowType.WindowStaysOnTopHint);splash.show();app.processEvents()
+    window=MainWindow();window.show();splash.finish(window);sys.exit(app.exec())
 
 if __name__=="__main__":main()
 

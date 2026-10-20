@@ -47,12 +47,12 @@ def asset_file(name):
 
 def font(source,role,size,bold=False):
     defaults={"header_title":"Segoe UI","header_date":"Segoe UI","header_contact":"Segoe UI",
-              "daily_title":"Georgia","daily_label":"Segoe UI","daily_value":"Segoe UI",
-              "menu_price_label":"Segoe UI","menu_price_value":"Georgia",
-              "category_title":"Georgia","dish_name":"Segoe UI","dish_price":"Segoe UI",
+              "daily_title":"Candara","daily_label":"Segoe UI","daily_value":"Segoe UI",
+              "menu_price_label":"Segoe UI","menu_price_value":"Candara",
+              "category_title":"Candara","dish_name":"Segoe UI","dish_price":"Segoe UI",
               "promo_old_price":"Segoe UI","promo_new_price":"Segoe UI","promo_badge":"Segoe UI",
-              "weekday_title":"Georgia","weekly_label":"Segoe UI","weekly_value":"Segoe UI",
-              "footer_note":"Georgia"}
+              "weekday_title":"Candara","weekly_label":"Segoe UI","weekly_value":"Segoe UI",
+              "footer_note":"Segoe UI"}
     legacy={"header_title":"title","header_date":"special","header_contact":"special",
             "daily_title":"heading","daily_label":"heading","daily_value":"special",
             "menu_price_label":"special","menu_price_value":"title","category_title":"heading",
@@ -64,7 +64,7 @@ def font(source,role,size,bold=False):
     else:
         heading_roles={"daily_title","menu_price_value","category_title","weekday_title"}
         family=setting(source,"font_heading" if role in heading_roles else "font_body",
-                       "Georgia" if role in heading_roles else "Segoe UI")
+                       "Candara" if role in heading_roles else "Segoe UI")
     family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
     f=QFont(family);f.setPixelSize(max(1,round(size)));f.setBold(bold)
     return f

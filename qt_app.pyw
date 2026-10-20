@@ -1,6 +1,7 @@
 """ÉtlapStúdió Qt6 desktop editor with persistent split preview."""
 from __future__ import annotations
 import sqlite3
+import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -630,8 +631,7 @@ class MainWindow(QMainWindow):
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
         self.glass_color_mode_changed()
-        form.addRow("",button("Új dizájn létrehozása…",self.new_design_dialog))
-        form.addRow("",button("Témacsomag importálása…",self.import_theme))
+        form.addRow("",button("Dizájnkezelő…",self.new_design_dialog))
         reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
         form.addRow("",reset)
         self.design_type.currentIndexChanged.connect(self.change_design_kind)
@@ -950,19 +950,37 @@ class MainWindow(QMainWindow):
         self.schedule_preview()
 
     def new_design_dialog(self):
-        dialog=QDialog(self);dialog.setWindowTitle("Új dizájn készítése AI-val")
-        dialog.resize(760,700);layout=QVBoxLayout(dialog);form=QFormLayout();layout.addLayout(form)
-        name=QLineEdit("Új ünnepi téma");form.addRow("Dizájn neve",name)
-        occasion=QComboBox();occasion.setEditable(True)
-        occasion.addItems(["Valentin-nap","Augusztus 20.","Anyák napja","Szüreti időszak","Helyi rendezvény","Egyéb alkalom"])
-        occasion.setCurrentText("");occasion.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        form.addRow("Milyen alkalomra?",occasion)
-        help_text=QLabel("Másold a promptot tetszőleges AI-modellbe. Az elkészült témát ZIP-ből vagy külön képfájlokból is be tudod tölteni.")
-        help_text.setWordWrap(True);layout.addWidget(help_text)
-        prompt=QTextEdit();prompt.setReadOnly(True);layout.addWidget(prompt,1)
+        dialog=QDialog(self);dialog.setWindowTitle("Dizájnkezelő")
+        dialog.resize(900,720);layout=QVBoxLayout(dialog)
+        tabs=QTabWidget();layout.addWidget(tabs,1)
+
+        manage=QWidget();manage_layout=QHBoxLayout(manage);tabs.addTab(manage,"Meglévő dizájnok")
+        designs=QListWidget();designs.setMinimumWidth(240);manage_layout.addWidget(designs)
+        detail=QWidget();detail_layout=QVBoxLayout(detail);manage_layout.addWidget(detail,1)
+        form=QFormLayout();detail_layout.addLayout(form)
+        name=QLineEdit();form.addRow("Dizájn neve",name)
+        occasion=QLineEdit();form.addRow("Alkalom",occasion)
+        status=QLabel("Válassz egy dizájnt a listából.");status.setWordWrap(True);detail_layout.addWidget(status)
+        controls=QHBoxLayout();detail_layout.addLayout(controls)
+        apply_button=button("Alkalmazás",lambda:None);controls.addWidget(apply_button)
+        save_button=button("Név és alkalom mentése",lambda:None);controls.addWidget(save_button)
+        replace_button=button("Grafikák cseréje…",lambda:None);controls.addWidget(replace_button)
+        delete_button=button("Törlés",lambda:None);controls.addWidget(delete_button)
+
+        create=QWidget();create_layout=QVBoxLayout(create);tabs.addTab(create,"Új dizájn és import")
+        create_form=QFormLayout();create_layout.addLayout(create_form)
+        name.setText("Új ünnepi téma")
+        prompt_name=QLineEdit("Új ünnepi téma");create_form.addRow("Új dizájn neve",prompt_name)
+        prompt_occasion=QComboBox();prompt_occasion.setEditable(True)
+        prompt_occasion.addItems(["Valentin-nap","Augusztus 20.","Anyák napja","Szüreti időszak","Helyi rendezvény","Egyéb alkalom"])
+        prompt_occasion.setCurrentText("");prompt_occasion.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        create_form.addRow("Milyen alkalomra?",prompt_occasion)
+        help_text=QLabel("A promptot másold tetszőleges AI-modellbe. Témacsomagot ZIP-ből vagy külön képfájlokból is importálhatsz.")
+        help_text.setWordWrap(True);create_layout.addWidget(help_text)
+        prompt=QTextEdit();prompt.setReadOnly(True);create_layout.addWidget(prompt,1)
         def make_prompt(*_):
-            event=occasion.currentText().strip() or "[az alkalom neve]"
-            title=name.text().strip() or "[a dizájn neve]"
+            event=prompt_occasion.currentText().strip() or "[az alkalom neve]"
+            title=prompt_name.text().strip() or "[a dizájn neve]"
             prompt.setPlainText(
                 f"Készíts új, nyomtatható étlaphoz illő vizuális témát: {title}, alkalom: {event}. "
                 "Az összhatás legyen ízléses, jól olvasható és az alkalomhoz illő. A háttérre SEMMILYEN keretet, szegélyt, "
@@ -986,12 +1004,117 @@ class MainWindow(QMainWindow):
                 "Ha ZIP-et nem tudsz készíteni, add át a háttérképet és mind az öt elválasztót különálló képfájlként; "
                 "ne egyetlen képre összeállított ötös montázsként."
             )
-        occasion.currentTextChanged.connect(make_prompt);name.textChanged.connect(make_prompt);make_prompt()
-        actions=QHBoxLayout();layout.addLayout(actions)
+        prompt_occasion.currentTextChanged.connect(make_prompt);prompt_name.textChanged.connect(make_prompt);make_prompt()
+        actions=QHBoxLayout();create_layout.addLayout(actions)
         copy=button("Prompt másolása",lambda:QApplication.clipboard().setText(prompt.toPlainText()));actions.addWidget(copy)
-        zip_button=button("Betöltés ZIP-ből…",lambda:self.import_theme_from_dialog(dialog));actions.addWidget(zip_button)
-        image_button=button("Képek külön betöltése…",lambda:self.import_theme_images_from_dialog(dialog,name.text().strip(),occasion.currentText().strip()));actions.addWidget(image_button)
-        close=button("Bezárás",dialog.accept);actions.addWidget(close)
+        zip_button=button("Importálás ZIP-ből…",lambda:self.import_theme_from_dialog(dialog));actions.addWidget(zip_button)
+        image_button=button("Képek külön importálása…",lambda:self.import_theme_images_from_dialog(dialog,prompt_name.text().strip(),prompt_occasion.currentText().strip()));actions.addWidget(image_button)
+
+        def refresh_designs(select=None):
+            self.reload_themes();designs.clear()
+            designs.addItem(QListWidgetItem("Automatikus évszakos téma"));designs.item(0).setData(Qt.ItemDataRole.UserRole,"auto")
+            for key in self.theme_keys:
+                if key=="auto":continue
+                label=self.theme_packs[key][0].get("name",key) if key in self.theme_packs else self.theme.itemText(self.theme.findData(key))
+                item=QListWidgetItem(label);item.setData(Qt.ItemDataRole.UserRole,key);designs.addItem(item)
+            wanted=select or self.theme.currentData() or "auto"
+            for i in range(designs.count()):
+                if designs.item(i).data(Qt.ItemDataRole.UserRole)==wanted:
+                    designs.setCurrentRow(i);return
+            designs.setCurrentRow(0)
+
+        def selected_design():
+            item=designs.currentItem()
+            return item.data(Qt.ItemDataRole.UserRole) if item else None
+
+        def populate_design(*_):
+            key=selected_design()
+            custom=bool(key in self.theme_packs and (data_dir()/"themes"/key).is_dir())
+            if key in self.theme_packs:
+                manifest=self.theme_packs[key][0]
+                name.setText(manifest.get("name",key));occasion.setText(manifest.get("occasion",""))
+                status.setText("Saját dizájn: a nevet, alkalmat és a törlést itt kezelheted." if custom else "Beépített dizájn: megtekinthető és alkalmazható, de az eredeti fájlok nem módosíthatók.")
+            else:
+                label=self.theme.itemText(self.theme.findData(key)) if key else "Automatikus évszakos téma"
+                name.setText(label);occasion.clear()
+                status.setText("A program dátum alapján választ évszakos dizájnt." if key=="auto" else "Beépített dizájn: megtekinthető és alkalmazható, de az eredeti fájlok nem módosíthatók.")
+            save_button.setEnabled(custom);delete_button.setEnabled(custom)
+            replace_button.setEnabled(custom)
+            apply_button.setEnabled(bool(key))
+
+        def apply_design():
+            key=selected_design()
+            if not key:return
+            idx=self.theme.findData(key)
+            if idx>=0:
+                self.theme.setCurrentIndex(idx);self.save_appearance()
+            dialog.accept()
+
+        def save_design_metadata():
+            key=selected_design()
+            if key not in self.theme_packs or not (data_dir()/"themes"/key).is_dir():return
+            title=name.text().strip()
+            if not title:
+                QMessageBox.information(dialog,"Hiányzó név","A dizájn neve nem lehet üres.");return
+            manifest,folder=self.theme_packs[key]
+            manifest["name"]=title[:60];manifest["occasion"]=occasion.text().strip()[:100]
+            (folder/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+            refresh_designs(key)
+
+        def delete_design():
+            key=selected_design()
+            folder=data_dir()/"themes"/str(key)
+            if key not in self.theme_packs or not folder.is_dir():return
+            if QMessageBox.question(dialog,"Dizájn törlése",f"Biztosan törlöd ezt a dizájnt: {name.text()}?")!=QMessageBox.StandardButton.Yes:return
+            import shutil
+            shutil.rmtree(folder)
+            for kind in ("daily","weekly","special"):
+                if self.store.setting(kind+"_theme")==key:self.store.set_settings({kind+"_theme":"auto",kind+"_auto_theme":"1"})
+            refresh_designs("auto");self.schedule_preview()
+
+        def replace_design_assets():
+            key=selected_design()
+            target=data_dir()/"themes"/str(key)
+            if key not in self.theme_packs or not target.is_dir():return
+            from tempfile import TemporaryDirectory
+            import shutil
+            mode=QMessageBox.question(dialog,"Grafikák cseréje", "ZIP-témacsomagot szeretnél választani?\n\nIgen: ZIP · Nem: külön képfájlok",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No|QMessageBox.StandardButton.Cancel)
+            if mode==QMessageBox.StandardButton.Cancel:return
+            try:
+                with TemporaryDirectory(prefix="etlap-theme-edit-") as tmp:
+                    staging=Path(tmp)/"themes";staging.mkdir()
+                    if mode==QMessageBox.StandardButton.Yes:
+                        path,_=QFileDialog.getOpenFileName(dialog,"Új témacsomag kiválasztása","","ZIP-témacsomag (*.zip)")
+                        if not path:return
+                        staged_slug=import_theme(Path(path),staging,set())
+                    else:
+                        background,_=QFileDialog.getOpenFileName(dialog,"Új háttérkép kiválasztása","","Képfájlok (*.png *.jpg *.jpeg *.webp *.bmp)")
+                        if not background:return
+                        dividers,_=QFileDialog.getOpenFileNames(dialog,"Válassz 1–5 új elválasztóképet","","Képfájlok (*.png *.jpg *.jpeg *.webp *.bmp)")
+                        if not dividers:return
+                        staged_slug=import_theme_images(Path(background),[Path(x) for x in dividers],name.text().strip(),occasion.text().strip(),staging,set())
+                    staged=staging/staged_slug
+                    replacement=json.loads((staged/"manifest.json").read_text(encoding="utf-8"))
+                    current=json.loads((target/"manifest.json").read_text(encoding="utf-8"))
+                    for filename in {*current.get("assets",{}).values(),*current.get("divider_variants",[])}:
+                        old=target/filename
+                        if old.is_file():old.unlink()
+                    for filename in {*replacement.get("assets",{}).values(),*replacement.get("divider_variants",[])}:
+                        shutil.copy2(staged/filename,target/filename)
+                    replacement["id"]=key;replacement["name"]=name.text().strip()[:60]
+                    replacement["occasion"]=occasion.text().strip()[:100]
+                    (target/"manifest.json").write_text(json.dumps(replacement,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
+                refresh_designs(key);self.schedule_preview()
+                QMessageBox.information(dialog,"Dizájn frissítve","A kiválasztott dizájn grafikái frissültek.")
+            except Exception as exc:
+                QMessageBox.warning(dialog,APP_NAME,f"A grafikákat nem sikerült lecserélni.\n\nRészletek: {exc}")
+
+        apply_button.clicked.connect(apply_design);save_button.clicked.connect(save_design_metadata)
+        replace_button.clicked.connect(replace_design_assets)
+        delete_button.clicked.connect(delete_design);designs.currentRowChanged.connect(populate_design)
+        refresh_designs();populate_design()
+        dialog.refresh_designs=refresh_designs
+        close=button("Bezárás",dialog.accept);layout.addWidget(close)
         dialog.exec()
 
     def activate_imported_theme(self,slug):
@@ -1005,6 +1128,7 @@ class MainWindow(QMainWindow):
         try:
             slug=import_theme(Path(path),data_dir()/"themes",set(self.theme_packs))
             self.activate_imported_theme(slug)
+            if parent_dialog and hasattr(parent_dialog,"refresh_designs"):parent_dialog.refresh_designs(slug)
             QMessageBox.information(parent_dialog or self,APP_NAME,"A téma sikeresen betöltődött és ki van választva az aktuális laptípushoz.")
         except Exception as exc:
             QMessageBox.warning(parent_dialog or self,APP_NAME,f"A ZIP-témacsomag nem tölthető be. Ellenőrizd a Témacsomag formátuma leírást, vagy válaszd külön a képfájlokat.\n\nRészletek: {exc}")
@@ -1019,6 +1143,7 @@ class MainWindow(QMainWindow):
         try:
             slug=import_theme_images(Path(background),[Path(x) for x in dividers],name,occasion,data_dir()/"themes",set(self.theme_packs))
             self.activate_imported_theme(slug)
+            if parent_dialog and hasattr(parent_dialog,"refresh_designs"):parent_dialog.refresh_designs(slug)
             QMessageBox.information(parent_dialog,APP_NAME,"A képek beolvasása sikerült. A program létrehozta a témacsomagot, elválasztókat dátum szerint váltogat, és a dizájnt kiválasztotta az aktuális laptípushoz.")
         except Exception as exc:
             QMessageBox.warning(parent_dialog,APP_NAME,f"A képekből nem sikerült témát készíteni. Próbálj másik képfájlt, vagy használj témacsomag-ZIP-et.\n\nRészletek: {exc}")

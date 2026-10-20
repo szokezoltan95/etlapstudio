@@ -66,7 +66,7 @@ class DishDialog(QDialog):
         self.name=QLineEdit(row["name"] if row else initial_name);form.addRow("Étel neve",self.name)
         self.category=QComboBox();self.category.addItems(CATEGORIES)
         if row:self.category.setCurrentText(row["category"])
-        form.addRow("Kategória",self.category)
+        form.addRow("Étel kategóriája",self.category)
         self.amount=price_edit(row["price"] if row else 0);form.addRow("Ár (Ft)",self.amount)
         self.amount_label=QLabel("A Menü kategóriában a 0 Ft azt jelenti, hogy nincs külön feltüntetett ár.")
         self.amount_label.setWordWrap(True);layout.addWidget(self.amount_label)
@@ -225,6 +225,23 @@ class PreviewLabel(QLabel):
         super().mouseReleaseEvent(event)
 
 
+class CalendarDateEdit(QDateEdit):
+    """Date edit with an explicit calendar glyph in the popup affordance."""
+    def paintEvent(self,event):
+        super().paintEvent(event)
+        if not self.isEnabled():return
+        painter=QPainter(self);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color=QColor("#604c42");painter.setPen(QPen(color,1.4));painter.setBrush(Qt.BrushStyle.NoBrush)
+        x=self.width()-19;y=(self.height()-12)/2
+        painter.drawRoundedRect(int(x),int(y+1),12,11,1.5,1.5)
+        painter.drawLine(int(x),int(y+4),int(x+12),int(y+4))
+        painter.drawLine(int(x+3),int(y),int(x+3),int(y+3))
+        painter.drawLine(int(x+9),int(y),int(x+9),int(y+3))
+        painter.setBrush(color);painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawRect(int(x+3),int(y+6),2,2);painter.drawRect(int(x+7),int(y+6),2,2)
+        painter.end()
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
@@ -335,6 +352,8 @@ class MainWindow(QMainWindow):
             QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { background:#ffffff; border:2px solid #bf715b; color:#2e2824; }
             QLineEdit:disabled,QComboBox:disabled,QDateEdit:disabled,QFontComboBox:disabled { background:#ece5dc; color:#898076; }
             QComboBox::drop-down,QDateEdit::drop-down { background:#eadfd2; border:0; border-top-right-radius:8px; border-bottom-right-radius:8px; width:26px; }
+            QComboBox::down-arrow,QFontComboBox::down-arrow { width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid #604c42; }
+            QDateEdit::down-arrow { image:none; width:0; height:0; }
             QTabBar#categoryTabs { background:transparent; }
             QTabBar#categoryTabs::tab { padding:7px 10px 8px; margin:4px 2px 0 0; background:#e6d8c8; color:#604c42; border:1px solid #d2c0ad; border-bottom-color:#c6b09b; border-top-left-radius:8px; border-top-right-radius:8px; font-size:12px; font-weight:600; }
             QTabBar#categoryTabs::tab:selected { background:#fffaf2; color:#963f36; border-bottom-color:#fffaf2; }
@@ -386,12 +405,17 @@ class MainWindow(QMainWindow):
         page=QWidget();box=QVBoxLayout(page);box.setContentsMargins(10,10,10,10);box.setSpacing(7)
         self.tabs.addTab(page,"Napi")
         self.daily_date_controls=QWidget();date_row=QHBoxLayout(self.daily_date_controls);date_row.setContentsMargins(0,0,0,0);date_row.setSpacing(5)
-        self.day=QDateEdit(qdate(date.today()));self.day.setCalendarPopup(True);self.day.setMaximumWidth(132)
+        self.day=CalendarDateEdit(qdate(date.today()));self.day.setCalendarPopup(True);self.day.setMaximumWidth(132)
         self.day.setDisplayFormat("yyyy.MM.dd.");self.day.dateChanged.connect(self.daily_date_changed)
         date_row.addWidget(QLabel("Dátum"));date_row.addWidget(self.day)
         date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today()))))
-        self.active_category="Összes";self.build_category_tabs()
-        box.addWidget(self.category_tab_widget)
+        self.active_category="Összes"
+        category_row=QHBoxLayout();category_row.addWidget(QLabel("Ételkategória:"))
+        self.category_filter=QComboBox();self.category_filter.addItem("Összes kategória","Összes")
+        for category in CATEGORIES:
+            if category!="Menü":self.category_filter.addItem(category,category)
+        self.category_filter.currentIndexChanged.connect(self.choose_category_index)
+        category_row.addWidget(self.category_filter,1);box.addLayout(category_row)
         self.search=QLineEdit();self.search.setPlaceholderText("Keresés az ételek között…");self.search.textChanged.connect(self.refresh_food_grid)
         self.search.returnPressed.connect(self.handle_search_enter)
         self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
@@ -433,36 +457,14 @@ class MainWindow(QMainWindow):
         self.preview_archive=None
         self.schedule_preview()
 
-    def build_category_tabs(self):
-        self.category_names=["Összes"]+[name for name in CATEGORIES if name!="Menü"]
-        wrapper=QWidget();layout=QVBoxLayout(wrapper);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
-        self.category_tabs=[];self._category_tab_offsets=[]
-        split=(len(self.category_names)+1)//2
-        for row_index,(start,end) in enumerate(((0,split),(split,len(self.category_names)))):
-            bar=QTabBar();bar.setObjectName("categoryTabs");bar.setShape(QTabBar.Shape.RoundedNorth)
-            bar.setExpanding(False);bar.setUsesScrollButtons(True);bar.setElideMode(Qt.TextElideMode.ElideNone)
-            for name in self.category_names[start:end]:bar.addTab(name)
-            bar.setProperty("inactiveRow",True)
-            bar.setCurrentIndex(-1)
-            bar.currentChanged.connect(lambda local_index,offset=start:self.choose_category_index(offset+local_index) if local_index>=0 else None)
-            layout.addWidget(bar);self.category_tabs.append(bar);self._category_tab_offsets.append(start)
-        self.category_tabs[0].setCurrentIndex(0)
-        self.category_tab_widget=wrapper
-
     def choose_category(self,category):
-        if category in self.category_names:self.choose_category_index(self.category_names.index(category))
+        if hasattr(self,"category_filter"):
+            index=self.category_filter.findData(category)
+            if index>=0:self.category_filter.setCurrentIndex(index)
 
     def choose_category_index(self,index):
-        if index<0 or index>=len(self.category_names):return
-        self.active_category=self.category_names[index]
-        for bar,offset in zip(self.category_tabs,self._category_tab_offsets):
-            bar.blockSignals(True)
-            row_is_active=offset<=index<offset+bar.count()
-            bar.setProperty("inactiveRow",not row_is_active)
-            local_index=index-offset if row_is_active else -1
-            bar.setCurrentIndex(local_index)
-            bar.style().unpolish(bar);bar.style().polish(bar);bar.update()
-            bar.blockSignals(False)
+        if index<0 or index>=self.category_filter.count():return
+        self.active_category=self.category_filter.itemData(index)
         self.refresh_food_grid()
 
     def clear_daily_menu(self):
@@ -586,7 +588,7 @@ class MainWindow(QMainWindow):
         page,box=self.pane("Heti menü · leves, A és B menü külön az à la carte kínálattól")
         self.tabs.addTab(page,"Heti")
         self.week_date_controls=QWidget();row=QHBoxLayout(self.week_date_controls);row.setContentsMargins(0,0,0,0);row.setSpacing(5)
-        self.week=QDateEdit(qdate(monday(date.today())));self.week.setMaximumWidth(132)
+        self.week=CalendarDateEdit(qdate(monday(date.today())));self.week.setMaximumWidth(132)
         self.week.setCalendarPopup(True);self.week.setDisplayFormat("yyyy.MM.dd.")
         self.week.dateChanged.connect(lambda _:self.change_week())
         row.addWidget(QLabel("Hét"));row.addWidget(self.week)
@@ -623,7 +625,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(page,"Különleges")
         row=QHBoxLayout();self.special_show_date=QCheckBox("Dátum megjelenítése")
         self.special_show_date.setChecked(self.store.setting("special_show_date","0")=="1")
-        self.special_date=QDateEdit(qdate(date.today()));self.special_date.setCalendarPopup(True)
+        self.special_date=CalendarDateEdit(qdate(date.today()));self.special_date.setCalendarPopup(True)
         self.special_date.setDisplayFormat("yyyy.MM.dd.");self.special_date.setEnabled(self.special_show_date.isChecked())
         self.special_show_date.toggled.connect(self.special_date.setEnabled);self.special_date.dateChanged.connect(self.special_changed)
         self.special_show_date.toggled.connect(self.special_changed)

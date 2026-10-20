@@ -366,10 +366,19 @@ class MainWindow(QMainWindow):
         date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today()))))
         self.active_category="Összes";self.build_category_tabs()
         box.addWidget(self.category_tab_widget)
+        search_row=QHBoxLayout();search_row.setSpacing(7)
         self.search=QLineEdit();self.search.setPlaceholderText("Keresés az ételek között…");self.search.textChanged.connect(self.refresh_food_grid)
         self.search.returnPressed.connect(self.handle_search_enter)
         self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
-        box.addWidget(self.search)
+        search_row.addWidget(self.search,1)
+        self.food_sort=QComboBox();self.food_sort.addItem("Ábécé szerint","name")
+        self.food_sort.addItem("Ár szerint növekvő","price_asc")
+        self.food_sort.addItem("Ár szerint csökkenő","price_desc")
+        self.food_sort.setMinimumWidth(174);self.food_sort.setMaximumWidth(205)
+        self.food_sort.setToolTip("Az ételek rendezése név vagy ár alapján.")
+        self.food_sort.currentIndexChanged.connect(self.refresh_food_grid)
+        search_row.addWidget(self.food_sort)
+        box.addLayout(search_row)
         self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
@@ -431,6 +440,10 @@ class MainWindow(QMainWindow):
         if self.active_category!="Összes" and not query:
             foods=[x for x in foods if x["category"]==self.active_category]
         selected={r["id"]:r for r in self.store.selection(self.current_day())}
+        sort_mode=self.food_sort.currentData() if hasattr(self,"food_sort") else "name"
+        if sort_mode in ("price_asc","price_desc"):
+            foods.sort(key=lambda dish:int(dish["promo_price"] if dish["promo_enabled"] and dish["promo_price"] is not None else dish["price"]),
+                       reverse=sort_mode=="price_desc")
         self._food_rows={r["id"]:r for r in foods}
         self._food_action_buttons={}
         for n,dish in enumerate(foods):

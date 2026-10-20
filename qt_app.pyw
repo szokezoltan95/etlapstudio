@@ -1255,7 +1255,11 @@ class MainWindow(QMainWindow):
             if index in (0,1):
                 self.tab_date_controls.setCurrentIndex(index);self.tab_date_controls.setVisible(True)
             else:self.tab_date_controls.setVisible(False)
-        self.preview_archive=None;self.schedule_preview()
+        self.preview_archive=None
+        if index==1:
+            self.refresh_week_preview()
+        else:
+            self.schedule_preview()
         self.update_guides()
 
     def update_guides(self,*_):

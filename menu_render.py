@@ -61,7 +61,7 @@ def font(source,role,size,bold=False):
     if setting(source,"advanced_typography","0")=="1":
         family=setting(source,"font_"+role) or setting(source,"font_"+legacy.get(role,""),defaults.get(role,"Segoe UI"))
     else:
-        heading_roles={"header_title","daily_title","menu_price_value","category_title","weekday_title"}
+        heading_roles={"daily_title","menu_price_value","category_title","weekday_title"}
         family=setting(source,"font_heading" if role in heading_roles else "font_body",
                        "Georgia" if role in heading_roles else "Segoe UI")
     family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
@@ -260,9 +260,12 @@ def glass(p,rect,opacity=205,radius=20,tint="#4D6A43",source=None):
     if source is not None:
         try:opacity=round(255*max(25,min(100,int(setting(source,"glass_opacity","80"))))/100)
         except (TypeError,ValueError):opacity=204
-        if setting(source,"glass_color_mode","auto")=="custom":
+        color_mode=setting(source,"glass_color_mode","white")
+        if color_mode=="custom":
             candidate=QColor(setting(source,"glass_color","#DDE7D8"))
             if candidate.isValid():tint=candidate.name()
+        elif color_mode in ("white","auto"):
+            tint="#FFFFFF"
     shade=QColor(tint);mix=.38
     fill=QColor(round(255*(1-mix)+shade.red()*mix),
                 round(255*(1-mix)+shade.green()*mix),

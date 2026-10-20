@@ -610,9 +610,11 @@ class MainWindow(QMainWindow):
         self.glass.setChecked(self.store.setting("glass_panels","1")=="1")
         self.glass.toggled.connect(self.save_appearance);form.addRow("",self.glass)
         self.glass_color_mode=QComboBox()
-        self.glass_color_mode.addItem("Automatikus · az aktuális téma színe", "auto")
+        self.glass_color_mode.addItem("Fehér", "white")
+        self.glass_color_mode.addItem("Témaszín", "theme")
         self.glass_color_mode.addItem("Egyéni szín", "custom")
-        mode=self.store.setting("glass_color_mode","auto")
+        mode=self.store.setting("glass_color_mode","white")
+        if mode=="auto":mode="white"
         mode_index=self.glass_color_mode.findData(mode);self.glass_color_mode.setCurrentIndex(max(0,mode_index))
         self.glass_color_mode.currentIndexChanged.connect(self.glass_color_mode_changed)
         form.addRow("Üvegpanelek színe",self.glass_color_mode)
@@ -687,7 +689,8 @@ class MainWindow(QMainWindow):
         idx=self.leader.findData(self.store.setting(prefix+"leader",self.store.setting("leader","none")))
         self.leader.blockSignals(True);self.leader.setCurrentIndex(max(0,idx));self.leader.blockSignals(False)
         self.glass_color_mode.blockSignals(True)
-        mode=self.store.setting(prefix+"glass_color_mode",self.store.setting("glass_color_mode","auto"))
+        mode=self.store.setting(prefix+"glass_color_mode",self.store.setting("glass_color_mode","white"))
+        if mode=="auto":mode="white"
         idx=self.glass_color_mode.findData(mode);self.glass_color_mode.setCurrentIndex(max(0,idx));self.glass_color_mode.blockSignals(False)
         self._glass_custom_color=self.store.setting(prefix+"glass_color",self.store.setting("glass_color","#DDE7D8"))
         self.update_glass_color_button();self.glass_color_button.setEnabled(self.glass_color_mode.currentData()=="custom")
@@ -923,7 +926,7 @@ class MainWindow(QMainWindow):
         with self.store.db:
             self.store.db.execute("DELETE FROM settings WHERE (key LIKE 'guide_%' AND key!='guide_layout_version') OR key LIKE 'layout_%'")
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
-                  "glass_color_mode":"auto","glass_color":"#DDE7D8","glass_opacity":"80",
+                  "glass_color_mode":"white","glass_color":"#DDE7D8","glass_opacity":"80",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Georgia","font_heading":"Georgia","font_body":"Segoe UI","font_special":"Segoe UI","font_dish":"Segoe UI","advanced_typography":"0",
                   "guide_layout_version":"8"}
@@ -938,7 +941,7 @@ class MainWindow(QMainWindow):
         self.heading_font.setCurrentFont(QFont("Georgia"));self.body_font.setCurrentFont(QFont("Segoe UI"))
         if getattr(self,"advanced_dialog",None) is not None:self.populate_advanced_design(self.design_kind)
         self.glass.setChecked(True);self.decorations.setChecked(True)
-        self.glass_color_mode.blockSignals(True);self.glass_color_mode.setCurrentIndex(self.glass_color_mode.findData("auto"));self.glass_color_mode.blockSignals(False)
+        self.glass_color_mode.blockSignals(True);self.glass_color_mode.setCurrentIndex(self.glass_color_mode.findData("white"));self.glass_color_mode.blockSignals(False)
         self._glass_custom_color="#DDE7D8";self.update_glass_color_button();self.glass_color_button.setEnabled(False)
         self.glass_opacity.setValue(80)
         idx=self.leader.findData("none");self.leader.setCurrentIndex(max(0,idx))

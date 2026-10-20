@@ -969,9 +969,9 @@ class MainWindow(QMainWindow):
                 "A program a külön képeket automatikusan PNG-vé alakítja és megfelelő vászonra illeszti. "
                 "Ha tudsz ZIP-et készíteni, add át egy ZIP-ben a background.png, divider.png (az első változat), "
                 "divider_1.png–divider_5.png és manifest.json fájlokat, mindet közvetlenül a ZIP gyökerében. "
-                'A manifest legyen UTF-8 JSON ilyen szerkezettel: {"schema_version":1,"id":"'
-                +"tema_azonosito"+'","name":"'+title.replace('"','')+'","occasion":"'+event.replace('"','')+
-                '","palette":{"primary":"#526044","accent":"#B85A42","background":"#F1E9D7"},'
+                'A manifest legyen UTF-8 JSON ilyen szerkezettel: {"schema_version":1,"id":"tema_azonosito",'
+                '"name":"Dizájn neve","occasion":"Alkalom neve",'
+                '"palette":{"primary":"#526044","accent":"#B85A42","background":"#F1E9D7"},'
                 '"assets":{"divider":"divider.png","background":"background.png"},'
                 '"divider_variants":["divider_1.png","divider_2.png","divider_3.png","divider_4.png","divider_5.png"]}. '
                 "Ha ZIP-et nem tudsz készíteni, add át a háttérképet és az öt elválasztót külön képfájlokként."

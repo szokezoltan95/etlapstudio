@@ -5,14 +5,14 @@ import json
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from PyQt6.QtCore import QDate, QTimer, Qt, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
-    QSplitter, QSizePolicy, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
+    QSplitter, QSizePolicy, QStackedWidget, QTabBar, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
     QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
@@ -233,6 +233,7 @@ class MainWindow(QMainWindow):
         if available:self.resize(min(1500,max(760,available.width()-48)),min(900,max(540,available.height()-72)))
         else:self.resize(1280,780)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None;self._manual_week_preview=False
+        self._initial_splitter_layout_done=False
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
         self._responsive_timer=QTimer(self);self._responsive_timer.setSingleShot(True);self._responsive_timer.setInterval(180)
         self._responsive_timer.timeout.connect(self.refresh_food_grid)
@@ -259,11 +260,15 @@ class MainWindow(QMainWindow):
         right_layout.addLayout(controls)
         self.scroll=QScrollArea();self.scroll.setWidgetResizable(False);self.scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.scroll.viewport().installEventFilter(self)
+        self.zoom.setCurrentIndex(0)
         self.preview=PreviewLabel();self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter);self.preview.regionChanged.connect(self.save_layout_region)
         self.scroll.setWidget(self.preview);right_layout.addWidget(self.scroll,1)
         self.status=QLabel();right_layout.addWidget(self.status)
         splitter.addWidget(right);self.preview_panel=right;splitter.setSizes([570,850]);splitter.setChildrenCollapsible(False)
         self.build_daily();self.build_weekly();self.build_special();self.build_appearance();self.build_archive()
+        self.archive_dock.hide()
+        self.main_splitter.setStretchFactor(0, 5);self.main_splitter.setStretchFactor(1, 7)
         self.tab_date_controls=QStackedWidget();self.tab_date_controls.addWidget(self.daily_date_controls);self.tab_date_controls.addWidget(self.week_date_controls)
         self.tab_date_controls.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Preferred)
         self.tabs.setCornerWidget(self.tab_date_controls,Qt.Corner.TopRightCorner)
@@ -305,9 +310,10 @@ class MainWindow(QMainWindow):
             QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { background:#ffffff; border:2px solid #bf715b; color:#2e2824; }
             QLineEdit:disabled,QComboBox:disabled,QDateEdit:disabled,QFontComboBox:disabled { background:#ece5dc; color:#898076; }
             QComboBox::drop-down,QDateEdit::drop-down { background:#eadfd2; border:0; border-top-right-radius:8px; border-bottom-right-radius:8px; width:26px; }
-            QComboBox#categoryFilter { padding:9px 12px; min-height:38px; font-weight:650; color:#55443a; border:1px solid #d8c6b3; border-radius:11px; }
-            QComboBox#categoryFilter::drop-down { width:34px; background:#eadfd2; border-left:1px solid #d8c6b3; border-top-right-radius:10px; border-bottom-right-radius:10px; }
-            QComboBox#categoryFilter:hover { border-color:#b88a72; background:#fffaf3; }
+            QTabBar#categoryTabs { background:transparent; }
+            QTabBar#categoryTabs::tab { padding:7px 10px; margin:0 3px 0 0; background:#f0e3d1; color:#66503f; border:1px solid #e3d2bf; border-radius:9px; font-size:12px; font-weight:650; }
+            QTabBar#categoryTabs::tab:selected { background:#b85a4a; color:#ffffff; border-color:#a14b3e; }
+            QTabBar#categoryTabs::tab:hover:!selected { background:#e8d5c1; color:#553d30; }
             QComboBox QAbstractItemView { background:#fffdf9; color:#362f2b; selection-background-color:#b85a4a; selection-color:#ffffff; border:1px solid #d7c4b2; outline:0; }
             QCheckBox { spacing:8px; color:#50453e; background:transparent; }
             QCheckBox::indicator { width:19px; height:19px; background:#fffdf9; border:1px solid #b8a896; border-radius:5px; }
@@ -356,8 +362,8 @@ class MainWindow(QMainWindow):
         self.day.setDisplayFormat("yyyy.MM.dd.");self.day.dateChanged.connect(self.daily_date_changed)
         date_row.addWidget(QLabel("Dátum"));date_row.addWidget(self.day)
         date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today()))))
-        self.active_category="Összes";self.build_category_buttons()
-        box.addWidget(self.category_filter)
+        self.active_category="Összes";self.build_category_tabs()
+        box.addWidget(self.category_tabs)
         self.search=QLineEdit();self.search.setPlaceholderText("Keresés az ételek között…");self.search.textChanged.connect(self.refresh_food_grid)
         self.search.returnPressed.connect(self.handle_search_enter)
         self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
@@ -372,23 +378,26 @@ class MainWindow(QMainWindow):
         self.daily_count=QLabel();box.addWidget(self.daily_count)
         box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
 
-    def build_category_buttons(self):
+    def build_category_tabs(self):
         categories=["Összes"]+[name for name in CATEGORIES if name!="Menü"]
         short={"Főzelékek":"Főzelék","Feltétek":"Feltét","Köretek":"Köret",
                "Savanyúságok":"Savanyúság","Frissensültek":"Frissensült",
                "Tészták, desszertek":"Tészta / desszert","Mártások, öntetek":"Mártás"}
-        self.category_filter=QComboBox();self.category_filter.setObjectName("categoryFilter")
-        self.category_filter.setMinimumHeight(38)
-        for name in categories:self.category_filter.addItem(short.get(name,name),name)
-        self.category_filter.currentIndexChanged.connect(self.choose_category_index)
+        self.category_tabs=QTabBar();self.category_tabs.setObjectName("categoryTabs")
+        self.category_tabs.setExpanding(False);self.category_tabs.setUsesScrollButtons(True)
+        self.category_tabs.setElideMode(Qt.TextElideMode.ElideRight)
+        self.category_names=[]
+        for name in categories:
+            self.category_names.append(name);self.category_tabs.addTab(short.get(name,name))
+        self.category_tabs.currentChanged.connect(self.choose_category_index)
+        self.category_tabs.setCurrentIndex(0)
 
     def choose_category(self,category):
-        index=self.category_filter.findData(category)
-        if index>=0:self.category_filter.setCurrentIndex(index)
+        if category in self.category_names:self.category_tabs.setCurrentIndex(self.category_names.index(category))
 
     def choose_category_index(self,index):
         if index<0:return
-        self.active_category=self.category_filter.itemData(index)
+        self.active_category=self.category_names[index]
         self.refresh_food_grid()
 
     def clear_daily_menu(self):
@@ -1287,12 +1296,34 @@ class MainWindow(QMainWindow):
         except Exception as exc:self.status.setText("Előnézeti hiba: "+str(exc))
     def fit_preview(self):
         if self._image is None:return
-        available=self.scroll.viewport().width()-24
+        viewport=self.scroll.viewport()
+        available_width=viewport.width()-24
         if self.zoom.currentIndex()==0:
-            available=min(available,(self.scroll.viewport().height()-24)*W/H)
-        width=max(180,min(1000,int(available)))
+            available_width=min(available_width,(viewport.height()-24)*W/H)
+        width=max(180,min(1000,int(available_width)))
         self.preview.setPixmap(QPixmap.fromImage(self._image).scaledToWidth(width,Qt.TransformationMode.SmoothTransformation))
         self.preview.adjustSize()
+    def eventFilter(self,watched,event):
+        if watched is getattr(self,"scroll",None) and event.type()==QEvent.Type.Resize:
+            QTimer.singleShot(0,self.fit_preview)
+        elif hasattr(self,"scroll") and watched is self.scroll.viewport() and event.type()==QEvent.Type.Resize:
+            QTimer.singleShot(0,self.fit_preview)
+        return super().eventFilter(watched,event)
+    def _apply_initial_splitter_layout(self):
+        if self._initial_splitter_layout_done or not hasattr(self,"main_splitter"):return
+        width=max(1,self.main_splitter.width());height=max(1,self.main_splitter.height())
+        if self.main_splitter.orientation()==Qt.Orientation.Vertical:
+            self.main_splitter.setSizes([round(height*.44),round(height*.56)])
+        else:
+            preview_width=max(round(width*.60),round((self.scroll.viewport().height()-24)*W/H+48))
+            preview_width=min(preview_width,round(width*.72))
+            self.main_splitter.setSizes([width-preview_width,preview_width])
+        self._initial_splitter_layout_done=True
+        QTimer.singleShot(0,self.fit_preview)
+    def showEvent(self,event):
+        super().showEvent(event)
+        QTimer.singleShot(80,self._apply_initial_splitter_layout)
+        QTimer.singleShot(100,self.fit_preview)
     def resizeEvent(self,event):
         super().resizeEvent(event)
         if hasattr(self,"preview"):
@@ -1303,8 +1334,8 @@ class MainWindow(QMainWindow):
                 orientation=Qt.Orientation.Vertical if self.width()<1050 and self.height()>800 else Qt.Orientation.Horizontal
                 if orientation!=self._responsive_orientation:
                     self._responsive_orientation=orientation;self.main_splitter.setOrientation(orientation)
-                    if orientation==Qt.Orientation.Vertical:self.main_splitter.setSizes([round(self.height()*.66),round(self.height()*.34)])
-                    else:self.main_splitter.setSizes([round(self.width()*.42),round(self.width()*.58)])
+                    if orientation==Qt.Orientation.Vertical:self.main_splitter.setSizes([round(self.main_splitter.height()*.44),round(self.main_splitter.height()*.56)])
+                    else:self.main_splitter.setSizes([round(self.main_splitter.width()*.40),round(self.main_splitter.width()*.60)])
     def export(self,extension):
         source,kind,target=self.preview_source()
         stem=("napi_etlap_" if kind=="daily" else "heti_menu_" if kind=="weekly" else "kulonleges_etlap_")+target.isoformat()

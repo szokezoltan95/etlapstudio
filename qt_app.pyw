@@ -2,6 +2,7 @@
 from __future__ import annotations
 import sqlite3
 import json
+import csv
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -227,10 +228,12 @@ class PreviewLabel(QLabel):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
-        self.store.set_settings({"restaurant_name":self.store.setting("restaurant_name","Megyeháza Étterem") or "Megyeháza Étterem",
-                                 "address":self.store.setting("address","Miskolc, Városház tér 1.") or "Miskolc, Városház tér 1.",
-                                 "phone":self.store.setting("phone","+36 30 / 513 2605") or "+36 30 / 513 2605",
-                                 "facebook_url":self.store.setting("facebook_url","https://www.facebook.com/share/1GQgCcNJXE/") or "https://www.facebook.com/share/1GQgCcNJXE/"})
+        self.store.set_settings({"restaurant_name":self.store.setting("restaurant_name","Megyeháza Étterem"),
+                                 "address":self.store.setting("address","Miskolc, Városház tér 1."),
+                                 "phone":self.store.setting("phone","+36 30 / 513 2605"),
+                                 "facebook_url":self.store.setting("facebook_url","https://facebook.com/ittetterem"),
+                                 "note":self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"),
+                                 "daily_menu_price":self.store.setting("daily_menu_price","2800")})
         if self.store.setting("guide_layout_version","0")!="8":
             layout_defaults={"guide_layout_version":"8"}
             for key,value in {"guide_daily_header":"205","guide_daily_menu_end":"438",
@@ -271,6 +274,7 @@ class MainWindow(QMainWindow):
         title_row=QHBoxLayout();title_row.addWidget(self.preview_title);title_row.addStretch();right_layout.addLayout(title_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(6)
         toolbar.addWidget(button("Mentés",self.save_current))
+        toolbar.addWidget(button("Adatbázis kezelő…",self.database_manager))
         toolbar.addWidget(button("PDF",lambda:self.export("pdf")))
         toolbar.addWidget(button("Facebook-kép",lambda:self.export("png")))
         toolbar.addStretch();right_layout.addLayout(toolbar)
@@ -413,7 +417,7 @@ class MainWindow(QMainWindow):
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
         action_row=QHBoxLayout();action_row.addWidget(self.new_food_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
-        box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
+        box.addWidget(button("Adatbázis kezelő…",self.database_manager))
 
     def edit_daily_section_order(self):
         categories=[category for category in CATEGORIES if category!="Menü"]
@@ -700,26 +704,13 @@ class MainWindow(QMainWindow):
         action=dock.toggleViewAction();action.setText("Korábbi étlapok");self.menuBar().addAction(action)
 
     def build_appearance(self):
-        page,box=self.pane("Dizájn · ünnepi színek, betűtípusok és visszafogott grafikai elemek")
+        page,box=self.pane("Dizájn · színek, betűtípusok és grafikai elemek")
         self.tabs.addTab(page,"Dizájn")
         scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
         self.settings={}
         self.design_kind="daily"
         self.design_type=QComboBox();self.design_type.addItem("Napi étlap","daily");self.design_type.addItem("Heti étlap","weekly");self.design_type.addItem("Különleges alkalom","special")
         form.addRow("Szerkesztett laptípus",self.design_type)
-        for key,label,default in (("restaurant_name","Étterem neve","Megyeháza Étterem"),
-                                  ("address","Cím","Miskolc, Városház tér 1."),
-                                  ("phone","Telefonszám","+36 30 / 513 2605"),
-                                  ("facebook_url","Facebook link","https://www.facebook.com/share/1GQgCcNJXE/"),
-                                  ("note","Alsó megjegyzés","")):
-            edit=QLineEdit(self.store.setting(key,default));edit.textChanged.connect(self.save_settings)
-            self.settings[key]=edit;form.addRow(label,edit)
-        self.daily_menu_price=price_edit(self.store.setting("daily_menu_price","2800") or "2800")
-        self.daily_menu_price.setToolTip("Ez az ár jelenik meg a napi étlapon és a heti étlap fejlécében is.")
-        self.daily_menu_price.editingFinished.connect(self.save_appearance)
-        form.addRow("Napi menü ára (Ft)",self.daily_menu_price)
-        form.addRow("",button("Ételadatbázis kezelése…",self.catalog_manager))
-        form.addRow("",button("Adatbázis biztonsági másolata…",self.backup))
         self.theme=QComboBox();self.theme_keys=[];self.reload_themes()
         self.theme.currentIndexChanged.connect(self.save_appearance);form.addRow("Téma · színek és háttér",self.theme)
         self.text_style_widgets={}
@@ -979,11 +970,54 @@ class MainWindow(QMainWindow):
         self.refresh_daily();self.refresh_menu_suggestions()
         QMessageBox.information(self,APP_NAME,f"{count} hiányzó étel bekerült az adatbázisba.")
 
-    def catalog_manager(self):
-        dialog=QDialog(self);dialog.setWindowTitle("Ételadatbázis kezelése");dialog.resize(650,560)
-        layout=QVBoxLayout(dialog);search=QLineEdit();search.setPlaceholderText("Keresés név vagy kategória szerint…")
-        layout.addWidget(search);tree=QTreeWidget();tree.setHeaderLabels(["Étel","Kategória","Normál ár"])
-        layout.addWidget(tree,1)
+    def database_manager(self):
+        """Central place for restaurant details, dishes, and database import/export."""
+        dialog=QDialog(self);dialog.setWindowTitle("Adatbázis kezelő");dialog.resize(900,680)
+        layout=QVBoxLayout(dialog);tabs=QTabWidget();layout.addWidget(tabs,1)
+
+        restaurant_page=QWidget();restaurant_layout=QVBoxLayout(restaurant_page)
+        restaurant_form=QFormLayout();restaurant_layout.addLayout(restaurant_form)
+        details=(
+            ("restaurant_name","Étterem neve","Megyeháza Étterem"),
+            ("address","Cím","Miskolc, Városház tér 1."),
+            ("phone","Telefonszám","+36 30 / 513 2605"),
+            ("facebook_url","Facebook link","https://facebook.com/ittetterem"),
+            ("note","Alsó megjegyzés","Az étlapváltoztatás jogát fenntartjuk!"),
+        )
+        restaurant_fields={}
+        for key,label,default in details:
+            edit=QLineEdit(self.store.setting(key,default) or default)
+            restaurant_fields[key]=edit;restaurant_form.addRow(label,edit)
+        menu_price=price_edit(self.store.setting("daily_menu_price","2800") or "2800")
+        menu_price.setToolTip("Ez az ár jelenik meg a napi étlapon és a heti étlap fejlécében is.")
+        restaurant_form.addRow("Napi menü ára (Ft)",menu_price)
+        hint=QLabel("Ezek az adatok az étlapok fejlécében és láblécében jelennek meg.");hint.setWordWrap(True)
+        restaurant_layout.addWidget(hint);restaurant_layout.addStretch(1)
+        tabs.addTab(restaurant_page,"Étterem adatai")
+
+        dishes_page=QWidget();dishes_layout=QVBoxLayout(dishes_page)
+        search=QLineEdit();search.setPlaceholderText("Keresés név vagy kategória szerint…");dishes_layout.addWidget(search)
+        tree=QTreeWidget();tree.setHeaderLabels(["Étel","Kategória","Normál ár"]);tree.setAlternatingRowColors(True)
+        dishes_layout.addWidget(tree,1)
+        actions=QHBoxLayout();dishes_layout.addLayout(actions)
+        tabs.addTab(dishes_page,"Ételek")
+
+        transfer_page=QWidget();transfer_layout=QVBoxLayout(transfer_page)
+        transfer_layout.addWidget(QLabel("Étlapadatbázis biztonsági mentése és az étellista CSV-fájlos cseréje."))
+        transfer_layout.addWidget(button("Teljes adatbázis mentése…",self.backup))
+        transfer_layout.addWidget(button("Ételek exportálása CSV-be…",lambda:self.export_dishes_csv(dialog)))
+        transfer_layout.addWidget(button("Ételek importálása CSV-ből…",lambda:self.import_dishes_csv(dialog)))
+        format_hint=QLabel("CSV oszlopok: name, category, price. Az import az azonos nevű és kategóriájú ételek árát frissíti, az újakat hozzáadja.")
+        format_hint.setWordWrap(True);transfer_layout.addWidget(format_hint);transfer_layout.addStretch(1)
+        tabs.addTab(transfer_page,"Import / export")
+
+        def save_restaurant(*_):
+            values={key:field.text().strip() for key,field in restaurant_fields.items()}
+            values["daily_menu_price"]=menu_price.text().strip() or "0"
+            self.store.set_settings(values);self.schedule_preview()
+        for field in restaurant_fields.values():field.textChanged.connect(save_restaurant)
+        menu_price.editingFinished.connect(save_restaurant)
+
         def reload(*_):
             tree.clear()
             for row in self.store.dishes(search.text()):
@@ -995,20 +1029,66 @@ class MainWindow(QMainWindow):
         def edit(row=None):
             form=DishDialog(dialog,row)
             if form.exec()!=QDialog.DialogCode.Accepted:return
-            name=form.name.text().strip()
-            if not name:QMessageBox.warning(dialog,APP_NAME,"Add meg az étel nevét.");return
-            self.store.add_dish(name,form.category.currentText(),int(form.amount.text()),row["id"] if row else None)
+            self.store.add_dish(form.name.text().strip(),form.category.currentText(),int(form.amount.text()),row["id"] if row else None)
             reload();self.refresh_daily();self.refresh_menu_suggestions()
-        actions=QHBoxLayout();add=button("Új étel",lambda:edit())
-        change=button("Szerkesztés",lambda:edit(selected_row()))
         def delete():
             row=selected_row()
-            if row and QMessageBox.question(dialog,APP_NAME,"Eltávolítsuk ezt az ételt a napi kínálatból?")==QMessageBox.StandardButton.Yes:
+            if row and QMessageBox.question(dialog,APP_NAME,"Eltávolítsuk ezt az ételt az aktív ételadatbázisból?")==QMessageBox.StandardButton.Yes:
                 self.store.delete_dish(row["id"]);reload();self.refresh_daily();self.refresh_menu_suggestions()
-        actions.addWidget(add);actions.addWidget(change);actions.addWidget(button("Eltávolítás",delete));actions.addStretch()
-        layout.addLayout(actions);layout.addWidget(button("Hiányzó alapételek betöltése",self.import_starter))
+        actions.addWidget(button("Új étel",lambda:edit()))
+        actions.addWidget(button("Szerkesztés",lambda:edit(selected_row())))
+        actions.addWidget(button("Eltávolítás",delete));actions.addStretch()
+        actions.addWidget(button("Hiányzó alapételek betöltése",self.import_starter))
         search.textChanged.connect(reload);tree.itemDoubleClicked.connect(lambda *_:edit(selected_row()))
         reload();dialog.exec()
+
+    def catalog_manager(self):
+        # Backward-compatible entry point used by older UI actions.
+        self.database_manager()
+
+    def export_dishes_csv(self,parent):
+        path,_=QFileDialog.getSaveFileName(parent,"Ételek exportálása","etelek.csv","CSV (*.csv)")
+        if not path:return
+        try:
+            with open(path,"w",newline="",encoding="utf-8-sig") as handle:
+                writer=csv.writer(handle,delimiter=";");writer.writerow(["name","category","price"])
+                for row in self.store.dishes():writer.writerow([row["name"],row["category"],row["price"]])
+            QMessageBox.information(parent,APP_NAME,"Az étellista exportálása elkészült.")
+        except Exception as exc:QMessageBox.warning(parent,APP_NAME,f"Az export nem sikerült:\n{exc}")
+
+    def import_dishes_csv(self,parent):
+        path,_=QFileDialog.getOpenFileName(parent,"Ételek importálása","","CSV (*.csv);;Minden fájl (*)")
+        if not path:return
+        try:
+            with open(path,"r",newline="",encoding="utf-8-sig") as handle:
+                sample=handle.read(4096);handle.seek(0)
+                try:delimiter=csv.Sniffer().sniff(sample,delimiters=";,\t").delimiter
+                except csv.Error:delimiter=";"
+                reader=csv.DictReader(handle,delimiter=delimiter)
+                if not reader.fieldnames or not {"name","category","price"}.issubset(set(reader.fieldnames)):
+                    raise ValueError("A fejlécnek ezeket az oszlopokat kell tartalmaznia: name, category, price.")
+                existing={(row["name"].strip().casefold(),row["category"].strip().casefold()):row for row in self.store.dishes()}
+                imported=[]
+                for line,row in enumerate(reader,2):
+                    name=(row.get("name") or "").strip();category=(row.get("category") or "").strip()
+                    if not name:continue
+                    amount=int((row.get("price") or "").strip())
+                    if amount<0:raise ValueError(f"A(z) {line}. soron az ár nem lehet negatív.")
+                    if category not in CATEGORIES:raise ValueError(f"A(z) {line}. sor kategóriája ismeretlen: {category}")
+                    imported.append((name,category,amount))
+            inserted=updated=0
+            with self.store.db:
+                for name,category,amount in imported:
+                    match=existing.get((name.casefold(),category.casefold()))
+                    self.store.add_dish(name,category,amount,match["id"] if match else None)
+                    if match:updated+=1
+                    else:
+                        inserted+=1
+                        fresh=self.store.db.execute("SELECT * FROM dishes WHERE id=last_insert_rowid()").fetchone()
+                        existing[(name.casefold(),category.casefold())]=fresh
+            self.refresh_daily();self.refresh_menu_suggestions()
+            QMessageBox.information(parent,APP_NAME,f"Import kész. Új étel: {inserted}, frissített étel: {updated}.")
+        except Exception as exc:QMessageBox.warning(parent,APP_NAME,f"Az import nem sikerült:\n{exc}")
 
     def refresh_archive(self):
         if not hasattr(self,"archive"):return
@@ -1063,8 +1143,6 @@ class MainWindow(QMainWindow):
 
     def save_appearance(self,*_):
         if not hasattr(self,"glass"):return
-        values={"daily_menu_price":self.daily_menu_price.text().strip() or "0"}
-        self.store.set_settings(values)
         if hasattr(self,"text_style_widgets"):self.capture_design_kind(getattr(self,"design_kind","daily"))
         self.schedule_preview()
 

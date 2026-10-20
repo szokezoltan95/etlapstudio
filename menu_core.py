@@ -212,19 +212,20 @@ class Store:
             else:self.db.execute("DELETE FROM daily_promotions WHERE day=?",(day.isoformat(),))
 
     def copy_daily_menu(self, source_day: date, target_day: date) -> bool:
-        """Replace a day's selection and weekday menu text with the exact prior day's data."""
+        """Replace a day's selection and weekday menu text from a specific earlier date."""
         source_key,target_key=source_day.isoformat(),target_day.isoformat()
-        rows=list(self.selection(source_day))
-        source_exists=bool(rows) or bool(self.db.execute(
-            "SELECT 1 FROM saved_menus WHERE kind='daily' AND menu_date=?",(source_key,)).fetchone())
+        saved=self.db.execute("SELECT definition FROM saved_menus WHERE kind='daily' AND menu_date=?",(source_key,)).fetchone()
+        rows=[]
+        saved_special={}
+        if saved:
+            try:
+                definition=json.loads(saved[0]);rows=definition.get("dishes",[]);saved_special=definition.get("special",{})
+            except (TypeError,ValueError):rows=[]
+        else:rows=list(self.selection(source_day))
+        soup,a,b=(saved_special.get(key,"") for key in ("soup","menu_a","menu_b")) if saved else self.week_entry(source_day)
+        source_exists=bool(rows) or bool(saved) or any((soup,a,b)) or bool(self.db.execute(
+            "SELECT 1 FROM daily_selection WHERE day=? LIMIT 1",(source_key,)).fetchone())
         if not source_exists:return False
-        # A saved daily snapshot can outlive the editable rows (for example after
-        # restoring an older database). Use it as a fallback source when needed.
-        if not rows:
-            saved=self.db.execute("SELECT definition FROM saved_menus WHERE kind='daily' AND menu_date=?",(source_key,)).fetchone()
-            if saved:
-                try:rows=json.loads(saved[0]).get("dishes",[])
-                except (TypeError,ValueError):rows=[]
         with self.db:
             self.db.execute("DELETE FROM daily_selection WHERE day=?",(target_key,))
             self.db.execute("DELETE FROM daily_promotions WHERE day=?",(target_key,))
@@ -233,9 +234,30 @@ class Store:
             self.db.executemany("INSERT OR REPLACE INTO daily_promotions(day,dish_id,promo_price) VALUES(?,?,?)",
                 [(target_key,row["id"],row["promo_price"]) for row in rows
                  if row["promo_enabled"] and row["promo_price"] is not None])
-        soup,a,b=self.week_entry(source_day)
         self.set_week_entry(target_day,soup,a,b)
         return True
+
+    def latest_daily_menu_date(self, target_day: date):
+        """Return the newest non-empty saved or editable daily menu before target_day."""
+        target_key=target_day.isoformat()
+        saved_rows=self.db.execute("SELECT menu_date,definition FROM saved_menus "
+            "WHERE kind='daily' AND menu_date<? ORDER BY menu_date DESC",(target_key,)).fetchall()
+        for row in saved_rows:
+            try:definition=json.loads(row["definition"])
+            except (TypeError,ValueError):continue
+            dishes=definition.get("dishes",[]);special=definition.get("special",{})
+            if dishes or any(special.get(key) for key in ("soup","menu_a","menu_b")):
+                return date.fromisoformat(row["menu_date"])
+        row=self.db.execute("SELECT day FROM daily_selection WHERE day<? GROUP BY day "
+            "UNION SELECT day FROM weekly_menu WHERE day<? AND (soup<>'' OR menu_a<>'' OR menu_b<>'') "
+            "ORDER BY day DESC LIMIT 1",(target_key,target_key)).fetchone()
+        if row and row[0]:return date.fromisoformat(row[0])
+        return None
+
+    def copy_latest_daily_menu(self, target_day: date):
+        """Copy the most recent completed daily menu before target_day, skipping blank dates."""
+        source=self.latest_daily_menu_date(target_day)
+        return source if source and self.copy_daily_menu(source,target_day) else None
 
     def copy_previous_daily(self, day: date) -> bool:
         """Use the most recent saved working selection as the starting point for a new day."""

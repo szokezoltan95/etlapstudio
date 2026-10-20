@@ -411,7 +411,10 @@ def draw_menu(p,source,kind,target):
         fit=min(1.0,content_height/max(1.0,document.size().height()))
         p.save();p.setClipRect(panel.adjusted(20,18,-20,-18));p.translate(panel.left()+28,panel.top()+26);p.scale(fit,fit)
         document.drawContents(p,QRectF(0,0,content_width,document.size().height()));p.restore()
-    note=setting(source,"note").strip()
+    if kind=="special":
+        note=(setting(source,"special_footer_note",setting(source,"note",""))
+              if setting(source,"special_show_footer","1")=="1" else "").strip()
+    else:note=setting(source,"note").strip()
     if note:
         # Keep the footer close to the bottom edge of the A4 canvas. The old
         # fixed daily coordinate left a large, unused strip below the note.
@@ -629,11 +632,13 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
 def render_image(source,kind,target,width=EXPORT_WIDTH,height=EXPORT_HEIGHT):
     image=QImage(width,height,QImage.Format.Format_RGB32);image.fill(Qt.GlobalColor.white)
     image.setDotsPerMeterX(round(EXPORT_DPI/0.0254));image.setDotsPerMeterY(round(EXPORT_DPI/0.0254))
-    p=QPainter(image);p.scale(width/W,height/H);draw_menu(p,source,kind,target);p.end();return image
+    p=QPainter(image);scale=min(width/W,height/H)
+    p.translate((width-W*scale)/2,(height-H*scale)/2);p.scale(scale,scale)
+    draw_menu(p,source,kind,target);p.end();return image
 
 
-def export_png(path,source,kind,target):
-    if not render_image(source,kind,target).save(str(path),"PNG"):raise OSError("A PNG nem menthető.")
+def export_png(path,source,kind,target,width=EXPORT_WIDTH,height=EXPORT_HEIGHT):
+    if not render_image(source,kind,target,width,height).save(str(path),"PNG"):raise OSError("A PNG nem menthető.")
 
 
 def export_pdf(path,source,kind,target):

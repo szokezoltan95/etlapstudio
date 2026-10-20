@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
-from menu_render import A4_WIDTH_PT, H, W, asset_file, export_pdf, export_png, render_image
+from menu_render import A4_WIDTH_PT, EXPORT_HEIGHT, EXPORT_WIDTH, H, W, asset_file, export_pdf, export_png, render_image
 from themes import load_themes, import_theme, import_theme_images
 
 BASE=Path(__file__).resolve().parent
@@ -243,6 +243,39 @@ class CalendarDateEdit(QDateEdit):
         painter.end()
 
 
+class ImageSizeDialog(QDialog):
+    PRESETS=(
+        ("A4 álló · 1240 × 1754",1240,1754),
+        ("Instagram négyzet · 1080 × 1080",1080,1080),
+        ("Instagram álló · 1080 × 1350",1080,1350),
+        ("Story / Reels · 1080 × 1920",1080,1920),
+        ("Facebook fekvő · 1200 × 630",1200,630),
+        ("Full HD fekvő · 1920 × 1080",1920,1080),
+    )
+    def __init__(self,parent):
+        super().__init__(parent);self.setWindowTitle("PNG-kép mérete");self.setMinimumWidth(440)
+        layout=QVBoxLayout(self);form=QFormLayout();layout.addLayout(form)
+        self.preset=QComboBox()
+        for label,width,height in self.PRESETS:self.preset.addItem(label,(width,height))
+        self.preset.addItem("Egyedi méret / szabad oldalarány",None)
+        self.preset.setCurrentIndex(0);form.addRow("Méret",self.preset)
+        self.width_spin=QSpinBox();self.width_spin.setRange(200,8000);self.width_spin.setSuffix(" px")
+        self.height_spin=QSpinBox();self.height_spin.setRange(200,8000);self.height_spin.setSuffix(" px")
+        form.addRow("Szélesség",self.width_spin);form.addRow("Magasság",self.height_spin)
+        hint=QLabel("Egyedi méretnél a szélesség és a magasság egymástól függetlenül állítható. Az étlap aránya megmarad; eltérő oldalaránynál fehér margó jelenhet meg.")
+        hint.setWordWrap(True);layout.addWidget(hint)
+        self.preset.currentIndexChanged.connect(self.update_preset)
+        self.update_preset(0)
+        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+    def update_preset(self,index):
+        size=self.preset.currentData();custom=size is None
+        self.width_spin.setEnabled(custom);self.height_spin.setEnabled(custom)
+        if size:
+            self.width_spin.setValue(size[0]);self.height_spin.setValue(size[1])
+    def output_size(self):return self.width_spin.value(),self.height_spin.value()
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
@@ -439,7 +472,7 @@ class MainWindow(QMainWindow):
         order_row.addWidget(self.menu_order,1)
         self.section_order_button=button("Szekciók sorrendje…",self.edit_daily_section_order)
         order_row.addWidget(self.section_order_button);box.addLayout(order_row)
-        self.copy_previous_button=button("Előző napi étlap másolása",self.copy_previous_daily_menu)
+        self.copy_previous_button=button("Legutóbbi kész étlap másolása",self.copy_previous_daily_menu)
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
         action_row=QHBoxLayout();action_row.addWidget(self.copy_previous_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
@@ -484,17 +517,20 @@ class MainWindow(QMainWindow):
         self.refresh_daily();self.refresh_archive();self.status.setText("A napi étlap kiürült.")
 
     def copy_previous_daily_menu(self):
-        target=self.current_day();source=target-timedelta(days=1)
-        answer=QMessageBox.question(self,"Előző napi étlap másolása",
-            f"A(z) {display_date(source)} étlapját bemásoljam erre a napra: {display_date(target)}?\n\n"
+        target=self.current_day();source=self.store.latest_daily_menu_date(target)
+        if source is None:
+            QMessageBox.information(self,APP_NAME,"A kiválasztott nap előtt nem található kész napi étlap.");return
+        answer=QMessageBox.question(self,"Legutóbbi étlap másolása",
+            f"A legutóbbi kész étlap ({display_date(source)}) másolódik erre a napra: {display_date(target)}.\n\n"
             "A jelenlegi napi étlap tartalma lecserélődik.",
             QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
         if answer!=QMessageBox.StandardButton.Yes:return
-        if not self.store.copy_daily_menu(source,target):
-            QMessageBox.information(self,APP_NAME,f"A(z) {display_date(source)} dátumhoz nem található másolható napi étlap.")
+        copied=self.store.copy_latest_daily_menu(target)
+        if not copied:
+            QMessageBox.information(self,APP_NAME,"A kiválasztott nap előtt nem található kész napi étlap.")
             return
         self.preview_archive=None;self.refresh_daily();self.refresh_archive()
-        self.status.setText(f"Az előző napi étlap átmásolva: {display_date(source)} → {display_date(target)}.")
+        self.status.setText(f"A legutóbbi kész étlap átmásolva: {display_date(copied)} → {display_date(target)}.")
 
     def refresh_food_grid(self,*_):
         if not hasattr(self,"food_grid"):return
@@ -658,6 +694,15 @@ class MainWindow(QMainWindow):
         self.special_title_edit.textChanged.connect(self.special_changed)
         self.special_show_title.toggled.connect(self.special_title_edit.setEnabled);self.special_show_title.toggled.connect(self.special_changed)
         row.addWidget(self.special_show_title);row.addWidget(self.special_title_edit,1);box.addLayout(row)
+        footer_row=QHBoxLayout();self.special_show_footer=QCheckBox("Lábjegyzet megjelenítése")
+        self.special_show_footer.setChecked(self.store.setting("special_show_footer","1")=="1")
+        self.special_footer_note=QLineEdit(self.store.setting("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!")))
+        self.special_footer_note.setPlaceholderText("A különleges lap lábjegyzete")
+        self.special_footer_note.setEnabled(self.special_show_footer.isChecked())
+        self.special_show_footer.toggled.connect(self.special_footer_note.setEnabled)
+        self.special_show_footer.toggled.connect(self.special_changed)
+        self.special_footer_note.textChanged.connect(self.special_changed)
+        footer_row.addWidget(self.special_show_footer);footer_row.addWidget(self.special_footer_note,1);box.addLayout(footer_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(5)
         self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Georgia")))
         self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
@@ -685,7 +730,9 @@ class MainWindow(QMainWindow):
         if not hasattr(self,"special_title_edit"):return
         self.store.set_settings({"special_title":self.special_title_edit.text().strip(),
             "special_show_title":"1" if self.special_show_title.isChecked() else "0",
-            "special_show_date":"1" if self.special_show_date.isChecked() else "0"})
+            "special_show_date":"1" if self.special_show_date.isChecked() else "0",
+            "special_show_footer":"1" if self.special_show_footer.isChecked() else "0",
+            "special_footer_note":self.special_footer_note.text().strip()})
         self.preview_archive=None;self.schedule_preview()
 
     def special_content_changed(self):
@@ -1142,10 +1189,15 @@ class MainWindow(QMainWindow):
         elif row["kind"]=="special":
             self.tabs.setCurrentIndex(2);self.special_date.setDate(qdate(day))
             values=definition.get("settings",{})
-            self.store.set_settings({key:values.get(key,"") for key in ("special_title","special_html","special_show_title","special_show_date")})
+            settings={key:values.get(key,"") for key in ("special_title","special_html","special_show_title","special_show_date")}
+            settings["special_show_footer"]=values.get("special_show_footer","1")
+            settings["special_footer_note"]=values.get("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"))
+            self.store.set_settings(settings)
             self.special_title_edit.blockSignals(True);self.special_title_edit.setText(values.get("special_title",""));self.special_title_edit.blockSignals(False)
             self.special_show_title.setChecked(values.get("special_show_title","0")=="1")
             self.special_show_date.setChecked(values.get("special_show_date","0")=="1")
+            self.special_show_footer.setChecked(values.get("special_show_footer","1")=="1")
+            self.special_footer_note.setText(values.get("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!")))
             self.special_text.blockSignals(True);self.special_text.setHtml(values.get("special_html",""));self.special_text.blockSignals(False)
             self.schedule_preview()
         else:self.tabs.setCurrentIndex(0);self.day.setDate(qdate(day))
@@ -1513,12 +1565,17 @@ class MainWindow(QMainWindow):
     def export(self,extension):
         source,kind,target=self.preview_source()
         stem=("napi_etlap_" if kind=="daily" else "heti_menu_" if kind=="weekly" else "kulonleges_etlap_")+target.isoformat()
+        image_size=(EXPORT_WIDTH,EXPORT_HEIGHT)
+        if extension!="pdf":
+            size_dialog=ImageSizeDialog(self)
+            if size_dialog.exec()!=QDialog.DialogCode.Accepted:return
+            image_size=size_dialog.output_size()
         path,_=QFileDialog.getSaveFileName(self,"Étlap exportálása",stem+"."+extension,
                                            "PDF (*.pdf)" if extension=="pdf" else "PNG (*.png)")
         if not path:return
         try:
             if extension=="pdf":export_pdf(path,source,kind,target)
-            else:export_png(path,source,kind,target)
+            else:export_png(path,source,kind,target,*image_size)
             QMessageBox.information(self,APP_NAME,"Az étlap elkészült:\n"+path)
         except Exception as exc:QMessageBox.critical(self,APP_NAME,"Az export sikertelen:\n"+str(exc))
     def closeEvent(self,event):self.store.db.close();super().closeEvent(event)

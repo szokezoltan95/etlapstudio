@@ -11,7 +11,7 @@ from PyQt6.QtGui import QAction, QColor, QFont, QIntValidator, QPainter, QPen, Q
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
-    QDockWidget, QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget,
+    QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMenu,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QStackedWidget, QTabBar, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
     QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox,
@@ -329,8 +329,7 @@ class MainWindow(QMainWindow):
         toolbar.addWidget(button("Facebook-kép",lambda:self.export("png")))
         toolbar.addStretch();right_layout.addLayout(toolbar)
         controls=QHBoxLayout();controls.setSpacing(6)
-        self.guides=QCheckBox("Térközök állítása");self.guides.setToolTip("Fogd meg a vízszintes vonalat és húzd fel vagy le a blokkok közötti tér beállításához.")
-        self.guides.toggled.connect(self.update_guides);controls.addWidget(self.guides);controls.addStretch()
+        controls.addStretch()
         self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség"])
         self.zoom.setMaximumWidth(120);self.zoom.currentIndexChanged.connect(self.fit_preview);controls.addWidget(self.zoom)
         right_layout.addLayout(controls)
@@ -343,7 +342,6 @@ class MainWindow(QMainWindow):
         self.status=QLabel();right_layout.addWidget(self.status)
         splitter.addWidget(right);self.preview_panel=right;splitter.setSizes([570,850]);splitter.setChildrenCollapsible(False)
         self.build_daily();self.build_weekly();self.build_special();self.build_appearance();self.build_archive()
-        self.archive_dock.hide()
         self.main_splitter.setStretchFactor(0, 5);self.main_splitter.setStretchFactor(1, 7)
         self.tab_date_controls=QStackedWidget();self.tab_date_controls.addWidget(self.daily_date_controls);self.tab_date_controls.addWidget(self.week_date_controls)
         self.tab_date_controls.setSizePolicy(QSizePolicy.Policy.Fixed,QSizePolicy.Policy.Preferred)
@@ -758,20 +756,67 @@ class MainWindow(QMainWindow):
             fmt=QTextCharFormat();fmt.setForeground(color);self.special_text.mergeCurrentCharFormat(fmt)
 
     def build_archive(self):
-        dock=QDockWidget("Korábbi étlapok · hetek szerint",self)
-        dock.setObjectName("savedMenusDock");dock.setAllowedAreas(Qt.DockWidgetArea.LeftDockWidgetArea|Qt.DockWidgetArea.RightDockWidgetArea)
+        dialog=QDialog(self);dialog.setWindowTitle("Korábbi étlapok");dialog.resize(430,620)
+        dialog.setModal(False);self.archive_dialog=dialog
+        body_layout=QVBoxLayout(dialog);body_layout.setContentsMargins(12,12,12,12)
         self.archive=QTreeWidget();self.archive.setHeaderHidden(True);self.archive.setIndentation(18)
         self.archive.itemClicked.connect(self.preview_saved_menu);self.archive.itemDoubleClicked.connect(self.edit_saved_menu)
-        body=QWidget();body_layout=QVBoxLayout(body);body_layout.setContentsMargins(7,7,7,7)
-        info=QLabel("Egy kattintás: előnézet\nDupla kattintás: szerkesztés")
+        info=QLabel("Egy kattintás: előnézet · dupla kattintás: szerkesztés")
         info.setStyleSheet("color:#60747d;padding:5px")
         body_layout.addWidget(info);body_layout.addWidget(self.archive,1)
-        dock.setWidget(body);self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,dock)
-        dock.setMinimumWidth(230);self.archive_dock=dock
-        action=dock.toggleViewAction();action.setText("Korábbi étlapok");self.menuBar().addAction(action)
+        buttons=QHBoxLayout()
+        open_button=button("Megnyitás szerkesztésre",lambda:self.edit_saved_menu(self.archive.currentItem(),0))
+        delete_button=button("Törlés",self.delete_saved_menu)
+        close_button=button("Bezárás",dialog.close)
+        buttons.addWidget(open_button);buttons.addWidget(delete_button);buttons.addStretch();buttons.addWidget(close_button)
+        body_layout.addLayout(buttons)
+
+        # Az adatkezelő és az archívum az első két menüpont.
         database_action=QAction("Adatkezelő…",self)
         database_action.triggered.connect(self.database_manager)
         self.menuBar().addAction(database_action)
+        archive_action=QAction("Korábbi étlapok",self)
+        archive_action.triggered.connect(self.open_archive_window)
+        self.menuBar().addAction(archive_action)
+
+        file_menu=self.menuBar().addMenu("Fájl")
+        for label,callback in (("Mentés",self.save_current),("Megnyitás…",self.open_archive_window)):
+            action=file_menu.addAction(label);action.triggered.connect(callback)
+        file_menu.addSeparator()
+        for label,callback in (("Exportálás PDF-be…",lambda:self.export("pdf")),("Exportálás képként…",lambda:self.export("png"))):
+            action=file_menu.addAction(label);action.triggered.connect(callback)
+        file_menu.addSeparator();action=file_menu.addAction("Kilépés");action.triggered.connect(self.close)
+        help_menu=self.menuBar().addMenu("Súgó")
+        action=help_menu.addAction("Névjegy…");action.triggered.connect(self.about_dialog)
+
+    def open_archive_window(self):
+        self.refresh_archive();self.archive_dialog.show();self.archive_dialog.raise_();self.archive_dialog.activateWindow()
+
+    def delete_saved_menu(self):
+        item=self.archive.currentItem()
+        if not item or item.data(0,Qt.ItemDataRole.UserRole) is None:
+            QMessageBox.information(self,APP_NAME,"Válassz ki egy mentett étlapot a törléshez.");return
+        menu_id=item.data(0,Qt.ItemDataRole.UserRole)
+        label=item.text(0).strip()
+        if QMessageBox.question(self,"Étlap törlése",f"Biztosan törlöd ezt a mentett étlapot?\n\n{label}",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes:
+            if self.preview_archive is not None:
+                archived_day=self.preview_archive[2]
+                row=self.store.db.execute("SELECT menu_date FROM saved_menus WHERE id=?",(menu_id,)).fetchone()
+                if row and row["menu_date"]==archived_day.isoformat():self.preview_archive=None
+            self.store.delete_saved_menu(menu_id);self.refresh_archive();self.schedule_preview()
+
+    def about_dialog(self):
+        dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(520,360)
+        layout=QVBoxLayout(dialog);tabs=QTabWidget();layout.addWidget(tabs,1)
+        about=QWidget();about_layout=QVBoxLayout(about)
+        about_layout.addWidget(QLabel(f"<h2>{APP_NAME}</h2><p><b>Készítette:</b> Szőke Zoltán</p><p>Az alkalmazás a Megyeháza Étterem napi, heti és alkalmi étlapjainak összeállítására, szerkesztésére, mentésére és nyomtatható vagy megosztható formátumban történő exportálására készült.</p><p>Forráskód és változások: <a href='https://github.com/szokezoltan95/etlapstudio'>GitHub projektoldal</a></p>"))
+        about_layout.addStretch();tabs.addTab(about,"Névjegy")
+        license_page=QWidget();license_layout=QVBoxLayout(license_page)
+        license_text=QTextEdit();license_text.setReadOnly(True)
+        license_text.setPlainText("A projekt forráskódja az MIT licenc alatt érhető el. Ez engedélyezi a szoftver használatát, módosítását és továbbterjesztését, az eredeti szerzői jogi és licencmegjelölés megtartásával. A szoftver garancia nélkül, „ahogy van” állapotban kerül közzétételre.\n\nA licenc teljes szövege a GitHub-projekt LICENSE fájljában olvasható. A külső függőségek, betűkészletek és egyéb, külön licenccel rendelkező mellékelt eszközök saját licencfeltételei ettől függetlenül érvényesek.")
+        license_layout.addWidget(license_text);tabs.addTab(license_page,"Licenc")
+        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Close);buttons.rejected.connect(dialog.close);buttons.accepted.connect(dialog.close);layout.addWidget(buttons)
+        dialog.exec()
 
     def build_appearance(self):
         page,box=self.pane("Dizájn · színek, betűtípusok és grafikai elemek")
@@ -1175,6 +1220,7 @@ class MainWindow(QMainWindow):
             groups[key].addChild(item)
         self.archive.expandAll()
 
+
     def preview_saved_menu(self,item,column=0):
         if not item or item.data(0,Qt.ItemDataRole.UserRole) is None:return
         row,definition=self.store.saved_menu(item.data(0,Qt.ItemDataRole.UserRole))
@@ -1474,19 +1520,7 @@ class MainWindow(QMainWindow):
 
     def update_guides(self,*_):
         if not hasattr(self,"preview"):return
-        if self.tabs.currentIndex() not in (0,1):
-            self.guides.setEnabled(False);self.preview.set_guides(False,{})
-            return
-        self.guides.setEnabled(True)
-        kind="weekly" if self.tabs.currentIndex()==1 else "daily"
-        keys={"header":"Fejléc vége","days":"Heti menü kezdete"} if kind=="weekly" else {
-            "header":"Fejléc vége","menu_end":"Napi menü vége"}
-        defaults={"header":205,"days":330,"menu_end":438}
-        header=int(self.store.setting(f"guide_{kind}_header",str(defaults["header"])))
-        shift=header-defaults["header"]
-        regions={label:header if key=="header" else int(self.store.setting(f"guide_{kind}_{key}",str(defaults[key])))+shift
-                 for key,label in keys.items()}
-        self.preview.set_guides(self.guides.isChecked(),regions)
+        self.preview.set_guides(False,{})
 
     def save_layout_region(self,name,y):
         keys={"Fejléc vége":"header","Heti menü kezdete":"days","Napi menü vége":"menu_end"}

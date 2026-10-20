@@ -60,6 +60,12 @@ Az automatikus téma az étlap **dátuma** alapján választ, és az étterem h�
 
 A **Különleges** füllel egyedi alkalomra készíthetsz étlapot: a dátum és a címsor szerkeszthető, a nagy szövegpanelen pedig félkövér, dőlt, aláhúzott, színezett, igazított és különböző betűméretű szöveget formázhatsz. Ez a változat is menthető az előzményekbe, és exportálható PDF-be vagy Facebookra szánt PNG-képbe.
 
+## Licenc
+
+A projekt alkalmazáskódja az [MIT licenc](LICENSE) alatt érhető el. A licenc lehetővé teszi a szoftver használatát, módosítását és továbbterjesztését, az eredeti szerzői jogi és licencmegjelölés megtartásával. A szoftver garancia nélkül, „ahogy van” állapotban kerül közzétételre.
+
+A külső függőségek, betűkészletek és más, külön licenccel rendelkező mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek. Az MIT licenc csak azokra a projektfájlokra vonatkozik, amelyekre külön licenc nincs megadva.
+
 ## Projekt
 
 | Fájl | Szerep |

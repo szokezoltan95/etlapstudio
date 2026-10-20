@@ -388,6 +388,12 @@ class Store:
         if row is None:raise ValueError("A mentett étlap nem található.")
         return row, json.loads(row["definition"])
 
+    def delete_saved_menu(self, menu_id: int):
+        with self.db:
+            cursor=self.db.execute("DELETE FROM saved_menus WHERE id=?",(menu_id,))
+        if cursor.rowcount == 0:
+            raise ValueError("A mentett étlap nem található.")
+
     def _archive_existing(self):
         # Old installations already contain dated selections, but no snapshots.
         dates=self.db.execute("SELECT DISTINCT day FROM daily_selection").fetchall()

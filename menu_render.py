@@ -27,6 +27,8 @@ def setting(source,key,default=""):
 
 def style_size(source,role,default):
     try:
+        if setting(source,"advanced_typography","0")!="1":
+            return float(default)*COORD_UNITS_PER_POINT
         stored=setting(source,"font_size_"+role)
         value=float(stored) if stored else float(default)
         if stored and setting(source,"font_size_unit","px") not in ("pt_a4_300","pt_a4"):value*=A4_WIDTH_PT/W
@@ -56,7 +58,12 @@ def font(source,role,size,bold=False):
             "dish_name":"dish","dish_price":"dish","promo_old_price":"dish",
             "promo_new_price":"dish","promo_badge":"dish","weekday_title":"heading",
             "weekly_label":"heading","weekly_value":"special","footer_note":"special"}
-    family=setting(source,"font_"+role) or setting(source,"font_"+legacy.get(role,""),defaults.get(role,"Segoe UI"))
+    if setting(source,"advanced_typography","0")=="1":
+        family=setting(source,"font_"+role) or setting(source,"font_"+legacy.get(role,""),defaults.get(role,"Segoe UI"))
+    else:
+        heading_roles={"header_title","daily_title","menu_price_value","category_title","weekday_title"}
+        family=setting(source,"font_heading" if role in heading_roles else "font_body",
+                       "Georgia" if role in heading_roles else "Segoe UI")
     family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
     f=QFont(family);f.setPixelSize(max(1,round(size)));f.setBold(bold)
     return f
@@ -172,6 +179,8 @@ def theme_assets(source,target):
     manifest,folder=packs[key]
     assets={name:folder/filename for name,filename in manifest.get("assets",{}).items()
             if name in ("divider","background") and filename.lower().endswith((".png",".jpg",".jpeg")) and (folder/filename).is_file()}
+    variants=[folder/name for name in manifest.get("divider_variants",[]) if (folder/name).is_file()]
+    if variants:assets["divider_variants"]=variants
     assets.setdefault("background",theme_background_path(key,target))
     assets["divider_root"]=root
     assets["divider_theme"]=theme_season(key,target)
@@ -263,6 +272,10 @@ def glass(p,rect,opacity=205,radius=20,tint="#4D6A43",source=None):
 
 def divider(p,primary,accent,y,assets=None,target=None,height=30):
     """Thin seasonal line-art divider; deliberately avoids filled image blocks."""
+    variants=assets.get("divider_variants",[]) if assets else []
+    if variants:
+        variant=variants[(target.toordinal() if target else 0)%len(variants)]
+        if draw_theme_asset(p,{"divider":variant},"divider",QRectF(120,y-height/2,W-240,height),.95):return
     path=assets.get("divider") if assets else None
     if path and Path(path).suffix.lower()==".png" and draw_theme_asset(p,assets,"divider",QRectF(120,y-height/2,W-240,height),.95):return
     root=assets.get("divider_root") if assets else None

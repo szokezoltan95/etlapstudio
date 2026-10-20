@@ -1,40 +1,44 @@
-# ÉtlapStúdió témacsomag – PNG formátum
+# ÉtlapStúdió témacsomag
 
-A témacsomag ZIP-fájl. Az új formátum egy vonalas elválasztóból, színpalettából, és igény szerint egy teljes oldalas háttérképből áll. A régi `header.png` + `divider.png` + `corner.png` formátumú témacsomagok továbbra is importálhatók, de az új generálásokhoz már ne készíts címsor mögötti sávot vagy sarokképet.
+Új dizájnt a **Dizájn → Új dizájn létrehozása…** ablak promptja alapján lehet készíteni. Betölthető ZIP-csomagként vagy külön képfájlokként. Külön képfájloknál a program a gyakori PNG, JPEG, WebP és BMP formátumokat a témához szükséges PNG-méretre alakítja. Egy háttérkép és 1–5 elválasztó tölthető be.
+
+## ZIP-témacsomag
+
+A ZIP gyökerében legyen `manifest.json`, `background.png`, `divider.png`, valamint opcionálisan `divider_1.png`–`divider_5.png`. Az összes képfájl pontos méretű PNG legyen:
 
 | Fájl | Méret | Használat |
 | --- | ---: | --- |
-| `divider.png` | 1800 × 120 px | Átlátszó hátterű, vékony évszakos line-art; két szekció között jelenik meg. |
-| `background.png` | 1440 × 2037 px | Opcionális, teljes oldalas, visszafogott illusztráció; a lap közepén maradjon világos hely a szöveg számára. |
-| `manifest.json` | UTF-8 | A téma neve, azonosítója, színei és fájljai. |
+| `background.png` | 1440 × 2037 px | Teljes oldalas, visszafogott háttér; a középső szövegterület maradjon világos és nyugodt. |
+| `divider.png` | 1800 × 120 px | Vonalas, átlátszó hátterű elválasztó. |
+| `divider_1.png`–`divider_5.png` | 1800 × 120 px | Opcionális változatok; a program étlapdátum szerint váltogatja őket. |
 
-Minimális témacsomag `manifest.json`:
+Példa `manifest.json`:
 
 ```json
 {
   "schema_version": 1,
   "id": "oszi_level",
   "name": "Őszi levelek",
+  "occasion": "Őszi étlap",
   "palette": {
     "primary": "#315747",
     "accent": "#B66A36",
     "background": "#F7F2E9"
   },
   "assets": {
-    "divider": "divider.png"
-  }
+    "divider": "divider.png",
+    "background": "background.png"
+  },
+  "divider_variants": [
+    "divider_1.png",
+    "divider_2.png",
+    "divider_3.png",
+    "divider_4.png",
+    "divider_5.png"
+  ]
 }
 ```
 
-Háttérrel a manifest `assets` részét így bővítsd:
+`divider_variants` elhagyható, ha csak a `divider.png` áll rendelkezésre. A `palette` színei `#RRGGBB` formátumúak. A divider legyen valódi, átlátszó hátterű line-art: ne legyen kitöltött téglalap, vastag sáv vagy felirat rajta. A ZIP gyökerében ne legyenek almappák. A program ellenőrzi a csomagot, a PNG-fájlokat és azok méreteit; az ismert régi témacsomag-formátumok importálása is megmaradt.
 
-```json
-"assets": {
-  "divider": "divider.png",
-  "background": "background.png"
-}
-```
-
-Az `id` 2–32 karakteres kisbetűs azonosító; szám, `_` és `-` is használható. A színek `#RRGGBB` formátumúak legyenek. Mindkét kép PNG legyen, és pontosan a táblázatban megadott méretű. A divider valódi, átlátszó alfa-csatornát használjon; ne legyen rajta kitöltött sáv vagy téglalap. Az étlap közepén az olvashatóság miatt maradjon tiszta terület.
-
-A témacsomagot a **Dizájn → Témacsomag importálása…** gombbal lehet betölteni. A teljes oldalas háttér opcionális; háttér nélkül az app a választott évszakhoz tartozó beépített képet használja. A grafikai irányt és a generálható promptokat a [GRAPHICS_PROMPT.md](GRAPHICS_PROMPT.md) írja le.
+Ha az AI-modell nem tud ZIP-et készíteni, a külön képfájlok betöltése használható. Sikertelen ZIP-importnál a hibaüzenet is javasolja ezt a lehetőséget.

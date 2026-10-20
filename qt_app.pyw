@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
 from menu_render import A4_WIDTH_PT, H, W, asset_file, export_pdf, export_png, render_image
-from themes import load_themes, import_theme
+from themes import load_themes, import_theme, import_theme_images
 
 BASE=Path(__file__).resolve().parent
 TEXT_STYLES=[
@@ -593,24 +593,15 @@ class MainWindow(QMainWindow):
         self.theme=QComboBox();self.theme_keys=[];self.reload_themes()
         self.theme.currentIndexChanged.connect(self.save_appearance);form.addRow("Téma · színek és háttér",self.theme)
         self.text_style_widgets={}
-        for key,label,default_font,default_size,legacy_role in TEXT_STYLES:
-            row=QWidget();row_layout=QHBoxLayout(row);row_layout.setContentsMargins(0,0,0,0);row_layout.setSpacing(8)
-            combo=QFontComboBox();combo.setMinimumWidth(210)
-            saved=self.store.setting("font_"+key) or self.store.setting("font_"+legacy_role,default_font)
-            saved={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(saved,saved)
-            combo.setCurrentFont(QFont(saved));combo.currentFontChanged.connect(self.save_appearance)
-            size=QDoubleSpinBox();size.setRange(4,48);size.setDecimals(1);size.setSingleStep(.5);size.setSuffix(" pt")
-            saved_size=self.store.setting("font_size_"+key)
-            try:saved_size=float(saved_size) if saved_size else None
-            except ValueError:saved_size=default_size
-            if saved_size is None:saved_size=default_size
-            elif self.store.setting("font_size_unit","px") not in ("pt_a4_300","pt_a4"):saved_size*=A4_WIDTH_PT/W
-            size.setValue(saved_size)
-            size.setToolTip("Betűméret nyomdai pontban. Az à la carte ételnevek a megadott maximális méretnél automatikusan kisebbre zsugorodnak, ha a hely vagy az egyoldalas elrendezés megkívánja.")
-            size.valueChanged.connect(self.save_appearance)
-            row_layout.addWidget(combo,1);row_layout.addWidget(size)
-            self.text_style_widgets[key]=(combo,size)
-            form.addRow(label,row)
+        self.heading_font=QFontComboBox();self.heading_font.setMinimumWidth(220)
+        self.heading_font.currentFontChanged.connect(self.save_appearance)
+        form.addRow("Címsorok betűtípusa",self.heading_font)
+        self.body_font=QFontComboBox();self.body_font.setMinimumWidth(220)
+        self.body_font.currentFontChanged.connect(self.save_appearance)
+        form.addRow("Sima szöveg betűtípusa",self.body_font)
+        self.advanced_button=button("Haladó beállítások…",self.open_advanced_design)
+        self.advanced_button.setToolTip("Külön ablakban módosíthatók az egyes szövegtípusok betűi és méretei.")
+        form.addRow("Betűméretek",self.advanced_button)
         self.leader=QComboBox()
         for label,value in LEADERS.items():self.leader.addItem(label,value)
         index=self.leader.findData(self.store.setting("leader","none"));self.leader.setCurrentIndex(max(index,0))
@@ -637,6 +628,7 @@ class MainWindow(QMainWindow):
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
         self.glass_color_mode_changed()
+        form.addRow("",button("Új dizájn létrehozása…",self.new_design_dialog))
         form.addRow("",button("Témacsomag importálása…",self.import_theme))
         reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
         form.addRow("",reset)
@@ -651,9 +643,15 @@ class MainWindow(QMainWindow):
                 prefix+"auto_theme":"1" if self.theme.currentData()=="auto" else "0",
                 prefix+"decorations":"1" if self.decorations.isChecked() else "0",
                 prefix+"glass_panels":"1" if self.glass.isChecked() else "0",
-                prefix+"leader":self.leader.currentData() or "none",prefix+"font_size_unit":"pt_a4"}
-        for key,(combo,size) in self.text_style_widgets.items():
-            values[prefix+"font_"+key]=combo.currentFont().family();values[prefix+"font_size_"+key]=str(size.value())
+                prefix+"leader":self.leader.currentData() or "none",prefix+"font_size_unit":"pt_a4",
+                prefix+"font_heading":self.heading_font.currentFont().family(),
+                prefix+"font_body":self.body_font.currentFont().family(),
+                prefix+"advanced_typography":self.store.setting(prefix+"advanced_typography","0")}
+        advanced=getattr(self,"advanced_font_widgets",{})
+        if getattr(self,"advanced_design_kind",None)==kind:
+            for key,(combo,size) in advanced.items():
+                values[prefix+"font_"+key]=combo.currentFont().family()
+                values[prefix+"font_size_"+key]=str(size.value())
         values[prefix+"glass_color_mode"]=self.glass_color_mode.currentData() or "auto"
         values[prefix+"glass_color"]=self._glass_custom_color
         values[prefix+"glass_opacity"]=str(self.glass_opacity.value())
@@ -678,17 +676,12 @@ class MainWindow(QMainWindow):
         self.design_kind=kind;prefix=kind+"_"
         theme=self.store.setting(prefix+"theme",self.store.setting("theme","auto"))
         self.theme.blockSignals(True);idx=self.theme.findData(theme);self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
-        for key,(combo,size) in self.text_style_widgets.items():
-            definition=next(item for item in TEXT_STYLES if item[0]==key)
-            family=self.store.setting(prefix+"font_"+key,self.store.setting("font_"+key,self.store.setting("font_"+definition[4],definition[2])))
+        for widget,key,default in ((self.heading_font,"font_heading","Georgia"),(self.body_font,"font_body","Segoe UI")):
+            family=self.store.setting(prefix+key,self.store.setting(key,default))
             family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
-            combo.blockSignals(True);combo.setCurrentFont(QFont(family));combo.blockSignals(False)
-            raw=self.store.setting(prefix+"font_size_"+key,self.store.setting("font_size_"+key))
-            try:value=float(raw) if raw else definition[3]
-            except ValueError:value=definition[3]
-            unit=self.store.setting(prefix+"font_size_unit",self.store.setting("font_size_unit","px"))
-            if raw and unit not in ("pt_a4_300","pt_a4"):value*=A4_WIDTH_PT/W
-            size.blockSignals(True);size.setValue(value);size.blockSignals(False)
+            widget.blockSignals(True);widget.setCurrentFont(QFont(family));widget.blockSignals(False)
+        if getattr(self,"advanced_dialog",None) is not None and self.advanced_dialog.isVisible():
+            self.populate_advanced_design(kind)
         for widget,key,default in ((self.glass,"glass_panels","1"),(self.decorations,"decorations","1")):
             widget.blockSignals(True);widget.setChecked(self.store.setting(prefix+key,self.store.setting(key,default))=="1");widget.blockSignals(False)
         idx=self.leader.findData(self.store.setting(prefix+"leader",self.store.setting("leader","none")))
@@ -703,9 +696,50 @@ class MainWindow(QMainWindow):
         self.schedule_preview()
 
     def change_design_kind(self,index):
-        if not hasattr(self,"text_style_widgets"):return
+        if not hasattr(self,"heading_font"):return
         old=self.design_kind;self.capture_design_kind(old)
         self.load_design_kind(self.design_type.currentData() or "daily")
+
+    def open_advanced_design(self):
+        if getattr(self,"advanced_dialog",None) is None:
+            self.advanced_dialog=QDialog(self);self.advanced_dialog.setWindowTitle("Haladó dizájnbeállítások")
+            self.advanced_dialog.resize(720,720);layout=QVBoxLayout(self.advanced_dialog)
+            self.advanced_enabled=QCheckBox("Egyedi betűméretek és szövegtípusonkénti betűk használata")
+            self.advanced_enabled.setToolTip("Kikapcsolva a két egyszerű betűtípus és a beépített alapméretek érvényesülnek.")
+            self.advanced_enabled.toggled.connect(self.save_advanced_design);layout.addWidget(self.advanced_enabled)
+            scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
+            for key,label,default_font,default_size,legacy_role in TEXT_STYLES:
+                row=QWidget();row_layout=QHBoxLayout(row);row_layout.setContentsMargins(0,0,0,0);row_layout.setSpacing(8)
+                combo=QFontComboBox();combo.setMinimumWidth(210)
+                size=QDoubleSpinBox();size.setRange(4,48);size.setDecimals(1);size.setSingleStep(.5);size.setSuffix(" pt")
+                size.setToolTip("Nyomdai pont. Az ételnevek szükség esetén automatikusan kisebbre méreteződnek.")
+                combo.currentFontChanged.connect(self.save_advanced_design);size.valueChanged.connect(self.save_advanced_design)
+                row_layout.addWidget(combo,1);row_layout.addWidget(size);form.addRow(label,row)
+                self.advanced_font_widgets[key]=(combo,size)
+            scroll.setWidget(inner);layout.addWidget(scroll,1)
+            controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Close);controls.rejected.connect(self.advanced_dialog.reject);layout.addWidget(controls)
+        self.populate_advanced_design(self.design_kind);self.advanced_dialog.show();self.advanced_dialog.raise_();self.advanced_dialog.activateWindow()
+
+    def populate_advanced_design(self,kind):
+        prefix=kind+"_";self.advanced_design_kind=kind
+        self.advanced_enabled.blockSignals(True);self.advanced_enabled.setChecked(self.store.setting(prefix+"advanced_typography","0")=="1");self.advanced_enabled.blockSignals(False)
+        for key,(combo,size) in self.advanced_font_widgets.items():
+            definition=next(item for item in TEXT_STYLES if item[0]==key)
+            family=self.store.setting(prefix+"font_"+key,self.store.setting("font_"+key,definition[2]))
+            combo.blockSignals(True);combo.setCurrentFont(QFont(family));combo.blockSignals(False)
+            raw=self.store.setting(prefix+"font_size_"+key,self.store.setting("font_size_"+key))
+            try:value=float(raw) if raw else definition[3]
+            except (ValueError,TypeError):value=definition[3]
+            unit=self.store.setting(prefix+"font_size_unit",self.store.setting("font_size_unit","px"))
+            if raw and unit not in ("pt_a4_300","pt_a4"):value*=A4_WIDTH_PT/W
+            size.blockSignals(True);size.setValue(value);size.blockSignals(False)
+
+    def save_advanced_design(self,*_):
+        if not hasattr(self,"advanced_enabled") or not self.advanced_dialog.isVisible():return
+        prefix=self.design_kind+"_";values={prefix+"advanced_typography":"1" if self.advanced_enabled.isChecked() else "0"}
+        for key,(combo,size) in self.advanced_font_widgets.items():
+            values[prefix+"font_"+key]=combo.currentFont().family();values[prefix+"font_size_"+key]=str(size.value())
+        values[prefix+"font_size_unit"]="pt_a4";self.store.set_settings(values);self.schedule_preview()
 
     def current_day(self):return pydate(self.day.date())
     def current_week(self):return monday(pydate(self.week.date()))
@@ -890,20 +924,18 @@ class MainWindow(QMainWindow):
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                   "glass_color_mode":"auto","glass_color":"#DDE7D8","glass_opacity":"80",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
-                  "font_title":"Georgia","font_heading":"Georgia","font_special":"Segoe UI","font_dish":"Segoe UI",
+                  "font_title":"Georgia","font_heading":"Georgia","font_body":"Segoe UI","font_special":"Segoe UI","font_dish":"Segoe UI","advanced_typography":"0",
                   "guide_layout_version":"8"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         for kind in ("daily","weekly","special"):
             for key,value in list(defaults.items()):
-                if key.startswith(("font_","font_size_","theme","auto_theme","decorations","glass_panels","glass_color_mode","glass_color","glass_opacity","leader")):
+                if key.startswith(("font_","font_size_","theme","auto_theme","decorations","glass_panels","glass_color_mode","glass_color","glass_opacity","leader")) or key=="advanced_typography":
                     defaults[kind+"_"+key]=value
         self.store.set_settings(defaults)
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
-        for key,(combo,size) in self.text_style_widgets.items():
-            definition=next(item for item in TEXT_STYLES if item[0]==key)
-            combo.blockSignals(True);combo.setCurrentFont(QFont(definition[2]));combo.blockSignals(False)
-            size.blockSignals(True);size.setValue(definition[3]);size.blockSignals(False)
+        self.heading_font.setCurrentFont(QFont("Georgia"));self.body_font.setCurrentFont(QFont("Segoe UI"))
+        if getattr(self,"advanced_dialog",None) is not None:self.populate_advanced_design(self.design_kind)
         self.glass.setChecked(True);self.decorations.setChecked(True)
         self.glass_color_mode.blockSignals(True);self.glass_color_mode.setCurrentIndex(self.glass_color_mode.findData("auto"));self.glass_color_mode.blockSignals(False)
         self._glass_custom_color="#DDE7D8";self.update_glass_color_button();self.glass_color_button.setEnabled(False)
@@ -913,15 +945,76 @@ class MainWindow(QMainWindow):
         for kind in ("daily","weekly","special"):self.capture_design_kind(kind)
         self.schedule_preview()
 
-    def import_theme(self):
-        path,_=QFileDialog.getOpenFileName(self,"Témacsomag importálása","","ZIP (*.zip)")
+    def new_design_dialog(self):
+        dialog=QDialog(self);dialog.setWindowTitle("Új dizájn készítése AI-val")
+        dialog.resize(760,700);layout=QVBoxLayout(dialog);form=QFormLayout();layout.addLayout(form)
+        name=QLineEdit("Új ünnepi téma");form.addRow("Dizájn neve",name)
+        occasion=QComboBox();occasion.setEditable(True)
+        occasion.addItems(["Valentin-nap","Augusztus 20.","Anyák napja","Szüreti időszak","Helyi rendezvény","Egyéb alkalom"])
+        occasion.setCurrentText("");occasion.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        form.addRow("Milyen alkalomra?",occasion)
+        help_text=QLabel("Másold a promptot tetszőleges AI-modellbe. Az elkészült témát ZIP-ből vagy külön képfájlokból is be tudod tölteni.")
+        help_text.setWordWrap(True);layout.addWidget(help_text)
+        prompt=QTextEdit();prompt.setReadOnly(True);layout.addWidget(prompt,1)
+        def make_prompt(*_):
+            event=occasion.currentText().strip() or "[az alkalom neve]"
+            title=name.text().strip() or "[a dizájn neve]"
+            prompt.setPlainText(
+                f"Készíts új, nyomtatható étlaphoz illő vizuális témát: {title}, alkalom: {event}. "
+                "Az összhatás legyen ízléses, igényes, jól olvasható és az alkalomhoz illő; a díszítés maradjon a lap szélein, "
+                "ne zavarja a rákerülő ételszöveget. Ne tegyél feliratot, ételnevet, logót vagy vízjelet a grafikákra. "
+                "Készíts egy 1440 × 2037 px-es, álló background.png hátteret és öt egymástól jól megkülönböztethető, "
+                "1800 × 120 px-es, finom line-art divider_1.png–divider_5.png elválasztót. A divider képek háttere legyen teljesen átlátszó, "
+                "vonalas motívumuk az alkalomra utaljon, és középen hagyjanak tiszta helyet. "
+                "A program a külön képeket automatikusan PNG-vé alakítja és megfelelő vászonra illeszti. "
+                "Ha tudsz ZIP-et készíteni, add át egy ZIP-ben a background.png, divider.png (az első változat), "
+                "divider_1.png–divider_5.png és manifest.json fájlokat, mindet közvetlenül a ZIP gyökerében. "
+                'A manifest legyen UTF-8 JSON ilyen szerkezettel: {"schema_version":1,"id":"'
+                +"tema_azonosito"+'","name":"'+title.replace('"','')+'","occasion":"'+event.replace('"','')+
+                '","palette":{"primary":"#526044","accent":"#B85A42","background":"#F1E9D7"},'
+                '"assets":{"divider":"divider.png","background":"background.png"},'
+                '"divider_variants":["divider_1.png","divider_2.png","divider_3.png","divider_4.png","divider_5.png"]}. '
+                "Ha ZIP-et nem tudsz készíteni, add át a háttérképet és az öt elválasztót külön képfájlokként."
+            )
+        occasion.currentTextChanged.connect(make_prompt);name.textChanged.connect(make_prompt);make_prompt()
+        actions=QHBoxLayout();layout.addLayout(actions)
+        copy=button("Prompt másolása",lambda:QApplication.clipboard().setText(prompt.toPlainText()));actions.addWidget(copy)
+        zip_button=button("Betöltés ZIP-ből…",lambda:self.import_theme_from_dialog(dialog));actions.addWidget(zip_button)
+        image_button=button("Képek külön betöltése…",lambda:self.import_theme_images_from_dialog(dialog,name.text().strip(),occasion.currentText().strip()));actions.addWidget(image_button)
+        close=button("Bezárás",dialog.accept);actions.addWidget(close)
+        dialog.exec()
+
+    def activate_imported_theme(self,slug):
+        prefix=self.design_kind+"_"
+        self.store.set_settings({prefix+"theme":slug,prefix+"auto_theme":"0",prefix+"theme_primary":"",prefix+"theme_accent":""})
+        self.reload_themes();self.schedule_preview()
+
+    def import_theme_from_dialog(self,parent_dialog=None):
+        path,_=QFileDialog.getOpenFileName(parent_dialog or self,"Témacsomag betöltése","","ZIP-témacsomag (*.zip)")
         if not path:return
         try:
             slug=import_theme(Path(path),data_dir()/"themes",set(self.theme_packs))
-            prefix=self.design_kind+"_"
-            self.store.set_settings({prefix+"theme":slug,prefix+"auto_theme":"0",prefix+"theme_primary":"",prefix+"theme_accent":""})
-            self.reload_themes();self.schedule_preview()
-        except Exception as exc:QMessageBox.warning(self,APP_NAME,str(exc))
+            self.activate_imported_theme(slug)
+            QMessageBox.information(parent_dialog or self,APP_NAME,"A téma sikeresen betöltődött és ki van választva az aktuális laptípushoz.")
+        except Exception as exc:
+            QMessageBox.warning(parent_dialog or self,APP_NAME,f"A ZIP-témacsomag nem tölthető be. Ellenőrizd a Témacsomag formátuma leírást, vagy válaszd külön a képfájlokat.\n\nRészletek: {exc}")
+
+    def import_theme_images_from_dialog(self,parent_dialog,name,occasion):
+        if not name:
+            QMessageBox.information(parent_dialog,"Dizájn neve hiányzik","Adj nevet az új dizájnnak.");return
+        background,_=QFileDialog.getOpenFileName(parent_dialog,"Háttérkép kiválasztása","","Képfájlok (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if not background:return
+        dividers,_=QFileDialog.getOpenFileNames(parent_dialog,"Válassz 1–5 elválasztóképet","","Képfájlok (*.png *.jpg *.jpeg *.webp *.bmp)")
+        if not dividers:return
+        try:
+            slug=import_theme_images(Path(background),[Path(x) for x in dividers],name,occasion,data_dir()/"themes",set(self.theme_packs))
+            self.activate_imported_theme(slug)
+            QMessageBox.information(parent_dialog,APP_NAME,"A képek beolvasása sikerült. A program létrehozta a témacsomagot, elválasztókat dátum szerint váltogat, és a dizájnt kiválasztotta az aktuális laptípushoz.")
+        except Exception as exc:
+            QMessageBox.warning(parent_dialog,APP_NAME,f"A képekből nem sikerült témát készíteni. Próbálj másik képfájlt, vagy használj témacsomag-ZIP-et.\n\nRészletek: {exc}")
+
+    def import_theme(self):
+        self.import_theme_from_dialog(self)
 
     def save_settings(self):
         if not hasattr(self,"settings") or not self.settings:return

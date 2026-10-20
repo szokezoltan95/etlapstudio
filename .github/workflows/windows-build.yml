@@ -1,9 +1,13 @@
-name: Build Windows app
+name: Windows installer and release
 
 on:
   push:
     branches: [main]
+    tags: ["v*"]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -17,11 +21,45 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pyinstaller
-      - name: Build app
+      - name: Create Windows icon from restaurant emblem
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --add-data "themes_builtin;themes_builtin" --add-data "backgrounds;backgrounds" --add-data "design_assets;design_assets" --add-data "data;data" qt_app.pyw
+          python -c "from PIL import Image; Image.open('design_assets/megyehaza_emblem.png').convert('RGBA').save('design_assets/megyehaza_emblem.ico', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+      - name: Build application
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --icon design_assets/megyehaza_emblem.ico --add-data "themes_builtin;themes_builtin" --add-data "design_assets;design_assets" --add-data "data;data" --add-data "LICENSE;." qt_app.pyw
+      - name: Install Inno Setup
+        run: choco install innosetup --yes --no-progress
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.0 installer.iss
       - uses: actions/upload-artifact@v4
         with:
-          name: EtlapStudio-Windows
-          path: dist/EtlapStudio/
+          name: EtlapStudio-Windows-1.0.0
+          path: dist/installer/EtlapStudio-Setup-1.0.0.exe
+          if-no-files-found: error
+
+  publish-release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release EtlapStudio 1.0.0]'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: EtlapStudio-Windows-1.0.0
+          path: dist/installer
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
+          target_commitish: ${{ github.sha }}
+          name: ÉtlapStúdió 1.0.0
+          body: |
+            Első stabil kiadás az étlapok napi, heti és különleges szerkesztéséhez.
+
+            A Windows telepítő önállóan tartalmazza az alkalmazást és függőségeit. Töltsd le az `EtlapStudio-Setup-1.0.0.exe` fájlt, majd futtasd.
+          files: dist/installer/EtlapStudio-Setup-1.0.0.exe
+          draft: false
+          prerelease: false

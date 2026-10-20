@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+import json
 import math
 from pathlib import Path
 import sys
@@ -452,34 +453,49 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     # Reserve a small gap above the footer and let the à la carte columns use
     # the remaining A4 height instead of stopping at the former fixed cutoff.
     max_y=max(top+120,H-150-alacarte_shift)
+    section_categories=[category for category in CATEGORIES if category!="Menü"]
+    try:
+        requested_order=json.loads(setting(source,"daily_section_order_"+target.isoformat(),""))
+        if not isinstance(requested_order,list):requested_order=[]
+    except (TypeError,ValueError):requested_order=[]
+    section_categories=[category for category in requested_order if category in section_categories]+[
+        category for category in section_categories if category not in requested_order]
+    dish_sort=setting(source,"daily_menu_sort","name")
+
     def plan(size,columns):
-        gap=16;column_width=(1360-gap*(columns-1))/columns;col_x=[40+column*(column_width+gap) for column in range(columns)]
+        gap=16;column_width=(1360-gap*(columns-1))/columns
         name_width=column_width-188
-        result=[];col=0;y=top
-        for category in CATEGORIES:
+        column_sections=[[] for _ in range(columns)]
+        column_heights=[0.0 for _ in range(columns)]
+        available_height=max_y-top
+        for category in section_categories:
             rows=[d for d in dishes if d["category"]==category]
             if not rows:continue
-            dish_sort=setting(source,"daily_menu_sort","name")
             if dish_sort in ("price_asc","price_desc"):
                 rows.sort(key=lambda dish:int(dish.get("promo_price") if dish.get("promo_enabled") and dish.get("promo_price") is not None else dish.get("price",0)),
                           reverse=dish_sort=="price_desc")
             category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
             line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
             row_items=[]
-            for d in rows:
-                lines=wrapped_lines(d["name"],source,"dish_name",size,name_width-(62 if d.get("promo_enabled") and d.get("promo_price") is not None else 0))
+            for dish in rows:
+                lines=wrapped_lines(dish["name"],source,"dish_name",size,name_width-(62 if dish.get("promo_enabled") and dish.get("promo_price") is not None else 0))
                 row_h=max(line_h*len(lines)+size*.18,size*1.25)
-                row_items.append((d,row_h))
-            section_gap=14 if y>top else 0
-            section_height=section_gap+category_h+sum(row_h for _,row_h in row_items)
-            if y+section_height>max_y:
-                col+=1;y=top;section_height-=section_gap;section_gap=0
-                if col>=columns:return None
-            if section_height>max_y-top:return None
-            y+=section_gap
-            result.append(("heading",col,y,category,size));y+=category_h
-            for d,row_h in row_items:
-                result.append(("dish",col,y,d,size,row_h));y+=row_h
+                row_items.append((dish,row_h))
+            block_height=category_h+sum(row_h for _,row_h in row_items)
+            target_column=next((column for column in range(columns)
+                if column_heights[column]+(14 if column_sections[column] else 0)+block_height<=available_height),None)
+            if target_column is None:return None
+            section_gap=14 if column_sections[target_column] else 0
+            column_sections[target_column].append((category,category_h,row_items,section_gap))
+            column_heights[target_column]+=section_gap+block_height
+        result=[]
+        for column,sections in enumerate(column_sections):
+            y=top
+            for category,category_h,row_items,section_gap in sections:
+                y+=section_gap
+                result.append(("heading",column,y,category,size));y+=category_h
+                for dish,row_h in row_items:
+                    result.append(("dish",column,y,dish,size,row_h));y+=row_h
         return result
     chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
     if plan(8.0,2) is None:

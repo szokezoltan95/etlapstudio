@@ -108,6 +108,28 @@ class PromotionDialog(QDialog):
         self.accept()
 
 
+class SectionOrderDialog(QDialog):
+    def __init__(self,parent,categories,order):
+        super().__init__(parent);self.setWindowTitle("Szekciók sorrendje")
+        self.setMinimumSize(360,430)
+        layout=QVBoxLayout(self)
+        hint=QLabel("Húzd a szekciókat a kívánt sorrendbe. Ez csak a kiválasztott nap étlapjára érvényes.")
+        hint.setWordWrap(True);layout.addWidget(hint)
+        self.items=QListWidget();self.items.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.items.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.items.setToolTip("Fogd meg és húzd a szekciókat az új sorrendhez.")
+        for category in order:
+            if category in categories:self.items.addItem(category)
+        for category in categories:
+            if category not in order:self.items.addItem(category)
+        layout.addWidget(self.items,1)
+        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+
+    def ordered_categories(self):
+        return [self.items.item(i).text() for i in range(self.items.count())]
+
+
 class DailyDishDialog(QDialog):
     def __init__(self,parent,dish,selected):
         super().__init__(parent);self.setWindowTitle(dish["name"])
@@ -380,7 +402,9 @@ class MainWindow(QMainWindow):
         saved_index=self.menu_order.findData(saved_order)
         if saved_index>=0:self.menu_order.setCurrentIndex(saved_index)
         self.menu_order.currentIndexChanged.connect(self.save_menu_order)
-        order_row.addWidget(self.menu_order,1);box.addLayout(order_row)
+        order_row.addWidget(self.menu_order,1)
+        self.section_order_button=button("Szekciók sorrendje…",self.edit_daily_section_order)
+        order_row.addWidget(self.section_order_button);box.addLayout(order_row)
         self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
@@ -390,6 +414,16 @@ class MainWindow(QMainWindow):
         action_row=QHBoxLayout();action_row.addWidget(self.new_food_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
         box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
+
+    def edit_daily_section_order(self):
+        categories=[category for category in CATEGORIES if category!="Menü"]
+        key="daily_section_order_"+self.current_day().isoformat()
+        try:order=json.loads(self.store.setting(key,""))
+        except (TypeError,ValueError):order=categories
+        dialog=SectionOrderDialog(self,categories,order)
+        if dialog.exec()!=QDialog.DialogCode.Accepted:return
+        self.store.set_settings({key:json.dumps(dialog.ordered_categories(),ensure_ascii=False)})
+        self.preview_archive=None;self.schedule_preview()
 
     def save_menu_order(self,*_):
         if not hasattr(self,"menu_order"):return

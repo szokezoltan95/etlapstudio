@@ -228,7 +228,7 @@ class MainWindow(QMainWindow):
                     layout_defaults["font_header_title"]="Segoe UI"
             self.store.set_settings(layout_defaults)
         self.setWindowTitle(APP_NAME);self.resize(1620,920);self.setMinimumSize(1180,680)
-        self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None
+        self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None;self._manual_week_preview=False
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
         splitter=QSplitter(Qt.Orientation.Horizontal);self.setCentralWidget(splitter)
         left=QWidget();left_layout=QVBoxLayout(left);left_layout.setContentsMargins(12,12,8,12)
@@ -464,28 +464,35 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(page,"Heti")
         row=QHBoxLayout();self.week=QDateEdit(qdate(monday(date.today())))
         self.week.setCalendarPopup(True);self.week.setDisplayFormat("yyyy.MM.dd.")
-        self.week.dateChanged.connect(lambda _:self.refresh_week())
+        self.week.dateChanged.connect(lambda _:self.change_week())
         row.addWidget(QLabel("Hét dátuma"));row.addWidget(self.week);box.addLayout(row)
         self.week_fields=[];self.week_closed=[];self.week_closure_notes=[]
+        self.week_field_labels=[];self.week_closure_labels=[]
+        self.week_save_timer=QTimer(self);self.week_save_timer.setSingleShot(True);self.week_save_timer.setInterval(300)
+        self.week_save_timer.timeout.connect(self.persist_week_entries)
         scroll=QScrollArea();scroll.setWidgetResizable(True)
         inner=QWidget();innerbox=QVBoxLayout(inner)
         for i,label in enumerate(WEEKDAYS):
             dayrow=QHBoxLayout();heading=QLabel(label);heading.setStyleSheet("font-weight:bold;color:#176246;margin-top:8px;")
             dayrow.addWidget(heading);dayrow.addStretch();closed=QCheckBox("Zárva a heti menün");closed.setToolTip("Csak a heti étlapon rejti el ezen a napnál a leves és az A/B menü sorait. A napi étlap adatait nem módosítja.");closed.toggled.connect(self.schedule_week_save);dayrow.addWidget(closed);innerbox.addLayout(dayrow)
-            form=QFormLayout();group=[]
+            form=QFormLayout();group=[];field_labels=[]
             for field in ("Leves","A menü","B menü"):
                 edit=QLineEdit();edit.textChanged.connect(self.schedule_week_save)
                 completer=QCompleter(self.store.menu_suggestions(),edit)
                 completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
                 completer.setFilterMode(Qt.MatchFlag.MatchContains)
                 edit.setCompleter(completer)
-                form.addRow(field,edit);group.append(edit)
-            self.week_fields.append(group);innerbox.addLayout(form)
-            closure_note=QLineEdit();closure_note.setPlaceholderText("Megjegyzés / ok (pl. ünnepnap miatt)");closure_note.editingFinished.connect(self.schedule_week_save)
+                form.addRow(field,edit);group.append(edit);field_labels.append(form.labelForField(edit))
+            self.week_fields.append(group);self.week_field_labels.append(field_labels);innerbox.addLayout(form)
+            closure_note=QLineEdit();closure_note.setPlaceholderText("Megjegyzés / ok (pl. ünnepnap miatt)");closure_note.textChanged.connect(self.schedule_week_save)
             self.week_closed.append(closed);self.week_closure_notes.append(closure_note);form.addRow("Zárva megjegyzés",closure_note)
+            self.week_closure_labels.append(form.labelForField(closure_note))
+            self.update_week_day_visibility(i)
         innerbox.addStretch();scroll.setWidget(inner);box.addWidget(scroll,1)
-        note=QLabel("A szerkesztett heti menüt a jobb felső Mentés gombbal rögzítheted.")
-        note.setWordWrap(True);box.addWidget(note)
+        note_row=QHBoxLayout()
+        note=QLabel("Az előnézet csak a frissítés gombbal készül el. A menüt a jobb felső Mentés gomb rögzíti.")
+        note.setWordWrap(True);note_row.addWidget(note,1)
+        note_row.addWidget(button("Előnézet frissítése",self.refresh_week_preview));box.addLayout(note_row)
 
     def build_special(self):
         page,box=self.pane("Különleges alkalom · egyedi címsor és szabadon formázható, nagy szövegmező")
@@ -788,26 +795,46 @@ class MainWindow(QMainWindow):
             for widget,value in zip(group,self.store.week_entry(day)):widget.setText(value)
             closed,note=self.store.week_entry_state(day)
             self.week_closed[i].setChecked(closed);self.week_closure_notes[i].setText(note)
-            for widget in group:widget.setEnabled(not closed)
-            self.week_closure_notes[i].setEnabled(closed)
-        self._loading=False;self.schedule_preview()
+            self.update_week_day_visibility(i)
+        self._loading=False;self._week_loaded_monday=mon
+
+    def change_week(self):
+        if getattr(self,"week_save_timer",None) and self.week_save_timer.isActive():
+            self.week_save_timer.stop();self.persist_week_entries()
+        self.refresh_week()
+
+    def update_week_day_visibility(self,index):
+        closed=self.week_closed[index].isChecked()
+        for label,edit in zip(self.week_field_labels[index],self.week_fields[index]):
+            label.setVisible(not closed);edit.setVisible(not closed)
+        self.week_closure_labels[index].setVisible(closed)
+        self.week_closure_notes[index].setVisible(closed)
 
     def schedule_week_save(self):
         if self._loading:return
         self.preview_archive=None
+        for i in range(len(self.week_fields)):self.update_week_day_visibility(i)
+        self.week_save_timer.start()
+
+    def persist_week_entries(self):
+        if self._loading or not hasattr(self,"week_fields"):return
+        base=getattr(self,"_week_loaded_monday",self.current_week())
         for i,group in enumerate(self.week_fields):
-            closed=self.week_closed[i].isChecked()
-            for widget in group:widget.setEnabled(not closed)
-            self.week_closure_notes[i].setEnabled(closed)
-            self.store.set_week_entry(self.current_week()+timedelta(days=i),*(edit.text() for edit in group),
-                closed,self.week_closure_notes[i].text())
-        self.refresh_daily();self.schedule_preview()
+            self.store.set_week_entry(base+timedelta(days=i),*(edit.text() for edit in group),
+                self.week_closed[i].isChecked(),self.week_closure_notes[i].text())
+
+    def refresh_week_preview(self):
+        if self.week_save_timer.isActive():self.week_save_timer.stop()
+        self.persist_week_entries()
+        self._manual_week_preview=True
+        self.timer.stop();self.refresh_preview()
 
     def save_daily(self):
         self.store.save_menu("daily",self.current_day());self.preview_archive=None;self.refresh_archive()
         QMessageBox.information(self,APP_NAME,"A napi étlap mentve az étlap-adatbázisba.")
 
     def save_week(self):
+        self.week_save_timer.stop();self.persist_week_entries()
         self.store.save_menu("weekly",self.current_week());self.refresh_archive()
         self.preview_archive=None;QMessageBox.information(self,APP_NAME,"A heti menü mentve az étlap-adatbázisba.")
 
@@ -1200,8 +1227,12 @@ class MainWindow(QMainWindow):
         if self.preview_archive is not None:return self.preview_archive
         return self.store,"daily",self.current_day()
     def schedule_preview(self):
-        if hasattr(self,"preview"):self.timer.start(180)
+        if not hasattr(self,"preview"):return
+        if hasattr(self,"tabs") and self.tabs.currentIndex()==1:return
+        self.timer.start(180)
     def refresh_preview(self):
+        if self.tabs.currentIndex()==1 and not self._manual_week_preview:return
+        self._manual_week_preview=False
         try:
             source,kind,target=self.preview_source()
             image=render_image(source,kind,target)

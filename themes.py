@@ -69,6 +69,20 @@ def validate_manifest(manifest: dict) -> None:
         raise ValueError("Legfeljebb öt, divider_1.png–divider_5.png nevű elválasztó használható.")
 
 
+def validate_builtin_manifest(manifest: dict) -> None:
+    """Built-in themes provide palette metadata; artwork lives in design_assets/."""
+    if manifest.get("schema_version") != SCHEMA:
+        raise ValueError("Nem támogatott témacsomag-verzió.")
+    if not isinstance(manifest.get("id"),str) or not IDENT.fullmatch(manifest["id"]):
+        raise ValueError("Hibás beépített témaazonosító.")
+    if not isinstance(manifest.get("name"),str) or not 1 <= len(manifest["name"]) <= 60:
+        raise ValueError("Hibás beépített témanév.")
+    palette=manifest.get("palette",{})
+    if not isinstance(palette,dict) or any(not isinstance(palette.get(key),str) or not HEX.fullmatch(palette[key])
+                                           for key in ("primary","accent","background")):
+        raise ValueError("Hibás beépített színpaletta.")
+
+
 def validate_png(data: bytes, size: tuple[int,int]) -> None:
     from PIL import Image
     from io import BytesIO
@@ -101,6 +115,7 @@ def validate_pack(folder: Path) -> dict:
 
 def load_themes(builtin: Path, user: Path) -> dict[str, tuple[dict, Path]]:
     result={}
+    builtin_root=builtin.resolve()
     for folder in [builtin, user]:
         if not folder.exists():
             continue
@@ -108,7 +123,11 @@ def load_themes(builtin: Path, user: Path) -> dict[str, tuple[dict, Path]]:
             if not child.is_dir():
                 continue
             try:
-                manifest=validate_pack(child)
+                if folder.resolve()==builtin_root:
+                    manifest=json.loads((child/"manifest.json").read_text(encoding="utf-8"))
+                    validate_builtin_manifest(manifest)
+                else:
+                    manifest=validate_pack(child)
                 result[manifest["id"]]=(manifest,child)
             except (ValueError, OSError, KeyError, json.JSONDecodeError):
                 continue

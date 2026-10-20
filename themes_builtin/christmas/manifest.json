@@ -6,10 +6,5 @@
     "primary": "#1B6546",
     "accent": "#B34542",
     "background": "#F7F1EC"
-  },
-  "assets": {
-    "header": "header.svg",
-    "divider": "divider.svg",
-    "corner": "corner.svg"
   }
 }

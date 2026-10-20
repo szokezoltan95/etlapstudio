@@ -40,7 +40,7 @@ python qt_app.pyw
 2. A **Heti** fülön írd be hétfőtől péntekig a leveseket és az A/B menüket.
 3. A **Napi** fülön állítsd be a dátumot. A már használt étlapról indul; a kategóriagombokkal vagy keresővel válassz ételeket. Kattints a fogásra, majd a felugró ablakban add meg a kívánt árat és akciót.
 4. A **Dizájn** fülön válassz évszakot, betűtípust, színeket és háttér-erősséget.
-5. Mentsd az étlapot, majd exportáld PDF-be vagy Facebook-képként. A korábbi mentéseket a felső menüsor **Korábbi étlapok** ablakában nyithatod meg, szerkesztheted vagy törölheted.
+5. Mentsd az étlapot, majd exportáld PDF-be vagy Facebook-képként. A korábbi mentéseket a **Fájl → Megnyitás…** ablakban nyithatod meg, szerkesztheted vagy törölheted.
 
 Az adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlban van. Az importált témacsomagok a `themes` almappába kerülnek. A biztonsági másolat az adatbázist menti; a témacsomagokat is másold le, ha új gépre költözöl. A régi napi választások és heti menük első indításkor mentett bejegyzéssé is válnak.
 
@@ -76,7 +76,7 @@ A külső függőségek, betűkészletek és más, külön licenccel rendelkező
 | `catalog_seed.py` | A CSV betöltése új vagy meglévő adatbázisba |
 | `menu_render.py` | Közös Qt előnézet, A4 PDF és Facebook PNG rajzolás |
 | `themes.py` | PNG témacsomagok ellenőrzése és importja |
-| `design_assets/`, `backgrounds/` | Szezonális képek és háttérgrafikák |
+| `design_assets/` | Szezonális képek, logó és elválasztók |
 | `Inditas_Windows.bat` | Windows indítás és függőségek telepítése |
 | `.github/workflows/windows-build.yml` | Windows futtatható csomag |
 

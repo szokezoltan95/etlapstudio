@@ -526,7 +526,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             badge_x=x+name_width-57;badge_y=y+(len(lines)-1)*line_h
             badge=QRectF(badge_x,badge_y+line_h*.12,56,line_h*.72)
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor("#a9433b"));p.drawRoundedRect(badge,6,6);p.restore()
-            text_singleline(p,source,"promo_badge",style_size(source,"promo_badge",13),"#ffffff",badge_x+2,badge_y+line_h*.12,52,line_h*.72,"AKCIÓ",True,Qt.AlignmentFlag.AlignHCenter)
+            text_singleline(p,source,"promo_badge",style_size(source,"promo_badge",6),"#ffffff",badge_x+2,badge_y+line_h*.12,52,line_h*.72,"AKCIÓ",True,Qt.AlignmentFlag.AlignHCenter)
         price_y=y+(len(lines)-1)*line_h
         if mode!="none":
             pen=QPen(QColor(accent));pen.setWidthF(.8)

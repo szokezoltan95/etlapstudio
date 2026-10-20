@@ -708,6 +708,7 @@ class MainWindow(QMainWindow):
             self.advanced_enabled.setToolTip("Kikapcsolva a két egyszerű betűtípus és a beépített alapméretek érvényesülnek.")
             self.advanced_enabled.toggled.connect(self.save_advanced_design);layout.addWidget(self.advanced_enabled)
             scroll=QScrollArea();scroll.setWidgetResizable(True);inner=QWidget();form=QFormLayout(inner)
+            self.advanced_font_widgets={}
             for key,label,default_font,default_size,legacy_role in TEXT_STYLES:
                 row=QWidget();row_layout=QHBoxLayout(row);row_layout.setContentsMargins(0,0,0,0);row_layout.setSpacing(8)
                 combo=QFontComboBox();combo.setMinimumWidth(210)

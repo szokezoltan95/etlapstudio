@@ -1,6 +1,6 @@
 # ÉtlapStúdió
 
-Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő**. A bal oldali, összecsukható sávban a korábbi étlapok hetek szerint csoportosítva láthatók. Középen három egyszerű fül van, jobb oldalon pedig folyamatosan frissül a készülő étlap előnézete. A mentés és a két exportgomb közvetlenül az előnézet fölött található.
+Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő**. A napi, heti és különleges étlapok szerkeszthetők, előnézetben ellenőrizhetők, menthetők, majd PDF-be vagy képként exportálhatók. A felső menüsorban érhető el az adatkezelő, a külön ablakos étlaparchívum, valamint a fájlműveletek és a névjegy.
 
 ![A hét beépített téma](Temak_elonezete.png)
 
@@ -10,9 +10,9 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 - **Akciók:** az étel felugró ablakában az akció jelölőnégyzete bekapcsolja az akciós ár mezőjét. Az árnak a normál árnál kisebbnek kell lennie. Az akció csak az adott napra vonatkozik. Az étlapon az eredeti ár áthúzva, az új ár pirossal és **AKCIÓ** felirattal látszik.
 - **Heti menü:** hétfőtől péntekig önálló leves, A és B menü, nagyobb betűkkel és a nap nevével a fogások fölött. A mezők gépelés közben javaslatokat adnak a külön **Menü** kategóriából; szabadon új fogás is beírható. A Menü kategória tételei nem jelennek meg a napi à la carte pipálható listában.
 - **Ételadatbázis:** 341 induló tétel a feltöltött 2026. július–októberi étlapképek alapján, kategóriák, árak, keresés, felvétel, szerkesztés, törlés. Új adatbázisba automatikusan betöltődik. Meglévő adatbázisban az **Ételek → Alapadatbázis hiányzó ételeinek betöltése** gomb egészíti ki; ez nem írja felül a saját neveket, árakat vagy törölt tételeket.
-- **Korábbi étlapok:** kattints egy napra vagy hétre az előnézethez; dupla kattintással szerkesztésre nyitható meg. A lista hetek szerint csoportosított.
+- **Korábbi étlapok:** a felső menüsor külön ablakában, hetek szerint csoportosítva érhetők el. Egy kattintás az előnézetet mutatja, dupla kattintással szerkeszthetők; a mentett étlapok törölhetők.
 - **Dizájn:** a választott téma együtt állítja a színpalettát és a háttérképet; a tavasz és a húsvét, illetve a tél és a karácsony külön grafikát kap. A szekciókat finom, évszakhoz illő line-art elválasztók tagolják, nem tömör színű grafikai blokkok. Az áttetsző üveghatású panelek segítik az olvashatóságot. A betűválasztók a Windowsra telepített betűket listázzák. Az alapértelmezett címbetű Georgia, a szövegbetű Segoe UI. A képernyőképen megadott betűméretek az alapértékek; a **Dizájn visszaállítása alapértékre** gomb ezeket, a betűket, színeket és térközöket is visszaállítja.
-- **Export:** A4 álló formátumú Facebook PNG 1240 × 1754 képpontban, 150 dpi-vel, valamint margó nélküli A4 PDF. Az előnézet ugyanezt az A4-es oldalarányt használja. A Dizájn fülön minden szövegtípushoz külön betűtípus és nyomdai pontban (pt) megadott méret választható. A napi étlap egy képen marad; az à la carte ételnevek a beállított maximális méretnél automatikusan kisebbre zsugorodnak, ha a tördelés megkívánja. A **Térközök állítása** kapcsoló egyszerű, húzható vízszintes vonalakat mutat; ezek a blokkok közötti térközt állítják, a tartalmat nem nagyítják vagy nyújtják.
+- **Export:** A4 álló formátumú Facebook PNG 1240 × 1754 képpontban, 150 dpi-vel, valamint margó nélküli A4 PDF. Az előnézet ugyanezt az A4-es oldalarányt használja. A Dizájn fülön minden szövegtípushoz külön betűtípus és nyomdai pontban (pt) megadott méret választható. A napi étlap egy képen marad; az à la carte ételnevek a beállított maximális méretnél automatikusan kisebbre zsugorodnak, ha a tördelés megkívánja.
 - **Étlapfejléc:** az első üveghatású panelen balra a teljes, feliratos logó, középen függőlegesen középre igazítva a napi vagy heti cím és a dátum, jobbra pedig jobbra igazítva az étterem neve, címe, telefonszáma és Facebook-linkje jelenik meg. Mind a négy adat szerkeszthető a Dizájn fülön; az étterem neve ugyanolyan visszafogott adatmező, mint a többi. A második panelen a napi lapon csak a leves és az A/B menü jelenik meg. A heti lapon a fejléc alatt külön, csak az árat tartalmazó panel van, utána következnek a napok és fogások.
 - **À la carte tagolás:** a szekciók között kis térköz van. A címsor csak a saját színes fület kapja meg, amely közvetlenül a hozzá tartozó fogások fölött áll; nincs teljes szélességű üvegpanelezés a címsor mögött.
 
@@ -40,7 +40,7 @@ python qt_app.pyw
 2. A **Heti** fülön írd be hétfőtől péntekig a leveseket és az A/B menüket.
 3. A **Napi** fülön állítsd be a dátumot. A már használt étlapról indul; a kategóriagombokkal vagy keresővel válassz ételeket. Kattints a fogásra, majd a felugró ablakban add meg a kívánt árat és akciót.
 4. A **Dizájn** fülön válassz évszakot, betűtípust, színeket és háttér-erősséget.
-5. Kattints az előnézet fölötti **Mentés**, **PDF** vagy **Facebook-kép** gombra. A korábbi étlapot a bal oldali hetes listából nyithatod meg. A „Szerkesztővonalak” bekapcsolása után a szaggatott keretekkel mozgathatod, a jobb alsó fogantyúval méretezheted a fő blokkokat.
+5. Mentsd az étlapot, majd exportáld PDF-be vagy Facebook-képként. A korábbi mentéseket a felső menüsor **Korábbi étlapok** ablakában nyithatod meg, szerkesztheted vagy törölheted.
 
 Az adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlban van. Az importált témacsomagok a `themes` almappába kerülnek. A biztonsági másolat az adatbázist menti; a témacsomagokat is másold le, ha új gépre költözöl. A régi napi választások és heti menük első indításkor mentett bejegyzéssé is válnak.
 

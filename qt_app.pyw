@@ -801,8 +801,8 @@ class MainWindow(QMainWindow):
         if QMessageBox.question(self,"Étlap törlése",f"Biztosan törlöd ezt a mentett étlapot?\n\n{label}",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes:
             if self.preview_archive is not None:
                 archived_day=self.preview_archive[2]
-                row=self.store.db.execute("SELECT menu_date FROM saved_menus WHERE id=?",(menu_id,)).fetchone()
-                if row and row["menu_date"]==archived_day.isoformat():self.preview_archive=None
+                row=self.store.db.execute("SELECT kind,menu_date FROM saved_menus WHERE id=?",(menu_id,)).fetchone()
+                if row and row["kind"]==self.preview_archive[1] and row["menu_date"]==archived_day.isoformat():self.preview_archive=None
             self.store.delete_saved_menu(menu_id);self.refresh_archive();self.schedule_preview()
 
     def about_dialog(self):

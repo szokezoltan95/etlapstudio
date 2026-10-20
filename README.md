@@ -22,7 +22,7 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 2. Töltsd le a repót ZIP-ként, csomagold ki egy írható mappába, és indítsd az `Inditas_Windows.bat` fájlt.
 3. Az első indítás helyi `.venv` környezetet készít és telepíti a `requirements.txt` csomagjait. A következő indításokhoz használd ugyanezt a `.bat` fájlt.
 
-Python nélküli használathoz a **Build Windows app** GitHub Actions munkafolyamat `EtlapStudio-Windows` artifactot készít. A csomagot ki kell bontani, majd `EtlapStudio.exe` indítható.
+A Python telepítése nélkül használható Windows telepítőt a [GitHub Releases](https://github.com/szokezoltan95/etlapstudio/releases/latest) oldalról töltheted le. A 64 bites `EtlapStudio-Setup-1.0.0.exe` telepíti az alkalmazást, létrehozza a Start menü parancsikont, és opcionálisan asztali ikont is készít.
 
 ### Fejlesztői indítás
 

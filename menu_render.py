@@ -273,7 +273,7 @@ def glass(p,rect,opacity=205,radius=20,tint="#4D6A43",source=None):
     p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(fill);p.drawRoundedRect(rect,radius,radius);p.restore()
 
 
-def divider(p,primary,accent,y,assets=None,target=None,height=30):
+def divider(p,primary,accent,y,assets=None,target=None,height=60):
     """Thin seasonal line-art divider; deliberately avoids filled image blocks."""
     variants=assets.get("divider_variants",[]) if assets else []
     if variants:
@@ -441,7 +441,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,1085,menu_y+58,260,34,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,1085,menu_y+92,260,58,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     alacarte_shift=header_shift+menu_gap_shift
-    if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,30)
+    if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,60)
     dishes=[dict(d) for d in source.selection(target)]
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),205,8,primary,source)
@@ -569,7 +569,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         y=330+i*310
         if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),205,6,primary,source)
-        if decorated and i<4:divider(p,primary,accent,y+286,assets,mon+timedelta(days=i),20)
+        if decorated and i<4:divider(p,primary,accent,y+286,assets,mon+timedelta(days=i),40)
         closed,closure_note=source.week_entry_state(mon+timedelta(days=i)) if hasattr(source,"week_entry_state") else (False,"")
         if closed:
             text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+18,W-184,230,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)

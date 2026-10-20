@@ -114,7 +114,7 @@ class DailyDishDialog(QDialog):
         self.setMinimumWidth(420);layout=QVBoxLayout(self)
         title=QLabel(dish["name"]);title.setStyleSheet("font-size:19px;font-weight:700;color:#173f34")
         layout.addWidget(title)
-        self.include=QCheckBox("Felveszem a mai étlapra");self.include.setChecked(selected is not None)
+        self.include=QCheckBox("Felveszem a kiválasztott napi étlapra");self.include.setChecked(True)
         layout.addWidget(self.include)
         form=QFormLayout();layout.addLayout(form)
         self.regular=price_edit(dish["price"]);form.addRow("Normál ár (Ft)",self.regular)

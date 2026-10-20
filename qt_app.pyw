@@ -59,10 +59,10 @@ def price_edit(value=0):
 
 
 class DishDialog(QDialog):
-    def __init__(self,parent,row=None):
+    def __init__(self,parent,row=None,initial_name=""):
         super().__init__(parent);self.setWindowTitle("Étel szerkesztése" if row else "Új étel")
         layout=QVBoxLayout(self);form=QFormLayout();layout.addLayout(form)
-        self.name=QLineEdit(row["name"] if row else "");form.addRow("Étel neve",self.name)
+        self.name=QLineEdit(row["name"] if row else initial_name);form.addRow("Étel neve",self.name)
         self.category=QComboBox();self.category.addItems(CATEGORIES)
         if row:self.category.setCurrentText(row["category"])
         form.addRow("Kategória",self.category)
@@ -359,6 +359,8 @@ class MainWindow(QMainWindow):
         self.active_category="Összes";self.build_category_buttons()
         box.addWidget(self.category_filter)
         self.search=QLineEdit();self.search.setPlaceholderText("Keresés az ételek között…");self.search.textChanged.connect(self.refresh_food_grid)
+        self.search.returnPressed.connect(self.handle_search_enter)
+        self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
         box.addWidget(self.search)
         self.food_scroll=QScrollArea();self.food_scroll.setWidgetResizable(True)
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -413,6 +415,7 @@ class MainWindow(QMainWindow):
             foods=[x for x in foods if x["category"]==self.active_category]
         selected={r["id"]:r for r in self.store.selection(self.current_day())}
         self._food_rows={r["id"]:r for r in foods}
+        self._food_action_buttons={}
         for n,dish in enumerate(foods):
             is_selected=dish["id"] in selected
             cols=max(1,min(3,self.food_scroll.viewport().width()//235))
@@ -433,6 +436,7 @@ class MainWindow(QMainWindow):
             toggle.setToolTip(action_name+" "+("a kiválasztott napi étlapról" if is_selected else "a kiválasztott napi étlaphoz"))
             toggle.setAccessibleName(action_name+": "+dish["name"])
             toggle.setProperty("role","foodRemove" if is_selected else "foodAction")
+            self._food_action_buttons[dish["id"]]=(toggle,is_selected)
             edit=button("Szerk.",lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
             edit.setProperty("role","foodEdit");edit.setToolTip("Étel, ár és napi akció szerkesztése")
             edit.setAccessibleName("Szerkesztés: "+dish["name"])
@@ -448,6 +452,25 @@ class MainWindow(QMainWindow):
         self.food_grid.setRowStretch((len(foods)+cols-1)//cols,1)
         self.daily_count.setText(f"{len(selected)} étel szerepel a kiválasztott napi étlapon"+ (" · nincs találat" if not foods else ""))
         self.schedule_preview()
+
+    def handle_search_enter(self):
+        query=self.search.text().strip()
+        if not query:return
+        foods=list(self.store.daily_dishes(query))
+        if not foods:
+            self.add_catalogue_dish(initial_name=query)
+            return
+        selected_ids={row["id"] for row in self.store.selection(self.current_day())}
+        target=next((food for food in foods if food["id"] not in selected_ids),None)
+        if target is None:
+            self.status.setText("Minden találat már szerepel a kiválasztott napi étlapon.")
+            return
+        action=self._food_action_buttons.get(target["id"])
+        if action:
+            toggle,_=action
+            self.food_scroll.ensureWidgetVisible(toggle,12,12)
+            toggle.setFocus(Qt.FocusReason.ShortcutFocusReason)
+            self.status.setText(f"Találat: {target['name']} · Enterrel hozzáadható az étlaphoz.")
 
     def add_daily_dish(self,dish_id):
         dish=self.store.db.execute("SELECT price FROM dishes WHERE id=? AND active=1",(dish_id,)).fetchone()
@@ -467,8 +490,8 @@ class MainWindow(QMainWindow):
         selected={row["id"] for row in self.store.selection(self.current_day())}
         (self.remove_daily_dish if dish_id in selected else self.add_daily_dish)(dish_id)
 
-    def add_catalogue_dish(self):
-        form=DishDialog(self)
+    def add_catalogue_dish(self,checked=False,initial_name=""):
+        form=DishDialog(self,initial_name=initial_name)
         if form.exec()!=QDialog.DialogCode.Accepted:return
         try:
             dish_id=self.store.add_dish(form.name.text().strip(),form.category.currentText(),int(form.amount.text()))
@@ -477,7 +500,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self,APP_NAME,"Nem sikerült elmenteni az új ételt.\n"+str(exc));return
         self.search.clear();self.choose_category("Összes")
         self.refresh_menu_suggestions();self.refresh_daily()
-        self.status.setText("Az új étel bekerült az adatbázisba és a mai étlapra.")
+        self.status.setText("Az új étel bekerült az adatbázisba és a kiválasztott napi étlapra.")
 
     def build_weekly(self):
         page,box=self.pane("Heti menü · leves, A és B menü külön az à la carte kínálattól")

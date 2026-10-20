@@ -311,9 +311,11 @@ class MainWindow(QMainWindow):
             QLineEdit:disabled,QComboBox:disabled,QDateEdit:disabled,QFontComboBox:disabled { background:#ece5dc; color:#898076; }
             QComboBox::drop-down,QDateEdit::drop-down { background:#eadfd2; border:0; border-top-right-radius:8px; border-bottom-right-radius:8px; width:26px; }
             QTabBar#categoryTabs { background:transparent; }
-            QTabBar#categoryTabs::tab { padding:7px 10px; margin:0 3px 0 0; background:#f0e3d1; color:#66503f; border:1px solid #e3d2bf; border-radius:9px; font-size:12px; font-weight:650; }
-            QTabBar#categoryTabs::tab:selected { background:#b85a4a; color:#ffffff; border-color:#a14b3e; }
-            QTabBar#categoryTabs::tab:hover:!selected { background:#e8d5c1; color:#553d30; }
+            QTabBar#categoryTabs::tab { padding:7px 10px 8px; margin:4px 2px 0 0; background:#e6d8c8; color:#604c42; border:1px solid #d2c0ad; border-bottom-color:#c6b09b; border-top-left-radius:8px; border-top-right-radius:8px; font-size:12px; font-weight:600; }
+            QTabBar#categoryTabs::tab:selected { background:#fffaf2; color:#963f36; border-bottom-color:#fffaf2; }
+            QTabBar#categoryTabs::tab:hover:!selected { background:#f1e4d6; color:#793c32; }
+            QTabBar#categoryTabs::scroller { width:18px; }
+            QTabBar#categoryTabs QToolButton { padding:2px; min-width:18px; background:#eadfd2; color:#604c42; border:1px solid #d2c0ad; border-radius:5px; }
             QComboBox QAbstractItemView { background:#fffdf9; color:#362f2b; selection-background-color:#b85a4a; selection-color:#ffffff; border:1px solid #d7c4b2; outline:0; }
             QCheckBox { spacing:8px; color:#50453e; background:transparent; }
             QCheckBox::indicator { width:19px; height:19px; background:#fffdf9; border:1px solid #b8a896; border-radius:5px; }
@@ -363,7 +365,7 @@ class MainWindow(QMainWindow):
         date_row.addWidget(QLabel("Dátum"));date_row.addWidget(self.day)
         date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today()))))
         self.active_category="Összes";self.build_category_tabs()
-        box.addWidget(self.category_tabs)
+        box.addWidget(self.category_tab_widget)
         self.search=QLineEdit();self.search.setPlaceholderText("Keresés az ételek között…");self.search.textChanged.connect(self.refresh_food_grid)
         self.search.returnPressed.connect(self.handle_search_enter)
         self.search.setToolTip("Enter: ugrás az első hozzáadható találatra; találat nélkül új étel felvétele.")
@@ -379,25 +381,31 @@ class MainWindow(QMainWindow):
         box.addWidget(button("Ételadatbázis kezelése…",self.catalog_manager))
 
     def build_category_tabs(self):
-        categories=["Összes"]+[name for name in CATEGORIES if name!="Menü"]
-        short={"Főzelékek":"Főzelék","Feltétek":"Feltét","Köretek":"Köret",
-               "Savanyúságok":"Savanyúság","Frissensültek":"Frissensült",
-               "Tészták, desszertek":"Tészta / desszert","Mártások, öntetek":"Mártás"}
-        self.category_tabs=QTabBar();self.category_tabs.setObjectName("categoryTabs")
-        self.category_tabs.setExpanding(False);self.category_tabs.setUsesScrollButtons(True)
-        self.category_tabs.setElideMode(Qt.TextElideMode.ElideRight)
-        self.category_names=[]
-        for name in categories:
-            self.category_names.append(name);self.category_tabs.addTab(short.get(name,name))
-        self.category_tabs.currentChanged.connect(self.choose_category_index)
-        self.category_tabs.setCurrentIndex(0)
+        self.category_names=["Összes"]+[name for name in CATEGORIES if name!="Menü"]
+        wrapper=QWidget();layout=QVBoxLayout(wrapper);layout.setContentsMargins(0,0,0,0);layout.setSpacing(0)
+        self.category_tabs=[];self._category_tab_offsets=[]
+        split=(len(self.category_names)+1)//2
+        for row_index,(start,end) in enumerate(((0,split),(split,len(self.category_names)))):
+            bar=QTabBar();bar.setObjectName("categoryTabs");bar.setShape(QTabBar.Shape.RoundedNorth)
+            bar.setExpanding(False);bar.setUsesScrollButtons(True);bar.setElideMode(Qt.TextElideMode.ElideNone)
+            for name in self.category_names[start:end]:bar.addTab(name)
+            bar.setCurrentIndex(-1)
+            bar.currentChanged.connect(lambda local_index,offset=start:self.choose_category_index(offset+local_index) if local_index>=0 else None)
+            layout.addWidget(bar);self.category_tabs.append(bar);self._category_tab_offsets.append(start)
+        self.category_tabs[0].setCurrentIndex(0)
+        self.category_tab_widget=wrapper
 
     def choose_category(self,category):
-        if category in self.category_names:self.category_tabs.setCurrentIndex(self.category_names.index(category))
+        if category in self.category_names:self.choose_category_index(self.category_names.index(category))
 
     def choose_category_index(self,index):
-        if index<0:return
+        if index<0 or index>=len(self.category_names):return
         self.active_category=self.category_names[index]
+        for bar,offset in zip(self.category_tabs,self._category_tab_offsets):
+            bar.blockSignals(True)
+            local_index=index-offset if offset<=index<offset+bar.count() else -1
+            bar.setCurrentIndex(local_index)
+            bar.blockSignals(False)
         self.refresh_food_grid()
 
     def clear_daily_menu(self):

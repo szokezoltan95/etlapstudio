@@ -26,21 +26,21 @@ TEXT_STYLES=[
     ("header_title","Étterem neve · fejléc-adatmező","Segoe UI",11,"title"),
     ("header_date","Dátum a napi / heti panelben","Segoe UI",16,"special"),
     ("header_contact","Cím, telefonszám és Facebook link","Segoe UI",11,"special"),
-    ("daily_title","Napi / heti étlap címsora","Georgia",22,"heading"),
+    ("daily_title","Napi / heti étlap címsora","Candara",22,"heading"),
     ("daily_label","Napi menü sorcímkéi · Leves / A / B","Segoe UI",13,"heading"),
     ("daily_value","Napi menü ételnevei","Segoe UI",13,"special"),
     ("menu_price_label","Napi menü árának címkéje","Segoe UI",12,"special"),
-    ("menu_price_value","Napi menü ára","Georgia",20,"title"),
-    ("category_title","À la carte kategóriacímek","Georgia",14,"heading"),
+    ("menu_price_value","Napi menü ára","Candara",20,"title"),
+    ("category_title","À la carte kategóriacímek","Candara",14,"heading"),
     ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",12.5,"dish"),
     ("dish_price","À la carte normál árak","Segoe UI",12.5,"dish"),
     ("promo_old_price","Akciós étel régi ára","Segoe UI",7,"dish"),
     ("promo_new_price","Akciós étel új ára","Segoe UI",12.5,"dish"),
     ("promo_badge","AKCIÓ jelzés","Segoe UI",6,"dish"),
-    ("weekday_title","Heti menü napnevei","Georgia",16,"heading"),
+    ("weekday_title","Heti menü napnevei","Candara",16,"heading"),
     ("weekly_label","Heti menü sorcímkéi · Leves / A / B","Segoe UI",15,"heading"),
     ("weekly_value","Heti menü ételnevei","Segoe UI",15,"special"),
-    ("footer_note","Alsó megjegyzés","Georgia",10,"special"),
+    ("footer_note","Alsó megjegyzés","Segoe UI",10,"special"),
 ]
 MIT_LICENSE_TEXT='''MIT License
 
@@ -332,6 +332,11 @@ class MainWindow(QMainWindow):
                 if self.store.setting("font_header_title")=="Georgia":
                     layout_defaults["font_header_title"]="Segoe UI"
             self.store.set_settings(layout_defaults)
+        if self.store.setting("design_font_default_version","0")!="1":
+            font_defaults={"design_font_default_version":"1"}
+            for key in ("font_heading","daily_font_heading","weekly_font_heading","special_font_heading"):
+                if self.store.setting(key) in ("Georgia","Trebuchet MS"):font_defaults[key]="Candara"
+            self.store.set_settings(font_defaults)
         self.setWindowTitle(APP_NAME);self.setMinimumSize(760,540)
         screen=QApplication.primaryScreen()
         available=screen.availableGeometry() if screen else None
@@ -734,7 +739,7 @@ class MainWindow(QMainWindow):
         self.special_footer_note.textChanged.connect(self.special_changed)
         footer_row.addWidget(self.special_show_footer);footer_row.addWidget(self.special_footer_note,1);box.addLayout(footer_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(5)
-        self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Georgia")))
+        self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Segoe UI")))
         self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
         self.special_size=QDoubleSpinBox();self.special_size.setRange(6,60);self.special_size.setValue(16);self.special_size.setSuffix(" pt")
         self.special_size.valueChanged.connect(self.special_set_size);toolbar.addWidget(self.special_size)
@@ -944,7 +949,7 @@ class MainWindow(QMainWindow):
         self.design_kind=kind;prefix=kind+"_"
         theme=self.store.setting(prefix+"theme",self.store.setting("theme","auto"))
         self.theme.blockSignals(True);idx=self.theme.findData(theme);self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
-        for widget,key,default in ((self.heading_font,"font_heading","Georgia"),(self.body_font,"font_body","Segoe UI")):
+        for widget,key,default in ((self.heading_font,"font_heading","Candara"),(self.body_font,"font_body","Segoe UI")):
             family=self.store.setting(prefix+key,self.store.setting(key,default))
             family={"Modern sans":"DejaVu Sans","Klasszikus talpas":"DejaVu Serif"}.get(family,family)
             widget.blockSignals(True);widget.setCurrentFont(QFont(family));widget.blockSignals(False)
@@ -1312,7 +1317,7 @@ class MainWindow(QMainWindow):
         defaults={"theme":"auto","auto_theme":"1","decorations":"1","glass_panels":"1",
                   "glass_color_mode":"white","glass_color":"#DDE7D8","glass_opacity":"80",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
-                  "font_title":"Georgia","font_heading":"Georgia","font_body":"Segoe UI","font_special":"Segoe UI","font_dish":"Segoe UI","advanced_typography":"0",
+                  "font_title":"Candara","font_heading":"Candara","font_body":"Segoe UI","font_special":"Segoe UI","font_dish":"Segoe UI","advanced_typography":"0",
                   "guide_layout_version":"8"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
@@ -1322,7 +1327,7 @@ class MainWindow(QMainWindow):
                     defaults[kind+"_"+key]=value
         self.store.set_settings(defaults)
         self.theme.blockSignals(True);idx=self.theme.findData("auto");self.theme.setCurrentIndex(max(0,idx));self.theme.blockSignals(False)
-        self.heading_font.setCurrentFont(QFont("Georgia"));self.body_font.setCurrentFont(QFont("Segoe UI"))
+        self.heading_font.setCurrentFont(QFont("Candara"));self.body_font.setCurrentFont(QFont("Segoe UI"))
         if getattr(self,"advanced_dialog",None) is not None:self.populate_advanced_design(self.design_kind)
         self.glass.setChecked(True);self.decorations.setChecked(True)
         self.glass_color_mode.blockSignals(True);self.glass_color_mode.setCurrentIndex(self.glass_color_mode.findData("white"));self.glass_color_mode.blockSignals(False)

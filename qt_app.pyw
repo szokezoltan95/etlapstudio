@@ -7,7 +7,7 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve
-from PyQt6.QtGui import QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
+from PyQt6.QtGui import QAction, QColor, QFont, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
@@ -274,7 +274,6 @@ class MainWindow(QMainWindow):
         title_row=QHBoxLayout();title_row.addWidget(self.preview_title);title_row.addStretch();right_layout.addLayout(title_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(6)
         toolbar.addWidget(button("Mentés",self.save_current))
-        toolbar.addWidget(button("Adatbázis kezelő…",self.database_manager))
         toolbar.addWidget(button("PDF",lambda:self.export("pdf")))
         toolbar.addWidget(button("Facebook-kép",lambda:self.export("png")))
         toolbar.addStretch();right_layout.addLayout(toolbar)
@@ -417,7 +416,6 @@ class MainWindow(QMainWindow):
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
         action_row=QHBoxLayout();action_row.addWidget(self.new_food_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
-        box.addWidget(button("Adatbázis kezelő…",self.database_manager))
 
     def edit_daily_section_order(self):
         categories=[category for category in CATEGORIES if category!="Menü"]
@@ -702,6 +700,9 @@ class MainWindow(QMainWindow):
         dock.setWidget(body);self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea,dock)
         dock.setMinimumWidth(230);self.archive_dock=dock
         action=dock.toggleViewAction();action.setText("Korábbi étlapok");self.menuBar().addAction(action)
+        database_action=QAction("Adatkezelő…",self)
+        database_action.triggered.connect(self.database_manager)
+        self.menuBar().addAction(database_action)
 
     def build_appearance(self):
         page,box=self.pane("Dizájn · színek, betűtípusok és grafikai elemek")

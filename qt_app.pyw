@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMenu,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
     QSplitter, QSizePolicy, QStackedWidget, QTabBar, QTabWidget, QTreeWidget, QTreeWidgetItem, QTextEdit, QColorDialog,
-    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox,
+    QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox, QSlider,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, display_date, monday, price)
@@ -400,17 +400,20 @@ class MainWindow(QMainWindow):
             QPushButton[role="destructive"] { background:#f1dfdc; color:#923d34; border:1px solid #d8aaa3; }
             QPushButton[role="destructive"]:hover { background:#e9cbc5; color:#762f28; }
             QPushButton[role="food"] { padding:8px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
-            QPushButton[role="newFoodCard"] { padding:12px; min-height:82px; text-align:center; background:#d9e5d8; color:#344b3a; border:1px dashed #8ca78a; border-radius:12px; font-weight:700; }
-            QPushButton[role="newFoodCard"]:hover { background:#c2d5c1; border-color:#607f5e; }
+            QPushButton[role="newFoodCard"] { padding:12px; min-height:82px; text-align:center; background:#ffffff; color:#344b3a; border:1px dashed #cbbdaf; border-radius:12px; font-weight:700; }
+            QPushButton[role="newFoodCard"]:hover { background:#f7f2eb; border-color:#9d8977; }
             QPushButton[role="food"][selected="true"] { background:#deeadb; color:#263e2e; border:1px solid #7f9c7c; }
-            QPushButton[role="foodEdit"] { padding:6px 5px; min-width:54px; background:#f0e5d9; color:#6c4436; border:1px solid #dfcbbb; border-radius:9px; }
-            QPushButton[role="foodEdit"]:hover { background:#e7d2c0; color:#55382d; }
+            QPushButton[role="foodEdit"] { padding:6px 5px; min-width:54px; background:#ffffff; color:#6c4436; border:1px solid #d8cbbd; border-radius:9px; }
+            QPushButton[role="foodEdit"]:hover { background:#f7f2eb; color:#55382d; }
             QPushButton[role="foodAction"] { padding:3px; min-width:42px; min-height:30px; background:#dce9d8; color:#31553b; border:1px solid #bdd0b8; border-radius:8px; font-size:17px; }
             QPushButton[role="foodAction"]:hover { background:#c7ddc0; color:#23452d; border:1px solid #789a73; }
             QPushButton[role="foodAction"]:pressed { background:#aac9a2; }
-            QPushButton[role="foodRemove"] { padding:3px; min-width:42px; min-height:30px; background:#f5e3df; color:#98463d; border:1px solid #e5c3bb; border-radius:8px; font-size:17px; }
-            QPushButton[role="foodRemove"]:hover { background:#edcbc3; color:#7f332d; border:1px solid #ce8e82; }
-            QPushButton[role="foodRemove"]:pressed { background:#e1b1a7; }
+            QPushButton[role="foodRemove"] { padding:3px; min-width:42px; min-height:30px; background:#ffffff; color:#98463d; border:1px solid #e0c9c4; border-radius:8px; font-size:17px; }
+            QPushButton[role="foodRemove"]:hover { background:#fff8f6; color:#7f332d; border:1px solid #ce8e82; }
+            QPushButton[role="foodRemove"]:pressed { background:#f5e8e5; }
+            QSlider::groove:horizontal { height:6px; background:#e1d5c8; border-radius:3px; }
+            QSlider::sub-page:horizontal { background:#a94e41; border-radius:3px; }
+            QSlider::handle:horizontal { width:18px; margin:-6px 0; background:#fffaf2; border:2px solid #a94e41; border-radius:9px; }
             QLineEdit,QComboBox,QDateEdit,QFontComboBox { background:#fffdf9; color:#362f2b; padding:8px; border:1px solid #dacbbb; border-radius:9px; selection-background-color:#bc6957; selection-color:#ffffff; }
             QLineEdit:focus,QComboBox:focus,QDateEdit:focus,QFontComboBox:focus { background:#ffffff; border:2px solid #bf715b; color:#2e2824; }
             QLineEdit:disabled,QComboBox:disabled,QDateEdit:disabled,QFontComboBox:disabled { background:#ece5dc; color:#898076; }
@@ -882,10 +885,14 @@ class MainWindow(QMainWindow):
         self.glass_color_button.setToolTip("Egyéni panelárnyalat. A finom áttetszőség megőrzi a szöveg olvashatóságát.")
         self._glass_custom_color=self.store.setting("glass_color","#DDE7D8")
         form.addRow("Egyéni panelárnyalat",self.glass_color_button)
-        self.glass_opacity=QSpinBox();self.glass_opacity.setRange(25,100);self.glass_opacity.setSuffix(" %")
+        opacity_row=QWidget();opacity_layout=QHBoxLayout(opacity_row);opacity_layout.setContentsMargins(0,0,0,0);opacity_layout.setSpacing(10)
+        self.glass_opacity=QSlider(Qt.Orientation.Horizontal);self.glass_opacity.setRange(25,100);self.glass_opacity.setSingleStep(1);self.glass_opacity.setPageStep(5)
         self.glass_opacity.setValue(int(self.store.setting("glass_opacity","80") or "80"))
         self.glass_opacity.setToolTip("Nagyobb értéknél a panel jobban takarja a hátteret, így a szöveg könnyebben olvasható.")
-        self.glass_opacity.valueChanged.connect(self.save_appearance);form.addRow("Panel fedettsége",self.glass_opacity)
+        self.glass_opacity_label=QLabel(f"{self.glass_opacity.value()} %");self.glass_opacity_label.setMinimumWidth(42);self.glass_opacity_label.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
+        self.glass_opacity.valueChanged.connect(lambda value:self.glass_opacity_label.setText(f"{value} %"))
+        self.glass_opacity.valueChanged.connect(self.save_appearance)
+        opacity_layout.addWidget(self.glass_opacity,1);opacity_layout.addWidget(self.glass_opacity_label);form.addRow("Panel fedettsége",opacity_row)
         self.decorations=QCheckBox("Áttetsző szezonális elválasztók")
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
@@ -955,6 +962,7 @@ class MainWindow(QMainWindow):
         self.update_glass_color_button();self.glass_color_button.setEnabled(self.glass_color_mode.currentData()=="custom")
         opacity=self.store.setting(prefix+"glass_opacity",self.store.setting("glass_opacity","80"))
         self.glass_opacity.blockSignals(True);self.glass_opacity.setValue(int(opacity or "80"));self.glass_opacity.blockSignals(False)
+        self.glass_opacity_label.setText(f"{self.glass_opacity.value()} %")
         self.schedule_preview()
 
     def change_design_kind(self,index):

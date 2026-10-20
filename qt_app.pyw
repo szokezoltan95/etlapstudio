@@ -983,15 +983,10 @@ class MainWindow(QMainWindow):
             title=prompt_name.text().strip() or "[a dizájn neve]"
             prompt.setPlainText(
                 f"Készíts új, nyomtatható étlaphoz illő vizuális témát: {title}, alkalom: {event}. "
-                "Az összhatás legyen ízléses, jól olvasható és az alkalomhoz illő. A hátteret úgy képzeld el, mint igényes, "
-                "világos akvarellpapírt, amelyen a lap szélei mentén jól felismerhető, de visszafogott növényi és tájképi motívumok "
-                "jelennek meg: például levelek, virágok, ágak és lágy, egymásba futó tájformák. A díszítés legyen látható nyomtatásban "
-                "is; használjon tompított, de nem kimosott zöld, rozsda, arany vagy az alkalomhoz illő színeket, finom árnyalat- és "
-                "részletkülönbségekkel. Ne legyen olyan halvány, hogy szinte eltűnjön. A motívumok szabálytalanul, természetesen "
-                "oszoljanak el a felső, alsó és oldalsó szélek mentén, és csak mérsékelten nyúljanak befelé a lap külső 10–15%-ából. "
-                "A középső, ételszövegek mögötti nagyjából háromnegyed oldal maradjon világos és nyugodt, de ne legyen teljesen "
-                "steril vagy üres. Ne rendezd a díszítést négy nagy sarokcsokorba. Ne rajzolj zárt keretet, szegélyt, körbefutó "
-                "vonalat vagy egyenes oldalsó csíkot; a motívumok szélei természetesen, lágyan halványodjanak a papírba. "
+                "Az összhatás legyen ízléses, jól olvasható és az alkalomhoz illő. A lap szélein legyenek visszafogott, de jól "
+                "érzékelhető díszítő motívumok, természetesen az alkalomhoz illő stílusban és színekkel. "
+                "A motívumok ne alkossanak keretet, és ne nyúljanak be zavaróan az ételszöveg területére. Kerüld a túl nagy, "
+                "túl részletgazdag vagy erős, vastag vonalú grafikákat; a középső terület maradjon jól olvasható. "
                 "Ne tegyél feliratot, ételnevet, logót vagy vízjelet a grafikákra. "
                 "Készíts egy 1440 × 2037 px-es, álló background.png hátteret és öt egymástól jól megkülönböztethető, "
                 "1800 × 120 px-es, finom line-art elválasztót: divider_1.png, divider_2.png, divider_3.png, divider_4.png és divider_5.png. "
@@ -999,15 +994,16 @@ class MainWindow(QMainWindow):
                 "és ne adj előnézeti montázst. Mindegyik önálló, vízszintes, átlátszó hátterű PNG legyen; a motívum finom, "
                 "vékony vonalas, az alkalomra utaló, és középen hagyjon tiszta helyet. "
                 "A program a külön képeket automatikusan PNG-vé alakítja és megfelelő vászonra illeszti. "
-                "Ha ZIP-et tudsz készíteni, add át egy ZIP-ben a background.png, divider.png (az első változat), "
-                "divider_1.png–divider_5.png és manifest.json fájlokat, mindet közvetlenül a ZIP gyökerében. "
+                "Ha valódi ZIP-archívumot tudsz készíteni, abba tedd a background.png, divider.png (az első változat), "
+                "divider_1.png–divider_5.png és manifest.json fájlokat közvetlenül a ZIP gyökerébe, almappák nélkül. "
                 'A manifest legyen UTF-8 JSON ilyen szerkezettel: {"schema_version":1,"id":"tema_azonosito",'
                 '"name":"Dizájn neve","occasion":"Alkalom neve",'
                 '"palette":{"primary":"#526044","accent":"#B85A42","background":"#F1E9D7"},'
                 '"assets":{"divider":"divider.png","background":"background.png"},'
                 '"divider_variants":["divider_1.png","divider_2.png","divider_3.png","divider_4.png","divider_5.png"]}. '
-                "Ha ZIP-et nem tudsz készíteni, add át a háttérképet és mind az öt elválasztót különálló képfájlként; "
-                "ne egyetlen képre összeállított ötös montázsként."
+                "Ne adj át ZIP-nek nevezett mappát vagy szöveges fájllistát archívum helyett. Ha nem tudsz valódi ZIP-et "
+                "készíteni, add át a háttérképet és mind az öt elválasztót különálló képfájlként; ne egyetlen képre "
+                "összeállított montázsként."
             )
         prompt_occasion.currentTextChanged.connect(make_prompt);prompt_name.textChanged.connect(make_prompt);make_prompt()
         actions=QHBoxLayout();create_layout.addLayout(actions)

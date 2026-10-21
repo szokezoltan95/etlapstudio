@@ -399,7 +399,9 @@ def draw_menu(p,source,kind,target):
                     days_y-330+panel_shift)
     else:
         top=225+(header_y-header_default)
-        bottom=H-100
+        footer_text=setting(source,"special_footer_note",setting(source,"note","")).strip()
+        show_footer=setting(source,"special_show_footer","1")=="1" and bool(footer_text)
+        bottom=H-100 if show_footer else H-28
         panel=QRectF(52,top,W-104,bottom-top)
         if glass_enabled:glass(p,panel,205,12,primary,source)
         document=QTextDocument()
@@ -629,11 +631,23 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     p.restore()
 
 
-def render_image(source,kind,target,width=EXPORT_WIDTH,height=EXPORT_HEIGHT):
+def render_image(source,kind,target,width=None,height=None):
+    if width is None or height is None:
+        if kind=="special":
+            try:width=int(setting(source,"special_canvas_width","1240") or "1240")
+            except (TypeError,ValueError):width=1240
+            try:height=int(setting(source,"special_canvas_height","1754") or "1754")
+            except (TypeError,ValueError):height=1754
+        else:width,height=EXPORT_WIDTH,EXPORT_HEIGHT
     image=QImage(width,height,QImage.Format.Format_RGB32);image.fill(Qt.GlobalColor.white)
     image.setDotsPerMeterX(round(EXPORT_DPI/0.0254));image.setDotsPerMeterY(round(EXPORT_DPI/0.0254))
-    p=QPainter(image);scale=min(width/W,height/H)
-    p.translate((width-W*scale)/2,(height-H*scale)/2);p.scale(scale,scale)
+    p=QPainter(image)
+    if kind=="special":
+        # Use the selected special-menu canvas directly instead of adding white frame margins.
+        p.scale(width/W,height/H)
+    else:
+        scale=min(width/W,height/H)
+        p.translate((width-W*scale)/2,(height-H*scale)/2);p.scale(scale,scale)
     draw_menu(p,source,kind,target);p.end();return image
 
 

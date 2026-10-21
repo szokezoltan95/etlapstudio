@@ -279,39 +279,6 @@ class CalendarDateEdit(QDateEdit):
         painter.end()
 
 
-class ImageSizeDialog(QDialog):
-    PRESETS=(
-        ("A4 álló · 1240 × 1754",1240,1754),
-        ("Instagram négyzet · 1080 × 1080",1080,1080),
-        ("Instagram álló · 1080 × 1350",1080,1350),
-        ("Story / Reels · 1080 × 1920",1080,1920),
-        ("Facebook fekvő · 1200 × 630",1200,630),
-        ("Full HD fekvő · 1920 × 1080",1920,1080),
-    )
-    def __init__(self,parent):
-        super().__init__(parent);self.setWindowTitle("PNG-kép mérete");self.setMinimumWidth(440)
-        layout=QVBoxLayout(self);form=QFormLayout();layout.addLayout(form)
-        self.preset=QComboBox()
-        for label,width,height in self.PRESETS:self.preset.addItem(label,(width,height))
-        self.preset.addItem("Egyedi méret / szabad oldalarány",None)
-        self.preset.setCurrentIndex(0);form.addRow("Méret",self.preset)
-        self.width_spin=QSpinBox();self.width_spin.setRange(200,8000);self.width_spin.setSuffix(" px")
-        self.height_spin=QSpinBox();self.height_spin.setRange(200,8000);self.height_spin.setSuffix(" px")
-        form.addRow("Szélesség",self.width_spin);form.addRow("Magasság",self.height_spin)
-        hint=QLabel("Egyedi méretnél a szélesség és a magasság egymástól függetlenül állítható. Az étlap aránya megmarad; eltérő oldalaránynál fehér margó jelenhet meg.")
-        hint.setWordWrap(True);layout.addWidget(hint)
-        self.preset.currentIndexChanged.connect(self.update_preset)
-        self.update_preset(0)
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
-        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
-    def update_preset(self,index):
-        size=self.preset.currentData();custom=size is None
-        self.width_spin.setEnabled(custom);self.height_spin.setEnabled(custom)
-        if size:
-            self.width_spin.setValue(size[0]);self.height_spin.setValue(size[1])
-    def output_size(self):return self.width_spin.value(),self.height_spin.value()
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__();self.store=Store(data_dir()/"etlapstudio.sqlite3")
@@ -747,6 +714,21 @@ class MainWindow(QMainWindow):
         self.special_show_footer.toggled.connect(self.special_changed)
         self.special_footer_note.textChanged.connect(self.special_changed)
         footer_row.addWidget(self.special_show_footer);footer_row.addWidget(self.special_footer_note,1);box.addLayout(footer_row)
+        size_row=QHBoxLayout();size_row.addWidget(QLabel("Kimeneti méret"))
+        self.special_size_preset=QComboBox()
+        for label,width,height in (("A4 álló · 1240 × 1754",1240,1754),("Instagram négyzet · 1080 × 1080",1080,1080),("Instagram álló · 1080 × 1350",1080,1350),("Story / Reels · 1080 × 1920",1080,1920),("Facebook fekvő · 1200 × 630",1200,630),("Full HD fekvő · 1920 × 1080",1920,1080)):
+            self.special_size_preset.addItem(label,(width,height))
+        self.special_size_preset.addItem("Egyedi méret",None)
+        saved_width=int(self.store.setting("special_canvas_width","1240") or "1240")
+        saved_height=int(self.store.setting("special_canvas_height","1754") or "1754")
+        self.special_size_width=QSpinBox();self.special_size_width.setRange(200,8000);self.special_size_width.setSuffix(" px");self.special_size_width.setValue(saved_width)
+        self.special_size_height=QSpinBox();self.special_size_height.setRange(200,8000);self.special_size_height.setSuffix(" px");self.special_size_height.setValue(saved_height)
+        preset_index=next((i for i in range(self.special_size_preset.count()-1) if self.special_size_preset.itemData(i)==(saved_width,saved_height)),self.special_size_preset.count()-1)
+        self.special_size_preset.setCurrentIndex(preset_index)
+        self._updating_special_size=False
+        self.special_size_preset.currentIndexChanged.connect(self.special_apply_size_preset)
+        self.special_size_width.valueChanged.connect(self.special_size_changed);self.special_size_height.valueChanged.connect(self.special_size_changed)
+        size_row.addWidget(self.special_size_preset);size_row.addWidget(QLabel("Szélesség"));size_row.addWidget(self.special_size_width);size_row.addWidget(QLabel("Magasság"));size_row.addWidget(self.special_size_height);size_row.addStretch();box.addLayout(size_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(5)
         self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Segoe UI")))
         self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
@@ -777,6 +759,21 @@ class MainWindow(QMainWindow):
             "special_show_date":"1" if self.special_show_date.isChecked() else "0",
             "special_show_footer":"1" if self.special_show_footer.isChecked() else "0",
             "special_footer_note":self.special_footer_note.text().strip()})
+        self.preview_archive=None;self.schedule_preview()
+
+    def special_apply_size_preset(self,index):
+        size=self.special_size_preset.itemData(index)
+        if not size:return
+        self._updating_special_size=True
+        self.special_size_width.setValue(size[0]);self.special_size_height.setValue(size[1])
+        self._updating_special_size=False
+        self.special_size_changed()
+
+    def special_size_changed(self,*_):
+        width=self.special_size_width.value();height=self.special_size_height.value()
+        if not self._updating_special_size and self.special_size_preset.currentData()!=(width,height):
+            self.special_size_preset.setCurrentIndex(self.special_size_preset.count()-1)
+        self.store.set_settings({"special_canvas_width":str(width),"special_canvas_height":str(height)})
         self.preview_archive=None;self.schedule_preview()
 
     def special_content_changed(self):
@@ -1612,7 +1609,7 @@ class MainWindow(QMainWindow):
         viewport=self.scroll.viewport()
         available_width=viewport.width()-24
         if self.zoom.currentIndex()==0:
-            available_width=min(available_width,(viewport.height()-24)*W/H)
+            available_width=min(available_width,(viewport.height()-24)*self._image.width()/max(1,self._image.height()))
         width=max(180,min(1000,int(available_width)))
         self.preview.setPixmap(QPixmap.fromImage(self._image).scaledToWidth(width,Qt.TransformationMode.SmoothTransformation))
         self.preview.adjustSize()
@@ -1653,10 +1650,9 @@ class MainWindow(QMainWindow):
         source,kind,target=self.preview_source()
         stem=("napi_etlap_" if kind=="daily" else "heti_menu_" if kind=="weekly" else "kulonleges_etlap_")+target.isoformat()
         image_size=(EXPORT_WIDTH,EXPORT_HEIGHT)
-        if extension!="pdf":
-            size_dialog=ImageSizeDialog(self)
-            if size_dialog.exec()!=QDialog.DialogCode.Accepted:return
-            image_size=size_dialog.output_size()
+        if kind=="special":
+            image_size=(int(self.store.setting("special_canvas_width","1240") or "1240"),
+                        int(self.store.setting("special_canvas_height","1754") or "1754"))
         path,_=QFileDialog.getSaveFileName(self,"Étlap exportálása",stem+"."+extension,
                                            "PDF (*.pdf)" if extension=="pdf" else "PNG (*.png)")
         if not path:return

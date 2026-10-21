@@ -1288,6 +1288,8 @@ class MainWindow(QMainWindow):
             settings={key:values.get(key,"") for key in ("special_title","special_html","special_show_title","special_show_date")}
             settings["special_show_footer"]=values.get("special_show_footer","1")
             settings["special_footer_note"]=values.get("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"))
+            settings["special_canvas_width"]=values.get("special_canvas_width",self.store.setting("special_canvas_width","1240"))
+            settings["special_canvas_height"]=values.get("special_canvas_height",self.store.setting("special_canvas_height","1754"))
             self.store.set_settings(settings)
             self.special_title_edit.blockSignals(True);self.special_title_edit.setText(values.get("special_title",""));self.special_title_edit.blockSignals(False)
             self.special_show_title.setChecked(values.get("special_show_title","0")=="1")
@@ -1295,6 +1297,11 @@ class MainWindow(QMainWindow):
             self.special_show_footer.setChecked(values.get("special_show_footer","1")=="1")
             self.special_footer_note.setText(values.get("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!")))
             self.special_text.blockSignals(True);self.special_text.setHtml(values.get("special_html",""));self.special_text.blockSignals(False)
+            self._updating_special_size=True
+            self.special_size_width.setValue(int(settings["special_canvas_width"] or "1240"))
+            self.special_size_height.setValue(int(settings["special_canvas_height"] or "1754"))
+            self._updating_special_size=False
+            self.special_size_changed()
             self.schedule_preview()
         else:self.tabs.setCurrentIndex(0);self.day.setDate(qdate(day))
 

@@ -850,7 +850,7 @@ class MainWindow(QMainWindow):
     def about_dialog(self):
         dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(760,760)
         layout=QVBoxLayout(dialog)
-        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> 1.0.0<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
+        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> 1.0.1<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
         heading.setOpenExternalLinks(True);layout.addWidget(heading)
         license_text=QTextEdit();license_text.setReadOnly(True);license_text.setPlainText(MIT_LICENSE_TEXT);layout.addWidget(license_text,1)
         note=QLabel("A külső függőségek, betűkészletek és külön licencű mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek.");note.setWordWrap(True);layout.addWidget(note)
@@ -1668,7 +1668,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv);app.setApplicationName(APP_NAME)
-    app.setApplicationVersion("1.0.0")
+    app.setApplicationVersion("1.0.1")
     app.setWindowIcon(QIcon(str(app_asset("megyehaza_emblem.png"))))
     palette=QPalette()
     palette.setColor(QPalette.ColorRole.Window,QColor("#f8f3eb"));palette.setColor(QPalette.ColorRole.WindowText,QColor("#362f2b"))
@@ -1678,13 +1678,12 @@ def main():
     palette.setColor(QPalette.ColorRole.HighlightedText,QColor("#ffffff"));palette.setColor(QPalette.ColorRole.ToolTipBase,QColor("#382f2a"))
     palette.setColor(QPalette.ColorRole.ToolTipText,QColor("#fffaf2"));palette.setColor(QPalette.ColorGroup.Disabled,QPalette.ColorRole.Text,QColor("#999087"))
     palette.setColor(QPalette.ColorGroup.Disabled,QPalette.ColorRole.ButtonText,QColor("#999087"));app.setPalette(palette)
-    logo=QPixmap(str(app_asset("megyehaza_wordmark.png")))
-    splash_pixmap=QPixmap(1040,520);splash_pixmap.fill(QColor("#f8f3eb"))
-    if not logo.isNull():
-        painter=QPainter(splash_pixmap);painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        fitted=logo.scaled(980,480,Qt.AspectRatioMode.KeepAspectRatio,Qt.TransformationMode.SmoothTransformation)
-        painter.drawPixmap((splash_pixmap.width()-fitted.width())//2,(splash_pixmap.height()-fitted.height())//2,fitted)
-        painter.end()
+    splash_pixmap=QPixmap(str(app_asset("splash.png")))
+    if not splash_pixmap.isNull():
+        splash_pixmap=splash_pixmap.scaled(520,260,Qt.AspectRatioMode.KeepAspectRatio,
+                                           Qt.TransformationMode.SmoothTransformation)
+    else:
+        splash_pixmap=QPixmap(520,260);splash_pixmap.fill(QColor("#f8f3eb"))
     splash=QSplashScreen(splash_pixmap,Qt.WindowType.WindowStaysOnTopHint);splash.show();app.processEvents()
     window=MainWindow();window.show();splash.finish(window);sys.exit(app.exec())
 

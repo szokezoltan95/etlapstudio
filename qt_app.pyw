@@ -1673,7 +1673,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv);app.setApplicationName(APP_NAME)
-    app.setApplicationVersion("1.0.1")
+    app.setApplicationVersion("1.0.2")
     app.setWindowIcon(QIcon(str(app_asset("megyehaza_emblem.png"))))
     palette=QPalette()
     palette.setColor(QPalette.ColorRole.Window,QColor("#f8f3eb"));palette.setColor(QPalette.ColorRole.WindowText,QColor("#362f2b"))

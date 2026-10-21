@@ -318,9 +318,11 @@ class MainWindow(QMainWindow):
         self.store.set_settings({"restaurant_name":self.store.setting("restaurant_name","Megyeháza Étterem"),
                                  "address":self.store.setting("address","Miskolc, Városház tér 1."),
                                  "phone":self.store.setting("phone","+36 30 / 513 2605"),
-                                 "facebook_url":self.store.setting("facebook_url","https://facebook.com/ittetterem"),
+                                 "facebook_url":self.store.setting("facebook_url","https://facebook.com/itcetterem"),
                                  "note":self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"),
                                  "daily_menu_price":self.store.setting("daily_menu_price","2800")})
+        if self.store.setting("facebook_url")=="https://facebook.com/ittetterem":
+            self.store.set_settings({"facebook_url":"https://facebook.com/itcetterem"})
         if self.store.setting("guide_layout_version","0")!="8":
             layout_defaults={"guide_layout_version":"8"}
             for key,value in {"guide_daily_header":"205","guide_daily_menu_end":"438",
@@ -1140,7 +1142,7 @@ class MainWindow(QMainWindow):
             ("restaurant_name","Étterem neve","Megyeháza Étterem"),
             ("address","Cím","Miskolc, Városház tér 1."),
             ("phone","Telefonszám","+36 30 / 513 2605"),
-            ("facebook_url","Facebook link","https://facebook.com/ittetterem"),
+            ("facebook_url","Facebook link","https://facebook.com/itcetterem"),
             ("note","Alsó megjegyzés","Az étlapváltoztatás jogát fenntartjuk!"),
         )
         restaurant_fields={}

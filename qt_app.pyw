@@ -138,26 +138,73 @@ class PromotionDialog(QDialog):
         self.accept()
 
 
+class SectionColumnList(QListWidget):
+    def __init__(self,parent=None):
+        super().__init__(parent)
+        self.setDragEnabled(True);self.setAcceptDrops(True);self.setDropIndicatorShown(True)
+        self.setDragDropMode(QListWidget.DragDropMode.DragDrop)
+        self.setDefaultDropAction(Qt.DropAction.MoveAction)
+        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+    def dropEvent(self,event):
+        source=event.source()
+        if isinstance(source,SectionColumnList) and source is not self:
+            items=source.selectedItems()
+            if not items:return
+            row=self.indexAt(event.position().toPoint()).row()
+            if row<0:row=self.count()
+            item=items[0];text=item.text()
+            self.insertItem(row,text);source.takeItem(source.row(item))
+            event.acceptProposedAction();return
+        super().dropEvent(event)
+
+
 class SectionOrderDialog(QDialog):
-    def __init__(self,parent,categories,order):
-        super().__init__(parent);self.setWindowTitle("Szekciók sorrendje")
-        self.setMinimumSize(360,430)
+    def __init__(self,parent,categories,order,layout_by_column=None):
+        super().__init__(parent);self.setWindowTitle("Napi étlap · szekciók elrendezése")
+        self.setMinimumSize(780,470);self.resize(900,520)
         layout=QVBoxLayout(self)
-        hint=QLabel("Húzd a szekciókat a kívánt sorrendbe. Ez csak a kiválasztott nap étlapjára érvényes.")
+        hint=QLabel("Húzd a szekciókat a kívánt oszlopba. Az oszlopon belül a sorrendjük is módosítható; a 3. oszlop csak akkor jelenik meg az étlapon, ha használsz benne szekciót. Ez csak a kiválasztott napra érvényes.")
         hint.setWordWrap(True);layout.addWidget(hint)
-        self.items=QListWidget();self.items.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self.items.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.items.setToolTip("Fogd meg és húzd a szekciókat az új sorrendhez.")
-        for category in order:
-            if category in categories:self.items.addItem(category)
-        for category in categories:
-            if category not in order:self.items.addItem(category)
-        layout.addWidget(self.items,1)
+        ordered=[category for category in order if category in categories]
+        ordered += [category for category in categories if category not in ordered]
+        self.columns={}
+        grid=QGridLayout();grid.setHorizontalSpacing(12);layout.addLayout(grid,1)
+        for column in (1,2,3):
+            holder=QWidget();holder_layout=QVBoxLayout(holder);holder_layout.setContentsMargins(0,0,0,0)
+            title=QLabel(f"{column}. oszlop");title.setStyleSheet("font-weight:700;color:#285943")
+            listing=SectionColumnList();listing.setToolTip("Húzd ide a szekciókat; fogd meg őket az átrendezéshez.")
+            holder_layout.addWidget(title);holder_layout.addWidget(listing,1)
+            grid.addWidget(holder,0,column-1);self.columns[column]=listing
+        assigned=set()
+        if isinstance(layout_by_column,dict):
+            for column in (1,2,3):
+                values=layout_by_column.get(str(column),layout_by_column.get(column,[]))
+                if isinstance(values,list):
+                    for category in values:
+                        if category in categories and category not in assigned:
+                            self.columns[column].addItem(category);assigned.add(category)
+        if not assigned:
+            for index,category in enumerate(ordered):
+                column=1 if index%2==0 else 2
+                self.columns[column].addItem(category);assigned.add(category)
+        else:
+            for category in ordered:
+                if category in assigned:continue
+                target=min((1,2),key=lambda col:self.columns[col].count())
+                self.columns[target].addItem(category);assigned.add(category)
+        actions=QHBoxLayout();layout.addLayout(actions)
+        actions.addWidget(button("Automatikus elosztás",self.auto_distribute));actions.addStretch()
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
-
+    def auto_distribute(self):
+        categories=self.ordered_categories()
+        for listing in self.columns.values():listing.clear()
+        for index,category in enumerate(categories):self.columns[1 if index%2==0 else 2].addItem(category)
     def ordered_categories(self):
-        return [self.items.item(i).text() for i in range(self.items.count())]
+        return [self.columns[column].item(i).text() for column in (1,2,3) for i in range(self.columns[column].count())]
+    def section_layout(self):
+        return {str(column):[self.columns[column].item(i).text() for i in range(self.columns[column].count())]
+                for column in (1,2,3)}
 
 
 class DailyDishDialog(QDialog):
@@ -481,7 +528,7 @@ class MainWindow(QMainWindow):
         if saved_index>=0:self.menu_order.setCurrentIndex(saved_index)
         self.menu_order.currentIndexChanged.connect(self.save_menu_order)
         order_row.addWidget(self.menu_order,1)
-        self.section_order_button=button("Szekciók sorrendje…",self.edit_daily_section_order)
+        self.section_order_button=button("Szekciók elrendezése…",self.edit_daily_section_order)
         order_row.addWidget(self.section_order_button);box.addLayout(order_row)
         self.copy_previous_button=button("Legutóbbi kész étlap másolása",self.copy_previous_daily_menu)
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
@@ -490,12 +537,17 @@ class MainWindow(QMainWindow):
 
     def edit_daily_section_order(self):
         categories=[category for category in CATEGORIES if category!="Menü"]
-        key="daily_section_order_"+self.current_day().isoformat()
-        try:order=json.loads(self.store.setting(key,""))
+        day_key=self.current_day().isoformat()
+        order_key="daily_section_order_"+day_key;layout_key="daily_section_layout_"+day_key
+        try:order=json.loads(self.store.setting(order_key,""))
         except (TypeError,ValueError):order=categories
-        dialog=SectionOrderDialog(self,categories,order)
+        try:layout_by_column=json.loads(self.store.setting(layout_key,""))
+        except (TypeError,ValueError):layout_by_column=None
+        dialog=SectionOrderDialog(self,categories,order,layout_by_column)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
-        self.store.set_settings({key:json.dumps(dialog.ordered_categories(),ensure_ascii=False)})
+        layout=dialog.section_layout();ordered=dialog.ordered_categories()
+        self.store.set_settings({layout_key:json.dumps(layout,ensure_ascii=False),
+                                 order_key:json.dumps(ordered,ensure_ascii=False)})
         self.preview_archive=None;self.schedule_preview()
 
     def save_menu_order(self,*_):

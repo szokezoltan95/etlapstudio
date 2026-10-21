@@ -465,6 +465,22 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     except (TypeError,ValueError):requested_order=[]
     section_categories=[category for category in requested_order if category in section_categories]+[
         category for category in section_categories if category not in requested_order]
+    manual_columns=None;category_column={}
+    try:
+        requested_layout=json.loads(setting(source,"daily_section_layout_"+target.isoformat(),""))
+        if isinstance(requested_layout,dict):
+            manual_columns={column:[] for column in (1,2,3)}
+            for column in (1,2,3):
+                values=requested_layout.get(str(column),requested_layout.get(column,[]))
+                if isinstance(values,list):
+                    for category in values:
+                        if category in section_categories and category not in category_column:
+                            manual_columns[column].append(category);category_column[category]=column-1
+            for category in section_categories:
+                if category not in category_column:
+                    manual_columns[1].append(category);category_column[category]=0
+            section_categories=[category for column in (1,2,3) for category in manual_columns[column]]
+    except (TypeError,ValueError):manual_columns=None;category_column={}
     dish_sort=setting(source,"daily_menu_sort","name")
 
     def plan(size,columns):
@@ -487,9 +503,14 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 row_h=max(line_h*len(lines)+size*.18,size*1.25)
                 row_items.append((dish,row_h))
             block_height=category_h+sum(row_h for _,row_h in row_items)
-            target_column=next((column for column in range(columns)
-                if column_heights[column]+(14 if column_sections[column] else 0)+block_height<=available_height),None)
-            if target_column is None:return None
+            if manual_columns is not None:
+                target_column=category_column.get(category,0)
+                if target_column>=columns:return None
+                if column_heights[target_column]+(14 if column_sections[target_column] else 0)+block_height>available_height:return None
+            else:
+                target_column=next((column for column in range(columns)
+                    if column_heights[column]+(14 if column_sections[column] else 0)+block_height<=available_height),None)
+                if target_column is None:return None
             section_gap=14 if column_sections[target_column] else 0
             column_sections[target_column].append((category,category_h,row_items,section_gap))
             column_heights[target_column]+=section_gap+block_height
@@ -502,9 +523,14 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 for dish,row_h in row_items:
                     result.append(("dish",column,y,dish,size,row_h));y+=row_h
         return result
-    chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
-    if plan(8.0,2) is None:
-        chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",12.5))
+    if manual_columns is not None:
+        active_columns=[category_column.get(category,0)+1 for category in section_categories
+                        if any(d["category"]==category for d in dishes)]
+        chosen_columns=max(active_columns,default=2);lo,hi=5.0,float(style_size(source,"dish_name",12.5))
+    else:
+        chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
+        if plan(8.0,2) is None:
+            chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",12.5))
     for _ in range(24):
         mid=(lo+hi)/2
         if plan(mid,chosen_columns) is None:hi=mid

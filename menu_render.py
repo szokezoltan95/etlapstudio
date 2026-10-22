@@ -481,7 +481,10 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                     manual_columns[1].append(category);category_column[category]=0
             section_categories=[category for column in (1,2,3) for category in manual_columns[column]]
     except (TypeError,ValueError):manual_columns=None;category_column={}
-    dish_sort=setting(source,"daily_menu_sort","name")
+    try:
+        saved_dish_order=json.loads(setting(source,"daily_dish_order_"+target.isoformat(),""))
+        if not isinstance(saved_dish_order,dict):saved_dish_order={}
+    except (TypeError,ValueError):saved_dish_order={}
 
     def plan(size,columns):
         gap=16;column_width=(1360-gap*(columns-1))/columns
@@ -492,9 +495,12 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for category in section_categories:
             rows=[d for d in dishes if d["category"]==category]
             if not rows:continue
-            if dish_sort in ("price_asc","price_desc"):
-                rows.sort(key=lambda dish:int(dish.get("promo_price") if dish.get("promo_enabled") and dish.get("promo_price") is not None else dish.get("price",0)),
-                          reverse=dish_sort=="price_desc")
+            requested_dishes=saved_dish_order.get(category,[])
+            if isinstance(requested_dishes,list) and requested_dishes:
+                requested_dishes=[str(value) for value in requested_dishes]
+                original_order={str(dish["id"]):index for index,dish in enumerate(rows)}
+                ranks={dish_id:index for index,dish_id in enumerate(requested_dishes)}
+                rows.sort(key=lambda dish:(ranks.get(str(dish["id"]),len(ranks)+original_order[str(dish["id"])])))
             category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
             line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
             row_items=[]
@@ -526,11 +532,11 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     if manual_columns is not None:
         active_columns=[category_column.get(category,0)+1 for category in section_categories
                         if any(d["category"]==category for d in dishes)]
-        chosen_columns=max(active_columns,default=2);lo,hi=5.0,float(style_size(source,"dish_name",12.5))
+        chosen_columns=max(active_columns,default=2);lo,hi=5.0,float(style_size(source,"dish_name",14.5))
     else:
-        chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
+        chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",14.5))
         if plan(8.0,2) is None:
-            chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",12.5))
+            chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",14.5))
     for _ in range(24):
         mid=(lo+hi)/2
         if plan(mid,chosen_columns) is None:hi=mid

@@ -2,7 +2,7 @@ name: Windows portable build and release
 
 on:
   push:
-    branches: [main, feature/daily-section-columns, feature/installerless-updater]
+    branches: [main, feature/daily-section-columns, feature/installerless-updater, release/1.1.1-installer-asset]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -42,15 +42,21 @@ jobs:
         shell: pwsh
         run: |
           python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --icon design_assets/megyehaza_emblem.ico --add-binary "dist/EtlapStudioUpdater.exe;." --add-data "themes_builtin;themes_builtin" --add-data "design_assets;design_assets" --add-data "data;data" --add-data "LICENSE;." qt_app.pyw
-      - name: Package portable Windows update
+      - name: Build installer
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.version }}" installer.iss
+      - name: Package portable Windows update and collect release files
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path dist/release | Out-Null
           Compress-Archive -Path 'dist/EtlapStudio/*' -DestinationPath "dist/release/EtlapStudio-Windows-${{ steps.version.outputs.version }}.zip" -CompressionLevel Optimal
+          Copy-Item "dist/installer/EtlapStudio-Setup-${{ steps.version.outputs.version }}.exe" -Destination dist/release/
       - uses: actions/upload-artifact@v4
         with:
           name: EtlapStudio-Windows-${{ steps.version.outputs.version }}
-          path: dist/release/EtlapStudio-Windows-${{ steps.version.outputs.version }}.zip
+          path: dist/release/*
           if-no-files-found: error
 
   restore-v1-0-1:
@@ -86,6 +92,10 @@ jobs:
           target_commitish: ${{ github.sha }}
           name: ÉtlapStúdió ${{ needs.build.outputs.version }}
           body: ${{ needs.build.outputs.version == '1.1.1' && 'A frissítési folyamat tesztelésére lett ez létrehozva.' || format('Az ÉtlapStúdió {0} Windows-kiadása. A frissítőcsomag ZIP-ben tartalmazza az alkalmazást; az alkalmazás a Program → Frissítések keresése… menüpontból, telepítőprogram nélkül frissíthető.', needs.build.outputs.version) }}
-          files: dist/release/EtlapStudio-Windows-${{ needs.build.outputs.version }}.zip
+          files: |
+            dist/release/EtlapStudio-Setup-${{ needs.build.outputs.version }}.exe
+            dist/release/EtlapStudio-Windows-${{ needs.build.outputs.version }}.zip
+          overwrite_files: true
+          fail_on_unmatched_files: true
           draft: false
           prerelease: false

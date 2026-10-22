@@ -562,20 +562,37 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 for dish,row_h in row_items:
                     result.append(("dish",column,y,dish,size,row_h));y+=row_h
         return result
+    requested_dish_size=float(style_size(source,"dish_name",14.5))
     if manual_columns is not None:
         active_columns=[category_column.get(category,0)+1 for category in section_categories
                         if any(d["category"]==category for d in dishes)]
-        chosen_columns=max(active_columns,default=2);lo,hi=5.0,float(style_size(source,"dish_name",14.5))
+        chosen_columns=max(active_columns,default=2);lo,hi=5.0,requested_dish_size
     else:
-        chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",14.5))
+        chosen_columns=2;lo,hi=6.0,requested_dish_size
         if plan(8.0,2) is None:
-            chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",14.5))
+            chosen_columns=3;lo,hi=5.0,requested_dish_size
     for _ in range(24):
         mid=(lo+hi)/2
         if plan(mid,chosen_columns) is None:hi=mid
         else:lo=mid
     placements=plan(lo,chosen_columns) or plan(5.0,chosen_columns)
     if placements is None:raise ValueError("Túl sok étel az egyképes napi étlaphoz.")
+    if lo<requested_dish_size*.97:
+        # When a dense column forces smaller type, use part of the recovered
+        # height as modest row spacing in each column so the shorter one does
+        # not leave a conspicuous empty strip above the footer.
+        for column in range(chosen_columns):
+            indexes=[index for index,item in enumerate(placements) if item[1]==column]
+            if len(indexes)<2:continue
+            content_bottom=max(
+                placements[index][2]+(category_heading_height(source,style_size(source,"category_title",14))
+                                      if placements[index][0]=="heading" else placements[index][5])
+                for index in indexes)
+            free=max(0.0,max_y-content_bottom)
+            row_gap=min(18.0,free/len(indexes))
+            for rank,index in enumerate(indexes):
+                item=placements[index]
+                placements[index]=(*item[:2],item[2]+rank*row_gap,*item[3:])
     mode=setting(source,"leader","none")
     gap=16;column_width=(1360-gap*(chosen_columns-1))/chosen_columns
     col_x=[40+column*(column_width+gap) for column in range(chosen_columns)]
@@ -660,7 +677,8 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 if mode=="dots":pen.setStyle(Qt.PenStyle.DotLine)
                 elif mode=="dashes":pen.setStyle(Qt.PenStyle.DashLine)
                 p.setPen(pen);p.drawLine(QPointF(leader_start,leader_y),QPointF(leader_end,leader_y))
-    content_end=max((item[2]+(item[4]*1.3 if item[0]=="heading" else item[5])
+    content_end=max((item[2]+(category_heading_height(source,style_size(source,"category_title",14))
+                              if item[0]=="heading" else item[5])
                      for item in placements),default=top)
     p.restore()
     return content_end+alacarte_shift

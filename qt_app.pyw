@@ -6,7 +6,7 @@ import csv
 import sys
 from datetime import date, timedelta
 from pathlib import Path
-from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve, QSize
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
@@ -79,6 +79,36 @@ def app_asset(name):
 
 def button(label,callback):
     b=QPushButton(label);b.clicked.connect(callback);return b
+
+
+def two_way_arrow_icon():
+    pixmap=QPixmap(20,16);pixmap.fill(Qt.GlobalColor.transparent)
+    painter=QPainter(pixmap);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor("#34483d"),2,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))
+    painter.drawLine(3,8,17,8)
+    painter.drawLine(3,8,7,4);painter.drawLine(3,8,7,12)
+    painter.drawLine(17,8,13,4);painter.drawLine(17,8,13,12)
+    painter.end()
+    return QIcon(pixmap)
+
+
+class OrderRow(QFrame):
+    """Whole flat order row responds to hover while keeping a recent-move tint."""
+    def __init__(self,recent=False):
+        super().__init__();self.setObjectName("orderRow");self.recent=recent;self.hovered=False
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover,True);self.setMouseTracking(True);self.apply_style()
+
+    def apply_style(self):
+        if self.hovered:background,border="#f0f6f1","#83a88c"
+        elif self.recent:background,border="#e8f3e9","#83ad8c"
+        else:background,border="#ffffff","#e2d9ce"
+        self.setStyleSheet(f"QFrame#orderRow {{ background:{background}; border:1px solid {border}; border-radius:5px; }}")
+
+    def enterEvent(self,event):
+        self.hovered=True;self.apply_style();super().enterEvent(event)
+
+    def leaveEvent(self,event):
+        self.hovered=False;self.apply_style();super().leaveEvent(event)
 
 
 def price_edit(value=0):
@@ -162,13 +192,12 @@ class SectionDishOrderDialog(QDialog):
             item=self.rows_layout.takeAt(0);widget=item.widget()
             if widget:widget.deleteLater()
         for index,dish in enumerate(self.items):
-            row=QFrame();row.setStyleSheet("QFrame { background:#fff; border:1px solid #e2d9ce; border-radius:5px; }")
+            row=OrderRow()
             line=QHBoxLayout(row);line.setContentsMargins(10,3,5,3)
             label=QLabel(str(dish["name"]));label.setMinimumWidth(0);line.addWidget(label,1)
             up=QPushButton("↑");down=QPushButton("↓")
             for control in (up,down):
                 control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                control.setStyleSheet("QPushButton { background:#f1eee9; color:#34483d; border:1px solid #d5cdc2; border-radius:5px; font-size:16px; font-weight:600; } QPushButton:hover { background:#dcebe0; border-color:#82a88a; } QPushButton:pressed { background:#c8dfcf; } QPushButton:disabled { color:#aaa49d; background:#f7f5f2; }")
             up.setEnabled(index>0);down.setEnabled(index<len(self.items)-1)
             up.clicked.connect(lambda _=False,i=index:self.move_item(i,-1))
             down.clicked.connect(lambda _=False,i=index:self.move_item(i,1))
@@ -233,23 +262,19 @@ class SectionOrderDialog(QDialog):
                 item=row_layout.takeAt(0);widget=item.widget()
                 if widget:widget.deleteLater()
             for index,category in enumerate(self.section_columns[column]):
-                row=QFrame()
-                if category==self.last_moved_category:
-                    row.setStyleSheet("QFrame { background:#e8f3e9; border:1px solid #83ad8c; border-radius:5px; }")
-                else:row.setStyleSheet("QFrame { background:#fff; border:1px solid #e2d9ce; border-radius:5px; }")
+                row=OrderRow(recent=category==self.last_moved_category)
                 line=QHBoxLayout(row);line.setContentsMargins(9,4,5,4)
                 label=QLabel(category);label.setMinimumWidth(0);line.addWidget(label,1)
                 up=QPushButton("↑");down=QPushButton("↓");transfer=QPushButton("→" if column==1 else "←")
                 for control in (up,down,transfer):
                     control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-                    control.setStyleSheet("QPushButton { background:#f1eee9; color:#34483d; border:1px solid #d5cdc2; border-radius:5px; font-size:16px; font-weight:600; } QPushButton:hover { background:#dcebe0; border-color:#82a88a; } QPushButton:pressed { background:#c8dfcf; } QPushButton:disabled { color:#aaa49d; background:#f7f5f2; }")
+                transfer.setText("");transfer.setIcon(two_way_arrow_icon());transfer.setIconSize(QSize(20,16))
                 up.setEnabled(index>0);down.setEnabled(index<len(self.section_columns[column])-1)
                 transfer.setToolTip(f"Áthelyezés a {2 if column==1 else 1}. oszlopba")
                 up.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,-1))
                 down.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,1))
                 transfer.clicked.connect(lambda _=False,c=category,target=2 if column==1 else 1:self.move_section_to(c,target))
                 dishes=QPushButton("Ételek rendezése…");dishes.clicked.connect(lambda _=False,c=category:self.open_dish_order(c))
-                dishes.setStyleSheet("QPushButton { background:#f1eee9; color:#34483d; border:1px solid #d5cdc2; border-radius:5px; padding:5px 9px; } QPushButton:hover { background:#dcebe0; border-color:#82a88a; } QPushButton:pressed { background:#c8dfcf; }")
                 line.addWidget(up);line.addWidget(down);line.addWidget(transfer);line.addWidget(dishes);row_layout.addWidget(row)
             row_layout.addStretch(1)
 

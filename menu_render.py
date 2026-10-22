@@ -444,7 +444,8 @@ def draw_menu(p,source,kind,target,canvas_height=None):
                     days_y-330+panel_shift)
     else:
         if header_mode=="none":top=52
-        elif header_mode in ("merged","logo"):top=170+(header_y-header_default)
+        elif header_mode=="merged":top=170+(header_y-header_default)
+        elif header_mode=="logo":top=225+(header_y-header_default)
         else:top=225+(header_y-header_default)
         bottom=canvas_height-100 if show_footer else canvas_height-28
         panel=QRectF(52,top,W-104,bottom-top)

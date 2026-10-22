@@ -26,9 +26,9 @@ from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
                        data_dir, default_daily_section_columns, display_date, monday, price)
 from menu_render import A4_WIDTH_PT, EXPORT_HEIGHT, EXPORT_WIDTH, H, W, asset_file, export_pdf, export_png, render_image
 from themes import load_themes, import_theme, import_theme_images
+from version import APP_VERSION
 
 BASE=Path(__file__).resolve().parent
-APP_VERSION="1.0.2"
 GITHUB_LATEST_RELEASE="https://api.github.com/repos/szokezoltan95/etlapstudio/releases/latest"
 TEXT_STYLES=[
     ("header_title","Étterem neve · fejléc-adatmező","Segoe UI",11,"title"),

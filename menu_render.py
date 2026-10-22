@@ -455,12 +455,13 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     alacarte_shift=header_shift+menu_gap_shift
     if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,60)
     dishes=sorted((dict(d) for d in source.selection(target)), key=lambda dish:hungarian_sort_key(dish["name"]))
+    alacarte_top=492
     if not dishes:
-        if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),205,8,primary,source)
-        text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
-        return 550+alacarte_shift
+        if glass_enabled:glass(p,QRectF(40,alacarte_top+alacarte_shift,W-80,72),205,8,primary,source)
+        text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,alacarte_top+16+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
+        return alacarte_top+72+alacarte_shift
     p.save();p.translate(0,alacarte_shift)
-    top=478
+    top=alacarte_top
     # Reserve a small gap above the footer and let the à la carte columns use
     # the remaining A4 height instead of stopping at the former fixed cutoff.
     max_y=max(top+120,H-150-alacarte_shift)

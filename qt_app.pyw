@@ -887,7 +887,7 @@ class MainWindow(QMainWindow):
         self.special_title_edit.textChanged.connect(self.special_changed)
         self.special_show_title.toggled.connect(self.special_title_edit.setEnabled);self.special_show_title.toggled.connect(self.special_changed)
         row.addWidget(self.special_show_title);row.addWidget(self.special_title_edit,1);box.addLayout(row)
-        header_row=QHBoxLayout();header_row.addWidget(QLabel("Fejléc elrendezése"))
+        layout_row=QHBoxLayout();layout_row.addWidget(QLabel("Elrendezés"))
         self.special_header_mode=QComboBox()
         for label,mode,tip in (
             ("Teljes fejléc","full","Logó, címsor, dátum és éttermi elérhetőségek."),
@@ -901,7 +901,6 @@ class MainWindow(QMainWindow):
         header_index=self.special_header_mode.findData(saved_header_mode)
         self.special_header_mode.setCurrentIndex(header_index if header_index>=0 else 0)
         self.special_header_mode.currentIndexChanged.connect(self.special_changed)
-        header_row.addWidget(self.special_header_mode);header_row.addStretch();box.addLayout(header_row)
         footer_row=QHBoxLayout();self.special_show_footer=QCheckBox("Lábjegyzet megjelenítése")
         self.special_show_footer.setChecked(self.store.setting("special_show_footer","1")=="1")
         self.special_footer_note=QLineEdit(self.store.setting("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!")))
@@ -915,17 +914,22 @@ class MainWindow(QMainWindow):
         self.special_size_preset=QComboBox()
         for label,width,height in (("A4 álló · 1240 × 1754",1240,1754),("Instagram négyzet · 1080 × 1080",1080,1080),("Instagram álló · 1080 × 1350",1080,1350),("Story / Reels · 1080 × 1920",1080,1920),("Facebook fekvő · 1200 × 630",1200,630),("Full HD fekvő · 1920 × 1080",1920,1080)):
             self.special_size_preset.addItem(label,(width,height))
-        self.special_size_preset.addItem("Egyedi méret",None)
         saved_width=int(self.store.setting("special_canvas_width","1240") or "1240")
         saved_height=int(self.store.setting("special_canvas_height","1754") or "1754")
         self.special_size_width=QSpinBox();self.special_size_width.setRange(200,8000);self.special_size_width.setSuffix(" px");self.special_size_width.setValue(saved_width)
         self.special_size_height=QSpinBox();self.special_size_height.setRange(200,8000);self.special_size_height.setSuffix(" px");self.special_size_height.setValue(saved_height)
-        preset_index=next((i for i in range(self.special_size_preset.count()-1) if self.special_size_preset.itemData(i)==(saved_width,saved_height)),self.special_size_preset.count()-1)
-        self.special_size_preset.setCurrentIndex(preset_index)
+        self.special_size_preset.setEditable(True);self.special_size_preset.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.special_size_preset.lineEdit().setReadOnly(True)
+        preset_index=next((i for i in range(self.special_size_preset.count()) if self.special_size_preset.itemData(i)==(saved_width,saved_height)),-1)
+        if preset_index>=0:self.special_size_preset.setCurrentIndex(preset_index)
+        else:
+            self.special_size_preset.setCurrentIndex(-1)
+            self.special_size_preset.setEditText(f"Egyedi méret · {saved_width} × {saved_height}")
         self._updating_special_size=False
         self.special_size_preset.currentIndexChanged.connect(self.special_apply_size_preset)
-        self.special_size_width.valueChanged.connect(self.special_size_changed);self.special_size_height.valueChanged.connect(self.special_size_changed)
-        size_row.addWidget(self.special_size_preset);size_row.addWidget(QLabel("Szélesség"));size_row.addWidget(self.special_size_width);size_row.addWidget(QLabel("Magasság"));size_row.addWidget(self.special_size_height);size_row.addStretch();box.addLayout(size_row)
+        self.special_size_preset.setMinimumWidth(220);self.special_header_mode.setMinimumWidth(190)
+        layout_row.addWidget(self.special_header_mode);layout_row.addWidget(self.special_size_preset)
+        layout_row.addWidget(button("Egyedi méret…",self.special_edit_custom_size));layout_row.addStretch();box.addLayout(layout_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(5)
         self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Segoe UI")))
         self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
@@ -960,6 +964,7 @@ class MainWindow(QMainWindow):
         self.preview_archive=None;self.schedule_preview()
 
     def special_apply_size_preset(self,index):
+        if self._updating_special_size:return
         size=self.special_size_preset.itemData(index)
         if not size:return
         self._updating_special_size=True
@@ -967,10 +972,30 @@ class MainWindow(QMainWindow):
         self._updating_special_size=False
         self.special_size_changed()
 
+    def special_edit_custom_size(self):
+        dialog=QDialog(self);dialog.setWindowTitle("Egyedi kimeneti méret");dialog.setModal(True)
+        form=QFormLayout(dialog)
+        width=QSpinBox();width.setRange(200,8000);width.setSuffix(" px");width.setValue(self.special_size_width.value())
+        height=QSpinBox();height.setRange(200,8000);height.setSuffix(" px");height.setValue(self.special_size_height.value())
+        form.addRow("Szélesség",width);form.addRow("Magasság",height)
+        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls.accepted.connect(dialog.accept);controls.rejected.connect(dialog.reject);form.addRow(controls)
+        if dialog.exec()!=QDialog.DialogCode.Accepted:return
+        self._updating_special_size=True
+        self.special_size_width.setValue(width.value());self.special_size_height.setValue(height.value())
+        self._updating_special_size=False
+        self.special_size_changed()
+
     def special_size_changed(self,*_):
         width=self.special_size_width.value();height=self.special_size_height.value()
-        if not self._updating_special_size and self.special_size_preset.currentData()!=(width,height):
-            self.special_size_preset.setCurrentIndex(self.special_size_preset.count()-1)
+        if not self._updating_special_size:
+            preset_index=next((i for i in range(self.special_size_preset.count()) if self.special_size_preset.itemData(i)==(width,height)),-1)
+            self._updating_special_size=True
+            if preset_index>=0:self.special_size_preset.setCurrentIndex(preset_index)
+            else:
+                self.special_size_preset.setCurrentIndex(-1)
+                self.special_size_preset.setEditText(f"Egyedi méret · {width} × {height}")
+            self._updating_special_size=False
         self.store.set_settings({"special_canvas_width":str(width),"special_canvas_height":str(height)})
         self.preview_archive=None;self.schedule_preview()
 

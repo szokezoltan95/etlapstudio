@@ -344,7 +344,7 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     if logo.is_file():
         image=QImage(str(logo))
         if not image.isNull():
-            box=QRectF(62,47,370,140)
+            box=QRectF(47,47,370,140)
             scale=min(box.width()/image.width(),box.height()/image.height())
             width=image.width()*scale;height=image.height()*scale
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
@@ -417,7 +417,7 @@ def draw_menu(p,source,kind,target,canvas_height=None):
     header_y=guide(source,kind,"header",header_default)
     header_mode=setting(source,"special_header_mode","full") if kind=="special" else "full"
     header_enabled=kind!="special" or header_mode!="none"
-    merged_header=kind=="special" and header_mode=="merged"
+    merged_header=kind=="special" and header_mode in ("merged","logo")
     footer_text=setting(source,"special_footer_note",setting(source,"note","")).strip() if kind=="special" else ""
     show_footer=kind=="special" and setting(source,"special_show_footer","1")=="1" and bool(footer_text)
     if merged_header and glass_enabled:

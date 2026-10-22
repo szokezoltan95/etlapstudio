@@ -78,7 +78,7 @@ jobs:
 
   publish-release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]')))
+    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

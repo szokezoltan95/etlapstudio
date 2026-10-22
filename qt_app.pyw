@@ -9,7 +9,7 @@ from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
+    QApplication, QAbstractItemView, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
     QDialogButtonBox, QFileDialog, QFontComboBox, QFormLayout, QFrame,
     QGridLayout, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMenu,
     QListWidgetItem, QMainWindow, QMessageBox, QPushButton, QScrollArea,
@@ -32,7 +32,7 @@ TEXT_STYLES=[
     ("menu_price_label","Napi menü árának címkéje","Segoe UI",12,"special"),
     ("menu_price_value","Napi menü ára","Candara",20,"title"),
     ("category_title","À la carte kategóriacímek","Candara",14,"heading"),
-    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",12.5,"dish"),
+    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",14.5,"dish"),
     ("dish_price","À la carte normál árak","Segoe UI",12.5,"dish"),
     ("promo_old_price","Akciós étel régi ára","Segoe UI",7,"dish"),
     ("promo_new_price","Akciós étel új ára","Segoe UI",12.5,"dish"),
@@ -138,73 +138,144 @@ class PromotionDialog(QDialog):
         self.accept()
 
 
-class SectionColumnList(QListWidget):
-    def __init__(self,parent=None):
-        super().__init__(parent)
-        self.setDragEnabled(True);self.setAcceptDrops(True);self.setDropIndicatorShown(True)
-        self.setDragDropMode(QListWidget.DragDropMode.DragDrop)
-        self.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+class SectionColumnTree(QTreeWidget):
+    """Expandable sections with dish rows, constrained to their own section."""
     def dropEvent(self,event):
         source=event.source()
-        if isinstance(source,SectionColumnList) and source is not self:
-            items=source.selectedItems()
-            if not items:return
-            row=self.indexAt(event.position().toPoint()).row()
-            if row<0:row=self.count()
-            item=items[0];text=item.text()
-            self.insertItem(row,text);source.takeItem(source.row(item))
-            event.acceptProposedAction();return
-        super().dropEvent(event)
+        if not isinstance(source,SectionColumnTree):
+            event.ignore();return
+        dragged=source.currentItem()
+        if dragged is None:event.ignore();return
+        target=self.itemAt(event.position().toPoint())
+        indicator=self.dropIndicatorPosition()
+        below=indicator in (QAbstractItemView.DropIndicatorPosition.BelowItem,
+                            QAbstractItemView.DropIndicatorPosition.OnItem)
+        if source is not self:
+            if dragged.parent() is not None:
+                event.ignore();return
+            section=target if target and target.parent() is None else (target.parent() if target else None)
+            at=self.topLevelItemCount() if section is None else self.indexOfTopLevelItem(section)+(1 if below else 0)
+            moved=self._copy_section(dragged)
+            self.insertTopLevelItem(at,moved);source.takeTopLevelItem(source.indexOfTopLevelItem(dragged))
+            moved.setExpanded(True);self.setCurrentItem(moved);event.acceptProposedAction();return
+        if dragged.parent() is None:
+            section=target if target and target.parent() is None else (target.parent() if target else None)
+            old=self.indexOfTopLevelItem(dragged)
+            new=self.topLevelItemCount() if section is None else self.indexOfTopLevelItem(section)+(1 if below else 0)
+            if new>old:new-=1
+            moved=self.takeTopLevelItem(old);self.insertTopLevelItem(max(0,new),moved)
+            self.setCurrentItem(moved);event.acceptProposedAction();return
+        parent=dragged.parent()
+        if target is None or (target is not parent and target.parent() is not parent):
+            event.ignore();return
+        if target is parent:event.ignore();return
+        old=parent.indexOfChild(dragged);new=parent.indexOfChild(target)+(1 if below else 0)
+        if new>old:new-=1
+        moved=parent.takeChild(old);parent.insertChild(max(0,new),moved)
+        self.setCurrentItem(moved);event.acceptProposedAction()
+
+    @staticmethod
+    def _copy_section(item):
+        copied=QTreeWidgetItem([item.text(0)])
+        for index in range(item.childCount()):
+            original=item.child(index);child=QTreeWidgetItem([original.text(0)])
+            child.setData(0,Qt.ItemDataRole.UserRole,original.data(0,Qt.ItemDataRole.UserRole))
+            copied.addChild(child)
+        return copied
 
 
 class SectionOrderDialog(QDialog):
-    def __init__(self,parent,categories,order,layout_by_column=None):
-        super().__init__(parent);self.setWindowTitle("Napi étlap · szekciók elrendezése")
-        self.setMinimumSize(780,470);self.resize(900,520)
+    def __init__(self,parent,categories,order,layout_by_column,dishes,dish_order):
+        super().__init__(parent);self.setWindowTitle("Napi étlap · szekciók és ételek")
+        self.setMinimumSize(850,560);self.resize(1050,650);self.trees=[]
         layout=QVBoxLayout(self)
-        hint=QLabel("Húzd a szekciókat a kívánt oszlopba. Az oszlopon belül a sorrendjük is módosítható; a 3. oszlop csak akkor jelenik meg az étlapon, ha használsz benne szekciót. Ez csak a kiválasztott napra érvényes.")
+        hint=QLabel("Nyisd le a szekciókat az ételek sorrendjéhez. Húzással vagy a fel/le nyilakkal rendezhetsz; a szekciókat oszlopok között is áthúzhatod.")
         hint.setWordWrap(True);layout.addWidget(hint)
         ordered=[category for category in order if category in categories]
         ordered += [category for category in categories if category not in ordered]
-        self.columns={}
-        grid=QGridLayout();grid.setHorizontalSpacing(12);layout.addLayout(grid,1)
-        for column in (1,2,3):
-            holder=QWidget();holder_layout=QVBoxLayout(holder);holder_layout.setContentsMargins(0,0,0,0)
-            title=QLabel(f"{column}. oszlop");title.setStyleSheet("font-weight:700;color:#285943")
-            listing=SectionColumnList();listing.setToolTip("Húzd ide a szekciókat; fogd meg őket az átrendezéshez.")
-            holder_layout.addWidget(title);holder_layout.addWidget(listing,1)
-            grid.addWidget(holder,0,column-1);self.columns[column]=listing
-        assigned=set()
+        saved={};assigned=set()
         if isinstance(layout_by_column,dict):
             for column in (1,2,3):
                 values=layout_by_column.get(str(column),layout_by_column.get(column,[]))
                 if isinstance(values,list):
+                    saved[column]=[]
                     for category in values:
                         if category in categories and category not in assigned:
-                            self.columns[column].addItem(category);assigned.add(category)
+                            saved[column].append(category);assigned.add(category)
         if not assigned:
-            for index,category in enumerate(ordered):
-                column=1 if index%2==0 else 2
-                self.columns[column].addItem(category);assigned.add(category)
+            saved={1:[],2:[],3:[]}
+            for index,category in enumerate(ordered):saved[1 if index%2==0 else 2].append(category)
         else:
             for category in ordered:
-                if category in assigned:continue
-                target=min((1,2),key=lambda col:self.columns[col].count())
-                self.columns[target].addItem(category);assigned.add(category)
-        actions=QHBoxLayout();layout.addLayout(actions)
-        actions.addWidget(button("Automatikus elosztás",self.auto_distribute));actions.addStretch()
+                if category not in assigned:saved.setdefault(1,[]).append(category)
+        dishes_by_category={category:[] for category in categories}
+        for dish in dishes:
+            if dish["category"] in dishes_by_category:dishes_by_category[dish["category"]].append(dish)
+        grid=QGridLayout();grid.setHorizontalSpacing(12);layout.addLayout(grid,1)
+        for column in (1,2,3):
+            holder=QWidget();holder_layout=QVBoxLayout(holder);holder_layout.setContentsMargins(0,0,0,0)
+            title=QLabel(f"{column}. oszlop");title.setStyleSheet("font-weight:700;color:#285943")
+            tree=SectionColumnTree();tree.setColumnCount(1);tree.setHeaderHidden(True);tree.setRootIsDecorated(True)
+            tree.setDragEnabled(True);tree.setAcceptDrops(True);tree.setDropIndicatorShown(True)
+            tree.setDragDropMode(QAbstractItemView.DragDrop);tree.setDefaultDropAction(Qt.DropAction.MoveAction)
+            tree.setToolTip("Szekciókat és ételeket húzással rendezhetsz.")
+            for category in saved.get(column,[]):
+                section=QTreeWidgetItem([category]);tree.addTopLevelItem(section)
+                ids=[str(value) for value in dish_order.get(category,[])] if isinstance(dish_order,dict) else []
+                rows=dishes_by_category.get(category,[])
+                indexed=sorted(enumerate(rows),key=lambda pair:(ids.index(str(pair[1]["id"])) if str(pair[1]["id"]) in ids else len(ids)+pair[0]))
+                for _,dish in indexed:
+                    child=QTreeWidgetItem([dish["name"]]);child.setData(0,Qt.ItemDataRole.UserRole,dish["id"]);section.addChild(child)
+                section.setExpanded(False)
+            self.trees.append(tree)
+            holder_layout.addWidget(title);holder_layout.addWidget(tree,1)
+            arrows=QHBoxLayout()
+            arrows.addWidget(button("↑ Feljebb",lambda _=False,t=tree:self.move_selected(t,-1)))
+            arrows.addWidget(button("↓ Lejjebb",lambda _=False,t=tree:self.move_selected(t,1)))
+            holder_layout.addLayout(arrows);grid.addWidget(holder,0,column-1)
+        actions=QHBoxLayout();actions.addWidget(button("Automatikus elosztás",self.auto_distribute));actions.addStretch();layout.addLayout(actions)
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+
     def auto_distribute(self):
         categories=self.ordered_categories()
-        for listing in self.columns.values():listing.clear()
-        for index,category in enumerate(categories):self.columns[1 if index%2==0 else 2].addItem(category)
-    def ordered_categories(self):
-        return [self.columns[column].item(i).text() for column in (1,2,3) for i in range(self.columns[column].count())]
+        sections={}
+        for tree in self.trees:
+            while tree.topLevelItemCount():
+                item=tree.takeTopLevelItem(0);sections[item.text(0)]=item
+        for index,category in enumerate(categories):
+            self.trees[index%2].addTopLevelItem(sections[category])
+
+    def move_selected(self,tree,direction):
+        item=tree.currentItem()
+        if item is None:return
+        parent=item.parent()
+        if parent is None:
+            old=tree.indexOfTopLevelItem(item);new=old+direction
+            if not 0<=new<tree.topLevelItemCount():return
+            moved=tree.takeTopLevelItem(old);tree.insertTopLevelItem(new,moved)
+        else:
+            old=parent.indexOfChild(item);new=old+direction
+            if not 0<=new<parent.childCount():return
+            moved=parent.takeChild(old);parent.insertChild(new,moved)
+        tree.setCurrentItem(moved)
+
     def section_layout(self):
-        return {str(column):[self.columns[column].item(i).text() for i in range(self.columns[column].count())]
-                for column in (1,2,3)}
+        return {str(column):[tree.topLevelItem(i).text(0) for i in range(tree.topLevelItemCount())]
+                for column,tree in enumerate(self.trees,1)}
+
+    def ordered_categories(self):
+        layout=self.section_layout()
+        return [category for column in ("1","2","3") for category in layout[column]]
+
+    def dish_orders(self):
+        result={}
+        for tree in self.trees:
+            for i in range(tree.topLevelItemCount()):
+                section=tree.topLevelItem(i)
+                result[section.text(0)]=[section.child(j).data(0,Qt.ItemDataRole.UserRole)
+                                         for j in range(section.childCount())]
+        return result
 
 
 class DailyDishDialog(QDialog):
@@ -337,8 +408,8 @@ class MainWindow(QMainWindow):
                                  "daily_menu_price":self.store.setting("daily_menu_price","2800")})
         if self.store.setting("facebook_url")=="https://facebook.com/ittetterem":
             self.store.set_settings({"facebook_url":"https://facebook.com/itcetterem"})
-        if self.store.setting("guide_layout_version","0")!="8":
-            layout_defaults={"guide_layout_version":"8"}
+        if self.store.setting("guide_layout_version","0")!="9":
+            layout_defaults={"guide_layout_version":"9"}
             for key,value in {"guide_daily_header":"205","guide_daily_menu_end":"438",
                               "guide_weekly_header":"205","guide_weekly_days":"330"}.items():
                 if self.store.setting(key) is None:layout_defaults[key]=value
@@ -347,9 +418,13 @@ class MainWindow(QMainWindow):
                                  ("menu_price_label","7.5","12"),("menu_price_value","15","20"),
                                  ("weekday_title","13","16"),("weekly_label","10.5","15"),
                                  ("weekly_value","13","15"),("promo_new_price","8","12.5"),
+                                 ("dish_name","12.5","14.5"),
                                  ("footer_note","7","10")):
                 if self.store.setting("font_size_"+role)==old:
                     layout_defaults["font_size_"+role]=new
+            for kind in ("daily","weekly","special"):
+                key=kind+"_font_size_dish_name"
+                if self.store.setting(key)=="12.5":layout_defaults[key]="14.5"
             if self.store.setting("font_size_header_title")=="19.5":
                 layout_defaults["font_size_header_title"]="11"
                 if self.store.setting("font_header_title")=="Georgia":
@@ -519,17 +594,8 @@ class MainWindow(QMainWindow):
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
         order_row=QHBoxLayout();order_row.setSpacing(7)
-        order_row.addWidget(QLabel("Sorrend a kész étlapon"))
-        self.menu_order=QComboBox();self.menu_order.addItem("Magyar ábécé szerint","name")
-        self.menu_order.addItem("Ár szerint növekvő","price_asc")
-        self.menu_order.addItem("Ár szerint csökkenő","price_desc")
-        saved_order=self.store.setting("daily_menu_sort","name")
-        saved_index=self.menu_order.findData(saved_order)
-        if saved_index>=0:self.menu_order.setCurrentIndex(saved_index)
-        self.menu_order.currentIndexChanged.connect(self.save_menu_order)
-        order_row.addWidget(self.menu_order,1)
-        self.section_order_button=button("Szekciók elrendezése…",self.edit_daily_section_order)
-        order_row.addWidget(self.section_order_button);box.addLayout(order_row)
+        self.section_order_button=button("Szekciók és ételek rendezése…",self.edit_daily_section_order)
+        order_row.addStretch();order_row.addWidget(self.section_order_button);box.addLayout(order_row)
         self.copy_previous_button=button("Legutóbbi kész étlap másolása",self.copy_previous_daily_menu)
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
         action_row=QHBoxLayout();action_row.addWidget(self.copy_previous_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
@@ -539,22 +605,21 @@ class MainWindow(QMainWindow):
         categories=[category for category in CATEGORIES if category!="Menü"]
         day_key=self.current_day().isoformat()
         order_key="daily_section_order_"+day_key;layout_key="daily_section_layout_"+day_key
+        dish_order_key="daily_dish_order_"+day_key
         try:order=json.loads(self.store.setting(order_key,""))
         except (TypeError,ValueError):order=categories
         try:layout_by_column=json.loads(self.store.setting(layout_key,""))
         except (TypeError,ValueError):layout_by_column=None
-        dialog=SectionOrderDialog(self,categories,order,layout_by_column)
+        try:dish_order=json.loads(self.store.setting(dish_order_key,""))
+        except (TypeError,ValueError):dish_order={}
+        dialog=SectionOrderDialog(self,categories,order,layout_by_column,
+                                  self.store.selection(self.current_day()),dish_order)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
         layout=dialog.section_layout();ordered=dialog.ordered_categories()
         self.store.set_settings({layout_key:json.dumps(layout,ensure_ascii=False),
-                                 order_key:json.dumps(ordered,ensure_ascii=False)})
+                                 order_key:json.dumps(ordered,ensure_ascii=False),
+                                 dish_order_key:json.dumps(dialog.dish_orders(),ensure_ascii=False)})
         self.preview_archive=None;self.schedule_preview()
-
-    def save_menu_order(self,*_):
-        if not hasattr(self,"menu_order"):return
-        self.store.set_settings({"daily_menu_sort":self.menu_order.currentData()})
-        self.preview_archive=None
-        self.schedule_preview()
 
     def choose_category(self,category):
         if hasattr(self,"category_filter"):
@@ -1383,7 +1448,7 @@ class MainWindow(QMainWindow):
                   "glass_color_mode":"white","glass_color":"#DDE7D8","glass_opacity":"80",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Candara","font_heading":"Candara","font_body":"Segoe UI","font_special":"Segoe UI","font_dish":"Segoe UI","advanced_typography":"0",
-                  "guide_layout_version":"8"}
+                  "guide_layout_version":"9"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         for kind in ("daily","weekly","special"):

@@ -20,7 +20,8 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $version = "1.0.2"
+          $version = (Select-String -Path version.py -Pattern '^APP_VERSION = "([^"]+)"$').Matches.Groups[1].Value
+          if (-not $version) { throw "Could not read version.py" }
           if ("${{ github.ref }}".StartsWith("refs/tags/")) { $version = "${{ github.ref_name }}".TrimStart("v") }
           "version=$version" >> $env:GITHUB_OUTPUT
           Set-Content -Path version.py -Value ('APP_VERSION = "' + $version + '"') -Encoding ascii
@@ -72,7 +73,7 @@ jobs:
 
   publish-release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]'))
+    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,7 +83,7 @@ jobs:
           path: dist/installer
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.2' }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || format('v{0}', needs.build.outputs.version) }}
           target_commitish: ${{ github.sha }}
           name: ÉtlapStúdió ${{ needs.build.outputs.version }}
           body: |

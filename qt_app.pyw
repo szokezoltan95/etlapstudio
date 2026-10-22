@@ -24,7 +24,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox, QSlider, QSplashScreen,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
-                       data_dir, default_daily_section_columns, display_date, monday, price)
+                       data_dir, default_daily_section_columns, display_date, insert_pending_dishes, monday, price)
 from menu_render import A4_WIDTH_PT, EXPORT_HEIGHT, EXPORT_WIDTH, H, W, asset_file, export_pdf, export_png, render_image
 from themes import load_themes, import_theme, import_theme_images
 from version import APP_VERSION
@@ -681,7 +681,7 @@ class MainWindow(QMainWindow):
         try:dish_order=json.loads(self.store.setting(dish_order_key,""))
         except (TypeError,ValueError):dish_order={}
         catalog=self.store.db.execute(
-            "SELECT id,name,category,priority FROM dishes ORDER BY name COLLATE HUNGARIAN,id").fetchall()
+            "SELECT id,name,category,priority,priority_pending FROM dishes ORDER BY name COLLATE HUNGARIAN,id").fetchall()
         catalog_by_category={category:[] for category in categories}
         for dish in catalog:
             if dish["category"] in catalog_by_category:catalog_by_category[dish["category"]].append(dish)
@@ -701,14 +701,18 @@ class MainWindow(QMainWindow):
         visible_orders=dialog.dish_orders()
         for category,rows in catalog_by_category.items():
             visible=[int(value) for value in visible_orders.get(category,[]) if value is not None]
+            visible_set=set(visible)
             base_order=[row["id"] for row in priority_order(rows)]
-            if visible:
-                visible_set=set(visible)
-                slots=[index for index,dish_id in enumerate(base_order) if dish_id in visible_set]
-                for index,dish_id in zip(slots,visible):base_order[index]=dish_id
+            pending_ids=[row["id"] for row in rows
+                         if row["priority_pending"] and row["id"] in visible_set]
+            if pending_ids:
+                base_order=insert_pending_dishes(base_order,visible,pending_ids)
             with self.store.db:
                 self.store.db.executemany("UPDATE dishes SET priority=? WHERE id=?",
                     [((index+1)*1000,dish_id) for index,dish_id in enumerate(base_order)])
+                if pending_ids:
+                    self.store.db.executemany("UPDATE dishes SET priority_pending=0 WHERE id=?",
+                                              [(dish_id,) for dish_id in pending_ids])
         self.store.set_settings({layout_key:json.dumps(layout,ensure_ascii=False),
                                  order_key:json.dumps(ordered,ensure_ascii=False),
                                  dish_order_key:json.dumps(visible_orders,ensure_ascii=False)})

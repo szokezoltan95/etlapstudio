@@ -61,6 +61,35 @@ def normalized_name(name: str) -> str:
     return unicodedata.normalize("NFKC", name).casefold().strip()
 
 
+def insert_pending_dishes(global_order, daily_order, pending_ids):
+    """Insert newly created dishes before their next daily-menu dish.
+
+    Existing catalogue dishes keep their relative global order. Daily ordering
+    remains separately stored per date; this only updates the future default.
+    """
+    order=list(global_order)
+    def key(value):
+        try:return int(value)
+        except (TypeError,ValueError):return str(value)
+    pending={key(value) for value in pending_ids}
+    def position(value):
+        wanted=key(value)
+        return next((index for index,item in enumerate(order) if key(item)==wanted),None)
+    for index in range(len(daily_order)-1,-1,-1):
+        dish_id=daily_order[index]
+        if key(dish_id) not in pending:continue
+        current=position(dish_id)
+        if current is None:continue
+        dish_id=order.pop(current)
+        anchor_position=None
+        for following in daily_order[index+1:]:
+            anchor_position=position(following)
+            if anchor_position is not None:break
+        if anchor_position is None:order.append(dish_id)
+        else:order.insert(anchor_position,dish_id)
+    return order
+
+
 _HU_LETTERS = (
     "a", "á", "b", "c", "cs", "d", "dz", "dzs", "e", "é", "f", "g", "gy",
     "h", "i", "í", "j", "k", "l", "ly", "m", "n", "ny", "o", "ó", "ö", "ő",
@@ -168,6 +197,8 @@ class Store:
                                 if code>0:
                                     self.db.execute("UPDATE dishes SET priority=? WHERE id=? AND category=?",
                                                     (code,dish_id,category))
+            if "priority_pending" not in columns:
+                self.db.execute("ALTER TABLE dishes ADD COLUMN priority_pending INTEGER NOT NULL DEFAULT 0")
             if "promo_enabled" not in columns:
                 self.db.execute("ALTER TABLE dishes ADD COLUMN promo_enabled INTEGER NOT NULL DEFAULT 0")
             if "promo_price" not in columns:
@@ -215,19 +246,21 @@ class Store:
         promo_price=promo_price if promo_enabled else None
         with self.db:
             if dish_id:
-                existing=self.db.execute("SELECT category,priority FROM dishes WHERE id=?",(dish_id,)).fetchone()
+                existing=self.db.execute("SELECT category,priority,priority_pending FROM dishes WHERE id=?",(dish_id,)).fetchone()
                 priority=existing["priority"] if existing else 0
+                priority_pending=existing["priority_pending"] if existing else 0
                 if existing and existing["category"]!=category:
                     row=self.db.execute("SELECT COALESCE(MAX(priority),0) FROM dishes WHERE category=?",(category,)).fetchone()
                     priority=int(row[0] or 0)+1000
-                self.db.execute("UPDATE dishes SET name=?, category=?, price=?,promo_enabled=?,promo_price=?,priority=? WHERE id=?",
-                                (name, category, amount, int(promo_enabled),promo_price,priority,dish_id))
+                    priority_pending=1
+                self.db.execute("UPDATE dishes SET name=?, category=?, price=?,promo_enabled=?,promo_price=?,priority=?,priority_pending=? WHERE id=?",
+                                (name, category, amount, int(promo_enabled),promo_price,priority,priority_pending,dish_id))
                 self.db.execute("DELETE FROM daily_promotions WHERE dish_id=? AND promo_price>=?",
                                 (dish_id,amount))
             else:
                 row=self.db.execute("SELECT COALESCE(MAX(priority),0) FROM dishes WHERE category=?",(category,)).fetchone()
                 priority=int(row[0] or 0)+1000
-                cursor=self.db.execute("INSERT INTO dishes(name,category,price,promo_enabled,promo_price,priority) VALUES(?,?,?,?,?,?)",
+                cursor=self.db.execute("INSERT INTO dishes(name,category,price,promo_enabled,promo_price,priority,priority_pending) VALUES(?,?,?,?,?,?,1)",
                                 (name, category, amount,int(promo_enabled),promo_price,priority))
                 return cursor.lastrowid
         return dish_id

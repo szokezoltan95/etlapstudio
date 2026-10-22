@@ -332,22 +332,29 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     header_rect=QRectF(52,28,W-104,176) if kind=="special" else QRectF(40,28,W-80,176)
     if glass_enabled and draw_panel:glass(p,header_rect,205,8,primary,source)
     logo=asset_file("megyehaza_wordmark.png")
-    if kind=="special" and header_mode=="logo":
-        if logo.is_file():
-            image=QImage(str(logo))
-            if not image.isNull():
-                box=QRectF(430,45,580,140)
-                scale=min(box.width()/image.width(),box.height()/image.height())
-                width=image.width()*scale;height=image.height()*scale
-                p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
-        return
+    box=QRectF(415,45,580,140) if kind=="special" and header_mode=="logo" else QRectF(32,47,370,140)
     if logo.is_file():
         image=QImage(str(logo))
         if not image.isNull():
-            box=QRectF(47,47,370,140)
             scale=min(box.width()/image.width(),box.height()/image.height())
             width=image.width()*scale;height=image.height()*scale
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
+    if kind=="special" and header_mode in ("merged","logo"):
+        title=(setting(source,"special_title","") or "").strip()
+        cursor=190
+        if setting(source,"special_show_title","0")=="1" and title:
+            title_size=style_size(source,"daily_title",22)
+            title_width=QFontMetricsF(font(source,"daily_title",title_size,True)).horizontalAdvance(title)
+            if title_width>box.width()-16:title_size=max(6,title_size*(box.width()-16)/title_width)
+            text_singleline(p,source,"daily_title",title_size,primary,
+                            box.x(),cursor,box.width(),38,title,True,
+                            Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+            cursor+=46
+        if setting(source,"special_show_date","0")=="1":
+            text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,
+                            box.x(),cursor,box.width(),30,display_date(target),True,
+                            Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        return
     name=setting(source,"restaurant_name","Megyeháza Étterem") or "Megyeháza Étterem"
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
@@ -444,8 +451,12 @@ def draw_menu(p,source,kind,target,canvas_height=None):
                     days_y-330+panel_shift)
     else:
         if header_mode=="none":top=52
-        elif header_mode=="merged":top=170+(header_y-header_default)
-        elif header_mode=="logo":top=225+(header_y-header_default)
+        elif header_mode in ("merged","logo"):
+            top=190
+            if setting(source,"special_show_title","0")=="1" and (setting(source,"special_title","") or "").strip():
+                top+=46
+            if setting(source,"special_show_date","0")=="1":top+=36
+            top=max(225,top+12)+(header_y-header_default)
         else:top=225+(header_y-header_default)
         bottom=canvas_height-100 if show_footer else canvas_height-28
         panel=QRectF(52,top,W-104,bottom-top)

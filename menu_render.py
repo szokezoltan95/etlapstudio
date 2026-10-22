@@ -359,6 +359,8 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
         if title:text_singleline(p,source,"daily_title",title_size,primary,470,54,500,64,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     if kind!="special" or setting(source,"special_show_date","0")=="1":
         text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    if kind=="special" and header_mode=="merged":
+        return
     name_size=style_size(source,"header_title",11)
     name_metrics=QFontMetricsF(font(source,"header_title",name_size)).horizontalAdvance(name)
     if name_metrics>410:name_size=max(6,name_size*410/name_metrics)
@@ -441,7 +443,9 @@ def draw_menu(p,source,kind,target,canvas_height=None):
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
                     days_y-330+panel_shift)
     else:
-        top=(52 if header_mode=="none" else 225+(header_y-header_default))
+        if header_mode=="none":top=52
+        elif header_mode in ("merged","logo"):top=170+(header_y-header_default)
+        else:top=225+(header_y-header_default)
         bottom=canvas_height-100 if show_footer else canvas_height-28
         panel=QRectF(52,top,W-104,bottom-top)
         if glass_enabled and not merged_header:glass(p,panel,205,12,primary,source)

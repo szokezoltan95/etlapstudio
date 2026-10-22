@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox, QSlider, QSplashScreen,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
-                       data_dir, display_date, monday, price)
+                       data_dir, default_daily_section_columns, display_date, monday, price)
 from menu_render import A4_WIDTH_PT, EXPORT_HEIGHT, EXPORT_WIDTH, H, W, asset_file, export_pdf, export_png, render_image
 from themes import load_themes, import_theme, import_theme_images
 
@@ -202,7 +202,7 @@ class SectionOrderDialog(QDialog):
                         if category in categories and category not in assigned:
                             (legacy_third if column==3 else saved[column]).append(category);assigned.add(category)
         if not assigned:
-            for index,category in enumerate(ordered):saved[1 if index%2==0 else 2].append(category)
+            saved=default_daily_section_columns(categories,dishes)
         else:
             for category in ordered:
                 if category not in assigned:saved.setdefault(1,[]).append(category)

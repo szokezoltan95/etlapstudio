@@ -217,7 +217,7 @@ class SectionOrderDialog(QDialog):
             title=QLabel(f"{column}. oszlop");title.setStyleSheet("font-weight:700;color:#285943")
             tree=SectionColumnTree();tree.setColumnCount(1);tree.setHeaderHidden(True);tree.setRootIsDecorated(True)
             tree.setDragEnabled(True);tree.setAcceptDrops(True);tree.setDropIndicatorShown(True)
-            tree.setDragDropMode(QAbstractItemView.DragDrop);tree.setDefaultDropAction(Qt.DropAction.MoveAction)
+            tree.setDragDropMode(QAbstractItemView.DragDropMode.DragDrop);tree.setDefaultDropAction(Qt.DropAction.MoveAction)
             tree.setToolTip("Szekciókat és ételeket húzással rendezhetsz.")
             for category in saved.get(column,[]):
                 section=QTreeWidgetItem([category]);tree.addTopLevelItem(section)

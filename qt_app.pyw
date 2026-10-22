@@ -106,7 +106,7 @@ class OrderRow(QFrame):
     def __init__(self,recent=False):
         super().__init__();self.setObjectName("orderRow");self.recent=recent;self.hovered=False
         self._recent_opacity=1.0 if recent else 0.0;self._fade_started=None
-        self._fade_delay=QTimer(self);self._fade_delay.setSingleShot(True);self._fade_delay.setInterval(3000)
+        self._fade_delay=QTimer(self);self._fade_delay.setSingleShot(True);self._fade_delay.setInterval(1000)
         self._fade_delay.timeout.connect(self.start_recent_fade)
         self._fade_timer=QTimer(self);self._fade_timer.setInterval(30);self._fade_timer.timeout.connect(self.update_recent_fade)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover,True);self.setMouseTracking(True);self.apply_style()

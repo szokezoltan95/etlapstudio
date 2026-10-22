@@ -102,16 +102,44 @@ def two_way_arrow_icon():
 
 
 class OrderRow(QFrame):
-    """Whole flat order row responds to hover while keeping a recent-move tint."""
+    """Whole flat order row responds to hover and fades its recent-move tint."""
     def __init__(self,recent=False):
         super().__init__();self.setObjectName("orderRow");self.recent=recent;self.hovered=False
+        self._recent_opacity=1.0 if recent else 0.0;self._fade_started=None
+        self._fade_delay=QTimer(self);self._fade_delay.setSingleShot(True);self._fade_delay.setInterval(3000)
+        self._fade_delay.timeout.connect(self.start_recent_fade)
+        self._fade_timer=QTimer(self);self._fade_timer.setInterval(30);self._fade_timer.timeout.connect(self.update_recent_fade)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover,True);self.setMouseTracking(True);self.apply_style()
+        if recent:self._fade_delay.start()
+
+    @staticmethod
+    def blend_color(start,end,amount):
+        first,second=QColor(start),QColor(end)
+        return QColor(round(first.red()*(1-amount)+second.red()*amount),
+                      round(first.green()*(1-amount)+second.green()*amount),
+                      round(first.blue()*(1-amount)+second.blue()*amount)).name()
 
     def apply_style(self):
-        if self.recent:background,border=("#ffedb8","#c9a347") if self.hovered else ("#fff4d6","#c9a347")
+        if self.recent:
+            normal_background,normal_border=("#f0f6f1","#83a88c") if self.hovered else ("#ffffff","#e2d9ce")
+            gold_background="#ffedb8" if self.hovered else "#fff4d6"
+            background=self.blend_color(gold_background,normal_background,1-self._recent_opacity)
+            border=self.blend_color("#c9a347",normal_border,1-self._recent_opacity)
         elif self.hovered:background,border="#f0f6f1","#83a88c"
         else:background,border="#ffffff","#e2d9ce"
         self.setStyleSheet(f"QFrame#orderRow {{ background:{background}; border:1px solid {border}; border-radius:5px; }}")
+
+    def start_recent_fade(self):
+        if not self.recent:return
+        self._fade_started=time.monotonic();self._fade_timer.start()
+
+    def update_recent_fade(self):
+        if self._fade_started is None:return
+        progress=min(1.0,(time.monotonic()-self._fade_started)/0.45)
+        self._recent_opacity=1.0-progress
+        if progress>=1.0:
+            self.recent=False;self._fade_timer.stop()
+        self.apply_style()
 
     def enterEvent(self,event):
         self.hovered=True;self.apply_style();super().enterEvent(event)

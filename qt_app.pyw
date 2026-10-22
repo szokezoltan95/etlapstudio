@@ -1082,7 +1082,7 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self,APP_NAME,"Nem sikerült elindítani a frissítést; a program nem zárult be.\n\n"+str(exc))
             return
         QMessageBox.information(self,APP_NAME,"A program bezárul, ezután a telepítő megvárja a teljes leállást, majd telepíti a frissítést.\n\nKérjük, várj az újraindulásig.")
-        QApplication.quit()
+        self.close()
 
     def about_dialog(self):
         dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(760,760)

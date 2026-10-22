@@ -5,6 +5,7 @@ import json
 import csv
 import sys
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -1043,10 +1044,12 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self,APP_NAME,f"A program naprakész (v{APP_VERSION}).")
                 return
             asset=next((item for item in release.get("assets",[])
-                        if item.get("name")==f"EtlapStudio-Setup-{latest}.exe"),None)
-            if not asset or not str(asset.get("browser_download_url","")).startswith(
-                    "https://github.com/szokezoltan95/etlapstudio/releases/download/"):
-                QMessageBox.warning(self,APP_NAME,"Ehhez a verzióhoz nem található biztonságos Windows-telepítő.")
+                        if item.get("name")==f"EtlapStudio-Windows-{latest}.zip"),None)
+            digest=str(asset.get("digest","")) if asset else ""
+            if (not asset or not str(asset.get("browser_download_url","")).startswith(
+                    "https://github.com/szokezoltan95/etlapstudio/releases/download/")
+                    or not re.fullmatch(r"sha256:[0-9a-fA-F]{64}",digest)):
+                QMessageBox.warning(self,APP_NAME,"Ehhez a verzióhoz nem található ellenőrizhető Windows-frissítőcsomag.")
                 return
         except Exception as exc:
             QMessageBox.warning(self,APP_NAME,"Nem sikerült ellenőrizni a frissítéseket. Ellenőrizd az internetkapcsolatot.\n\n"+str(exc))
@@ -1054,7 +1057,7 @@ class MainWindow(QMainWindow):
         notes=str(release.get("body","")).strip()
         message=f"Elérhető az ÉtlapStúdió v{latest} verziója (jelenlegi: v{APP_VERSION})."
         if notes:message+="\n\n"+notes[:1800]
-        message+="\n\nA frissítés telepítéséhez a program bezárul. A helyi ételadatbázis és éttermi beállítások megmaradnak."
+        message+="\n\nA frissítő letölti és kicsomagolja az új programfájlokat. A helyi ételadatbázis és éttermi beállítások megmaradnak."
         answer=QMessageBox.question(self,"Frissítés érhető el",message,
                                     QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
                                     QMessageBox.StandardButton.Yes)
@@ -1069,9 +1072,10 @@ class MainWindow(QMainWindow):
             shutil.copy2(helper_source,helper_copy)
             flags=(getattr(subprocess,"DETACHED_PROCESS",0)|getattr(subprocess,"CREATE_NEW_PROCESS_GROUP",0)|
                    getattr(subprocess,"CREATE_NO_WINDOW",0))
-            process=subprocess.Popen([str(helper_copy),asset["browser_download_url"],str(os.getpid()),
-                                      str(Path(sys.executable).resolve().parent),str(Path(sys.executable).resolve()),
-                                      str(ready)],cwd=str(update_dir),creationflags=flags,close_fds=True)
+            process=subprocess.Popen([str(helper_copy),asset["browser_download_url"],digest.removeprefix("sha256:"),
+                                      str(os.getpid()),str(Path(sys.executable).resolve().parent),
+                                      str(Path(sys.executable).resolve()),str(ready)],
+                                     cwd=str(update_dir),creationflags=flags,close_fds=True)
             deadline=time.monotonic()+12
             while time.monotonic()<deadline and not ready.exists() and process.poll() is None:
                 time.sleep(0.05)
@@ -1081,7 +1085,7 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self,APP_NAME,"Nem sikerült elindítani a frissítést; a program nem zárult be.\n\n"+str(exc))
             return
-        QMessageBox.information(self,APP_NAME,"A program bezárul, ezután a telepítő megvárja a teljes leállást, majd telepíti a frissítést.\n\nKérjük, várj az újraindulásig.")
+        QMessageBox.information(self,APP_NAME,"A program bezárul. A frissítő megvárja a teljes leállást, lecseréli a programfájlokat, majd újraindítja az alkalmazást.\n\nKérjük, várj az újraindulásig.")
         self.close()
 
     def about_dialog(self):

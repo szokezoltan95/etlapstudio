@@ -99,8 +99,8 @@ class OrderRow(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover,True);self.setMouseTracking(True);self.apply_style()
 
     def apply_style(self):
-        if self.hovered:background,border="#f0f6f1","#83a88c"
-        elif self.recent:background,border="#e8f3e9","#83ad8c"
+        if self.recent:background,border=("#ffedb8","#c9a347") if self.hovered else ("#fff4d6","#c9a347")
+        elif self.hovered:background,border="#f0f6f1","#83a88c"
         else:background,border="#ffffff","#e2d9ce"
         self.setStyleSheet(f"QFrame#orderRow {{ background:{background}; border:1px solid {border}; border-radius:5px; }}")
 
@@ -172,7 +172,7 @@ class SectionDishOrderDialog(QDialog):
     """Arrow-only dish ordering for one section; changes stay in the parent dialog."""
     def __init__(self,parent,category,dishes,initial_order):
         super().__init__(parent);self.setWindowTitle(f"{category} · ételsorrend")
-        self.resize(540,600);self.category=category
+        self.resize(540,600);self.category=category;self.last_moved_id=None
         by_id={str(dish["id"]):dish for dish in dishes}
         requested=[str(value) for value in initial_order]
         self.items=[by_id.pop(key) for key in requested if key in by_id]
@@ -192,7 +192,7 @@ class SectionDishOrderDialog(QDialog):
             item=self.rows_layout.takeAt(0);widget=item.widget()
             if widget:widget.deleteLater()
         for index,dish in enumerate(self.items):
-            row=OrderRow()
+            row=OrderRow(recent=str(dish["id"])==str(self.last_moved_id))
             line=QHBoxLayout(row);line.setContentsMargins(10,3,5,3)
             label=QLabel(str(dish["name"]));label.setMinimumWidth(0);line.addWidget(label,1)
             up=QPushButton("↑");down=QPushButton("↓")
@@ -208,6 +208,7 @@ class SectionDishOrderDialog(QDialog):
         target=index+direction
         if not 0<=target<len(self.items):return
         self.items[index],self.items[target]=self.items[target],self.items[index]
+        self.last_moved_id=self.items[target]["id"]
         self.rebuild_rows()
 
     def ordered_ids(self):return [dish["id"] for dish in self.items]

@@ -12,6 +12,28 @@ CATEGORIES = [
     "Levesek", "Főzelékek", "Feltétek", "Köretek", "Savanyúságok",
     "Készételek", "Frissensültek", "Tészták, desszertek", "Mártások, öntetek", "Egyéb", "Menü",
 ]
+
+
+def default_daily_section_columns(categories, dishes):
+    """Return the standard two-column layout, balancing the flexible sections."""
+    allowed=set(categories)
+    left=[name for name in ("Levesek","Főzelékek","Feltétek","Köretek","Savanyúságok") if name in allowed]
+    right=[name for name in ("Készételek","Frissensültek","Tészták, desszertek","Mártások, öntetek") if name in allowed]
+    weights={name:1 for name in allowed}
+    for dish in dishes:
+        category=dish["category"]
+        if category in weights:
+            # Approximate wrapped rows so a long dish name weighs more than a short one.
+            weights[category]+=max(1,(len(str(dish["name"]))+31)//32)
+    columns={1:left,2:right}
+    totals={1:sum(weights[name] for name in left),2:sum(weights[name] for name in right)}
+    for category in categories:
+        if category in left or category in right or category not in allowed:continue
+        column=min((1,2),key=lambda number:(totals[number],number))
+        columns[column].append(category);totals[column]+=weights[category]
+    return columns
+
+
 WEEKDAYS = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek"]
 GREEN = "#1D6B50"
 DEEP = "#123F32"

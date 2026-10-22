@@ -463,7 +463,8 @@ def draw_menu(p,source,kind,target,canvas_height=None):
         # Keep the footer close to the bottom edge of the A4 canvas. The old
         # fixed daily coordinate left a large, unused strip below the note.
         note_y=(canvas_height if kind=="special" else H)-76
-        if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),195,8,primary,source)
+        note_panel=QRectF(52,note_y,W-104,58) if kind=="special" else QRectF(40,note_y,W-80,58)
+        if glass_enabled:glass(p,note_panel,195,8,primary,source)
         text(p,source,"footer_note",style_size(source,"footer_note",10),dark,60,note_y+10,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
 

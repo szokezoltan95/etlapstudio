@@ -22,7 +22,7 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 2. Töltsd le a repót ZIP-ként, csomagold ki egy írható mappába, és indítsd az `Inditas_Windows.bat` fájlt.
 3. Az első indítás helyi `.venv` környezetet készít és telepíti a `requirements.txt` csomagjait. A következő indításokhoz használd ugyanezt a `.bat` fájlt.
 
-A Python telepítése nélkül használható Windows telepítőt a [GitHub Releases](https://github.com/szokezoltan95/etlapstudio/releases/latest) oldalról töltheted le. A 64 bites `EtlapStudio-Setup-1.1.0.exe` telepíti az alkalmazást, létrehozza a Start menü parancsikont, és opcionálisan asztali ikont is készít. Az új Megyeháza Étterem logó jelenik meg programikonként és az indulóképernyőn; a splash képen az „ÉtlapStúdió indítása” szöveg is szerepel. A frissítővel ellátott verzióra egyszer kézzel kell telepíteni, mert a korábbi kiadások még nem tartalmazzák az önfrissítőt. Ezután a telepített Windows-verzióban a **Program → Frissítések keresése…** menüponttal ellenőrizheted az új kiadásokat. Jóváhagyás után az alkalmazás szabályosan bezárja az adatbázist, a külön frissítő pedig Windows-folyamatkezelőn várja meg a tényleges leállást, mielőtt elindítja a telepítőt.
+A Python telepítése nélkül használható, 64 bites Windows-csomag a [GitHub Releases](https://github.com/szokezoltan95/etlapstudio/releases/latest) oldalról tölthető le. Az 1.1.1-től a kiadás neve `EtlapStudio-Windows-<verzió>.zip`; csomagold ki egy írható mappába, majd indítsd az `EtlapStudio.exe` fájlt. A **Program → Frissítések keresése…** menüpont jóváhagyás után letölti és SHA-256 ellenőrzéssel hitelesíti a frissítő ZIP-et. A külön, rejtetten futó frissítő megvárja az alkalmazás teljes leállását, lecseréli a programfájlokat, majd újraindítja az alkalmazást; telepítőprogram nem indul el. Az 1.1.0 még a régi telepítős frissítőt tartalmazza, ezért az installerless csomagra egyszer kézi átállás szükséges.
 
 ### Fejlesztői indítás
 
@@ -72,7 +72,7 @@ A külső függőségek, betűkészletek és más, külön licenccel rendelkező
 | --- | --- |
 | `qt_app.pyw` | Qt6 szerkesztő és élő előnézet |
 | `menu_core.py` | SQLite adatbázis, sémamigráció, étel-prioritások, napi akciók és mentett étlapok |
-| `updater.py` | Windows-frissítő, amely natív folyamatfogantyúval vár a program bezárására |
+| `updater.py` | Windows-frissítő: ZIP-et ellenőriz, folyamatkezelőn vár, programfájlokat cserél és újraindít |
 | `version.py` | Alkalmazásverzió, amelyet a kiadási build a git tag alapján állít be |
 | `data/alap_eteladatbazis.csv` | A felismert ételnevek és legutóbbi olvasható normál árak |
 | `catalog_seed.py` | A CSV betöltése új vagy meglévő adatbázisba |

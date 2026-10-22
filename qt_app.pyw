@@ -193,26 +193,27 @@ class SectionOrderDialog(QDialog):
         hint.setWordWrap(True);layout.addWidget(hint)
         ordered=[category for category in order if category in categories]
         ordered += [category for category in categories if category not in ordered]
-        saved={};assigned=set()
+        saved={1:[],2:[]};assigned=set();legacy_third=[]
         if isinstance(layout_by_column,dict):
             for column in (1,2,3):
                 values=layout_by_column.get(str(column),layout_by_column.get(column,[]))
                 if isinstance(values,list):
-                    saved[column]=[]
                     for category in values:
                         if category in categories and category not in assigned:
-                            saved[column].append(category);assigned.add(category)
+                            (legacy_third if column==3 else saved[column]).append(category);assigned.add(category)
         if not assigned:
-            saved={1:[],2:[],3:[]}
             for index,category in enumerate(ordered):saved[1 if index%2==0 else 2].append(category)
         else:
             for category in ordered:
                 if category not in assigned:saved.setdefault(1,[]).append(category)
+            for category in legacy_third:
+                target=1 if len(saved[1])<=len(saved[2]) else 2
+                saved[target].append(category)
         dishes_by_category={category:[] for category in categories}
         for dish in dishes:
             if dish["category"] in dishes_by_category:dishes_by_category[dish["category"]].append(dish)
         grid=QGridLayout();grid.setHorizontalSpacing(12);layout.addLayout(grid,1)
-        for column in (1,2,3):
+        for column in (1,2):
             holder=QWidget();holder_layout=QVBoxLayout(holder);holder_layout.setContentsMargins(0,0,0,0)
             title=QLabel(f"{column}. oszlop");title.setStyleSheet("font-weight:700;color:#285943")
             tree=SectionColumnTree();tree.setColumnCount(1);tree.setHeaderHidden(True);tree.setRootIsDecorated(True)
@@ -234,7 +235,7 @@ class SectionOrderDialog(QDialog):
             arrows.addWidget(button("↓ Lejjebb",lambda _=False,t=tree:self.move_selected(t,1)))
             holder_layout.addLayout(arrows);grid.addWidget(holder,0,column-1)
         actions=QHBoxLayout();actions.addWidget(button("Automatikus elosztás",self.auto_distribute));actions.addStretch();layout.addLayout(actions)
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
 
     def auto_distribute(self):
@@ -266,7 +267,7 @@ class SectionOrderDialog(QDialog):
 
     def ordered_categories(self):
         layout=self.section_layout()
-        return [category for column in ("1","2","3") for category in layout[column]]
+        return [category for column in ("1","2") for category in layout[column]]
 
     def dish_orders(self):
         result={}
@@ -606,19 +607,51 @@ class MainWindow(QMainWindow):
         day_key=self.current_day().isoformat()
         order_key="daily_section_order_"+day_key;layout_key="daily_section_layout_"+day_key
         dish_order_key="daily_dish_order_"+day_key
+        priority_key="dish_order_priorities"
         try:order=json.loads(self.store.setting(order_key,""))
         except (TypeError,ValueError):order=categories
         try:layout_by_column=json.loads(self.store.setting(layout_key,""))
         except (TypeError,ValueError):layout_by_column=None
         try:dish_order=json.loads(self.store.setting(dish_order_key,""))
         except (TypeError,ValueError):dish_order={}
+        try:priorities=json.loads(self.store.setting(priority_key,""))
+        except (TypeError,ValueError):priorities={}
+        if not isinstance(priorities,dict):priorities={}
+        catalog=self.store.db.execute(
+            "SELECT id,name,category FROM dishes ORDER BY name COLLATE HUNGARIAN,id").fetchall()
+        catalog_by_category={category:[] for category in categories}
+        for dish in catalog:
+            if dish["category"] in catalog_by_category:catalog_by_category[dish["category"]].append(dish)
+        def priority_order(rows,codes):
+            def rank(pair):
+                try:return int(codes[str(pair[1]["id"])])
+                except (KeyError,TypeError,ValueError):return 1_000_000_000+pair[0]
+            return [row for _,row in sorted(enumerate(rows),key=rank)]
+        if not dish_order:
+            dish_order={}
+            for category,rows in catalog_by_category.items():
+                codes=priorities.get(category,{})
+                codes=codes if isinstance(codes,dict) else {}
+                dish_order[category]=[row["id"] for row in priority_order(rows,codes)]
         dialog=SectionOrderDialog(self,categories,order,layout_by_column,
                                   self.store.selection(self.current_day()),dish_order)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
         layout=dialog.section_layout();ordered=dialog.ordered_categories()
+        visible_orders=dialog.dish_orders()
+        for category,rows in catalog_by_category.items():
+            visible=[int(value) for value in visible_orders.get(category,[]) if value is not None]
+            codes=priorities.get(category,{})
+            codes=codes if isinstance(codes,dict) else {}
+            base_order=[row["id"] for row in priority_order(rows,codes)]
+            if visible:
+                visible_set=set(visible)
+                slots=[index for index,dish_id in enumerate(base_order) if dish_id in visible_set]
+                for index,dish_id in zip(slots,visible):base_order[index]=dish_id
+            priorities[category]={str(dish_id):(index+1)*1000 for index,dish_id in enumerate(base_order)}
         self.store.set_settings({layout_key:json.dumps(layout,ensure_ascii=False),
                                  order_key:json.dumps(ordered,ensure_ascii=False),
-                                 dish_order_key:json.dumps(dialog.dish_orders(),ensure_ascii=False)})
+                                 dish_order_key:json.dumps(visible_orders,ensure_ascii=False),
+                                 priority_key:json.dumps(priorities,ensure_ascii=False)})
         self.preview_archive=None;self.schedule_preview()
 
     def choose_category(self,category):

@@ -452,10 +452,16 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     except (TypeError,ValueError):menu_price=2800
     text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,1085,menu_y+58,260,34,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,1085,menu_y+92,260,58,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    divider_height=60 if decorated else 0
+    divider_padding=8
     alacarte_shift=header_shift+menu_gap_shift
-    if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,60)
+    menu_panel_bottom=menu_y+205
+    divider_center=menu_panel_bottom+menu_gap_shift+divider_padding+divider_height/2
+    if decorated:divider(p,primary,accent,divider_center,assets,target,divider_height)
     dishes=sorted((dict(d) for d in source.selection(target)), key=lambda dish:hungarian_sort_key(dish["name"]))
-    alacarte_top=492
+    # Local position after translating by alacarte_shift: panel + top padding,
+    # divider artwork, then bottom padding before the first category.
+    alacarte_top=205+divider_height+2*divider_padding
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,alacarte_top+alacarte_shift,W-80,72),205,8,primary,source)
         text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,alacarte_top+16+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)

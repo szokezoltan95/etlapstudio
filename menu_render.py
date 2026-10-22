@@ -327,9 +327,20 @@ def divider(p,primary,accent,y,assets=None,target=None,height=60):
     p.restore()
 
 
-def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets):
-    if glass_enabled:glass(p,QRectF(40,28,W-80,176),205,8,primary,source)
+def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets,draw_panel=True):
+    header_mode=setting(source,"special_header_mode","full") if kind=="special" else "full"
+    header_rect=QRectF(52,28,W-104,176) if kind=="special" else QRectF(40,28,W-80,176)
+    if glass_enabled and draw_panel:glass(p,header_rect,205,8,primary,source)
     logo=asset_file("megyehaza_wordmark.png")
+    if kind=="special" and header_mode=="logo":
+        if logo.is_file():
+            image=QImage(str(logo))
+            if not image.isNull():
+                box=QRectF(430,45,580,140)
+                scale=min(box.width()/image.width(),box.height()/image.height())
+                width=image.width()*scale;height=image.height()*scale
+                p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
+        return
     if logo.is_file():
         image=QImage(str(logo))
         if not image.isNull():
@@ -348,6 +359,8 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
         if title:text_singleline(p,source,"daily_title",title_size,primary,470,54,500,64,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     if kind!="special" or setting(source,"special_show_date","0")=="1":
         text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    if kind=="special" and header_mode=="merged":
+        return
     name_size=style_size(source,"header_title",11)
     name_metrics=QFontMetricsF(font(source,"header_title",name_size)).horizontalAdvance(name)
     if name_metrics>410:name_size=max(6,name_size*410/name_metrics)
@@ -402,9 +415,19 @@ def draw_menu(p,source,kind,target,canvas_height=None):
     decorated=setting(source,"decorations","1")=="1"
     header_default=205
     header_y=guide(source,kind,"header",header_default)
-    p.save();p.translate(0,header_y-header_default)
-    draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets)
-    p.restore()
+    header_mode=setting(source,"special_header_mode","full") if kind=="special" else "full"
+    header_enabled=kind!="special" or header_mode!="none"
+    merged_header=kind=="special" and header_mode=="merged"
+    footer_text=setting(source,"special_footer_note",setting(source,"note","")).strip() if kind=="special" else ""
+    show_footer=kind=="special" and setting(source,"special_show_footer","1")=="1" and bool(footer_text)
+    if merged_header and glass_enabled:
+        merged_bottom=canvas_height-100 if show_footer else canvas_height-28
+        glass(p,QRectF(52,28,W-104,merged_bottom-28),205,12,primary,source)
+    if header_enabled:
+        p.save();p.translate(0,header_y-header_default)
+        draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_enabled,assets,
+                    draw_panel=not merged_header)
+        p.restore()
     if kind=="daily":
         menu_end=guide(source,kind,"menu_end",438)
         draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
@@ -420,12 +443,12 @@ def draw_menu(p,source,kind,target,canvas_height=None):
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
                     days_y-330+panel_shift)
     else:
-        top=225+(header_y-header_default)
-        footer_text=setting(source,"special_footer_note",setting(source,"note","")).strip()
-        show_footer=setting(source,"special_show_footer","1")=="1" and bool(footer_text)
+        if header_mode=="none":top=52
+        elif header_mode in ("merged","logo"):top=170+(header_y-header_default)
+        else:top=225+(header_y-header_default)
         bottom=canvas_height-100 if show_footer else canvas_height-28
         panel=QRectF(52,top,W-104,bottom-top)
-        if glass_enabled:glass(p,panel,205,12,primary,source)
+        if glass_enabled and not merged_header:glass(p,panel,205,12,primary,source)
         document=QTextDocument()
         document.setDefaultFont(font(source,"weekly_value",style_size(source,"weekly_value",16)))
         document.setDocumentMargin(28)
@@ -444,7 +467,8 @@ def draw_menu(p,source,kind,target,canvas_height=None):
         # Keep the footer close to the bottom edge of the A4 canvas. The old
         # fixed daily coordinate left a large, unused strip below the note.
         note_y=(canvas_height if kind=="special" else H)-76
-        if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),195,8,primary,source)
+        note_panel=QRectF(52,note_y,W-104,58) if kind=="special" else QRectF(40,note_y,W-80,58)
+        if glass_enabled:glass(p,note_panel,195,8,primary,source)
         text(p,source,"footer_note",style_size(source,"footer_note",10),dark,60,note_y+10,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
 

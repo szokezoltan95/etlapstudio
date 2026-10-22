@@ -25,10 +25,12 @@ jobs:
         shell: pwsh
         run: |
           python -c "from PIL import Image; Image.open('design_assets/megyehaza_emblem.png').convert('RGBA').save('design_assets/megyehaza_emblem.ico', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+      - name: Build Windows updater
+        run: python -m PyInstaller --noconfirm --clean --onefile --windowed --name EtlapStudioUpdater updater.py
       - name: Build application
         shell: pwsh
         run: |
-          python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --icon design_assets/megyehaza_emblem.ico --add-data "themes_builtin;themes_builtin" --add-data "design_assets;design_assets" --add-data "data;data" --add-data "LICENSE;." qt_app.pyw
+          python -m PyInstaller --noconfirm --clean --onedir --windowed --name EtlapStudio --icon design_assets/megyehaza_emblem.ico --add-binary "dist/EtlapStudioUpdater.exe;." --add-data "themes_builtin;themes_builtin" --add-data "design_assets;design_assets" --add-data "data;data" --add-data "LICENSE;." qt_app.pyw
       - name: Install Inno Setup
         run: choco install innosetup --yes --no-progress
       - name: Build installer

@@ -101,6 +101,11 @@ def text_singleline(p,source,role,size,color,x,y,w,h,value,bold=False,align=Qt.A
     p.drawText(QRectF(x,y,w,h),align|Qt.AlignmentFlag.AlignVCenter,str(value))
 
 
+def category_heading_height(source,size):
+    metrics=QFontMetricsF(font(source,"category_title",size,True))
+    return max(size*1.3,metrics.height()+10)
+
+
 def _easter_sunday(year):
     a=year%19;b=year//100;c=year%100;d=b//4;e=b%4;f=(b+8)//25;g=(b-f+1)//3
     h=(19*a+b-d-g+15)%30;i=c//4;k=c%4;l=(32+2*e+2*i-h-k)%7;m=(a+11*h+22*l)//451
@@ -335,12 +340,12 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     name=setting(source,"restaurant_name","Megyeháza Étterem") or "Megyeháza Étterem"
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
-             setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
+             setting(source,"facebook_url","facebook.com/megyehazaetteremmiskolc"))
     title=(setting(source,"special_title","") or "") if kind=="special" else ("Napi étlap" if kind=="daily" else "Heti menü")
     stamp=display_date(target) if kind in ("daily","special") else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     title_size=style_size(source,"daily_title",22)
     if kind!="special" or setting(source,"special_show_title","0")=="1":
-        if title:text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        if title:text_singleline(p,source,"daily_title",title_size,primary,470,54,500,64,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     if kind!="special" or setting(source,"special_show_date","0")=="1":
         text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     name_size=style_size(source,"header_title",11)
@@ -522,7 +527,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 original_order={str(dish["id"]):index for index,dish in enumerate(rows)}
                 ranks={dish_id:index for index,dish_id in enumerate(requested_dishes)}
                 rows.sort(key=lambda dish:(ranks.get(str(dish["id"]),len(ranks)+original_order[str(dish["id"])])))
-            category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
+            category_h=category_heading_height(source,style_size(source,"category_title",14))
             line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
             row_items=[]
             for dish in rows:
@@ -579,9 +584,9 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for col,sections in sections_by_column.items():
             x=col_x[col]
             for section in sections:
-                heading_height=max(section[0][4]*1.3,style_size(source,"category_title",14)*1.2)
+                heading_height=category_heading_height(source,style_size(source,"category_title",14))
                 start=section[0][2]+heading_height
-                end=max(item[2]+(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
+                end=max(item[2]+(category_heading_height(source,style_size(source,"category_title",14))
                                  if item[0]=="heading" else item[5]) for item in section)
                 if end>start:glass(p,QRectF(x-3,start,column_width+6,end-start),208,5,primary,source)
     for item in placements:
@@ -590,11 +595,11 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             category_size=style_size(source,"category_title",14)
             heading_font=font(source,"category_title",category_size,True)
             heading_w=min(column_width-24,QFontMetricsF(heading_font).horizontalAdvance(value)+24)
-            heading_h=max(size*1.3,category_size*1.2)
+            heading_h=category_heading_height(source,category_size)
             heading_y=y
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(x-5,heading_y,heading_w+10,heading_h),7,7);p.restore()
             heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
-            text(p,source,"category_title",category_size,heading_text,x+10,heading_y+1,heading_w-20,heading_h-2,value,True,Qt.AlignmentFlag.AlignVCenter);continue
+            text(p,source,"category_title",category_size,heading_text,x+10,heading_y+4,heading_w-20,heading_h-8,value,True,Qt.AlignmentFlag.AlignVCenter);continue
         dish=value;row_h=rest[0];promo=bool(dish.get("promo_enabled") and dish.get("promo_price") is not None)
         price_width=column_width-name_width-16;price_x=x+name_width+8
         label_width=name_width-(62 if promo else 0)

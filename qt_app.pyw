@@ -438,14 +438,14 @@ class MainWindow(QMainWindow):
         self.store.set_settings({"restaurant_name":self.store.setting("restaurant_name","Megyeháza Étterem"),
                                  "address":self.store.setting("address","Miskolc, Városház tér 1."),
                                  "phone":self.store.setting("phone","+36 30 / 513 2605"),
-                                 "facebook_url":self.store.setting("facebook_url","facebook.com/megyehazaetteremmiskolc"),
+                                 "facebook_url":self.store.setting("facebook_url","facebook.com/mhetterem"),
                                  "note":self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"),
                                  "daily_menu_price":self.store.setting("daily_menu_price","2800")})
         old_facebook=(self.store.setting("facebook_url","") or "").strip().lower()
         old_facebook=old_facebook.removeprefix("https://").removeprefix("http://").removeprefix("www.").rstrip("/")
         if old_facebook in {"itcetterem","ittetterem","facebook.com/itcetterem","facebook.com/ittetterem",
-                            "facebook.com/share/1gqgcnjxe"}:
-            self.store.set_settings({"facebook_url":"facebook.com/megyehazaetteremmiskolc"})
+                            "facebook.com/share/1gqgcnjxe","facebook.com/megyehazaetteremmiskolc"}:
+            self.store.set_settings({"facebook_url":"facebook.com/mhetterem"})
         if self.store.setting("guide_layout_version","0")!="9":
             layout_defaults={"guide_layout_version":"9"}
             for key,value in {"guide_daily_header":"205","guide_daily_menu_end":"438",
@@ -1422,7 +1422,7 @@ class MainWindow(QMainWindow):
             ("restaurant_name","Étterem neve","Megyeháza Étterem"),
             ("address","Cím","Miskolc, Városház tér 1."),
             ("phone","Telefonszám","+36 30 / 513 2605"),
-            ("facebook_url","Facebook link","facebook.com/megyehazaetteremmiskolc"),
+            ("facebook_url","Facebook link","facebook.com/mhetterem"),
             ("note","Alsó megjegyzés","Az étlapváltoztatás jogát fenntartjuk!"),
         )
         restaurant_fields={}

@@ -358,7 +358,7 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     name=setting(source,"restaurant_name","Megyeháza Étterem") or "Megyeháza Étterem"
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
-             setting(source,"facebook_url","facebook.com/megyehazaetteremmiskolc"))
+             setting(source,"facebook_url","facebook.com/mhetterem"))
     title=(setting(source,"special_title","") or "") if kind=="special" else ("Napi étlap" if kind=="daily" else "Heti menü")
     stamp=display_date(target) if kind in ("daily","special") else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     title_size=style_size(source,"daily_title",22)

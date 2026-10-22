@@ -6,7 +6,7 @@ import json
 import math
 from pathlib import Path
 import sys
-from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
+from PyQt6.QtCore import QMarginsF, QPointF, QRectF, QSizeF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
                          QPageSize, QPdfWriter, QPainterPath, QPen, QTextDocument)
 from themes import HEX, load_themes
@@ -370,18 +370,34 @@ class KindSettings:
     def __getattr__(self,name):return getattr(self.source,name)
 
 
-def draw_menu(p,source,kind,target):
+def draw_menu(p,source,kind,target,canvas_height=None):
     source=KindSettings(source,kind)
+    canvas_height=float(canvas_height or H) if kind=="special" else H
     p.save();p.setRenderHint(QPainter.RenderHint.Antialiasing);p.setRenderHint(QPainter.RenderHint.TextAntialiasing)
     primary,accent,paper=colors(source,target);dark="#2D342E"
     assets=theme_assets(source,target)
-    p.fillRect(QRectF(0,0,W,H),QColor(paper))
+    page_rect=QRectF(0,0,W,canvas_height)
+    p.fillRect(page_rect,QColor(paper))
     background_path=assets.get("background") if assets else None
     background=QImage(str(background_path)) if background_path else seasonal_art(target,"background")
     if background is not None and background.isNull():background=seasonal_art(target,"background")
     if background is not None:
-        p.save();p.setOpacity(.62);p.drawImage(QRectF(0,0,W,H),background);p.restore()
-        p.fillRect(QRectF(0,0,W,H),QColor(QColor(paper).red(),QColor(paper).green(),QColor(paper).blue(),85))
+        p.save();p.setOpacity(.62)
+        if kind=="special" and not background.isNull():
+            # Fill the canvas while preserving the background image proportions.
+            source_ratio=background.width()/max(1,background.height())
+            target_ratio=page_rect.width()/max(1.0,page_rect.height())
+            if source_ratio>target_ratio:
+                crop_width=background.height()*target_ratio
+                source_rect=QRectF((background.width()-crop_width)/2,0,crop_width,background.height())
+            else:
+                crop_height=background.width()/target_ratio
+                source_rect=QRectF(0,(background.height()-crop_height)/2,background.width(),crop_height)
+            p.drawImage(page_rect,background,source_rect)
+        else:
+            p.drawImage(page_rect,background)
+        p.restore()
+        p.fillRect(page_rect,QColor(QColor(paper).red(),QColor(paper).green(),QColor(paper).blue(),85))
     glass_enabled=setting(source,"glass_panels","1")=="1"
     decorated=setting(source,"decorations","1")=="1"
     header_default=205
@@ -407,7 +423,7 @@ def draw_menu(p,source,kind,target):
         top=225+(header_y-header_default)
         footer_text=setting(source,"special_footer_note",setting(source,"note","")).strip()
         show_footer=setting(source,"special_show_footer","1")=="1" and bool(footer_text)
-        bottom=H-100 if show_footer else H-28
+        bottom=canvas_height-100 if show_footer else canvas_height-28
         panel=QRectF(52,top,W-104,bottom-top)
         if glass_enabled:glass(p,panel,205,12,primary,source)
         document=QTextDocument()
@@ -416,9 +432,10 @@ def draw_menu(p,source,kind,target):
         document.setHtml(setting(source,"special_html","") or "<p></p>")
         document.setTextWidth(panel.width()-56)
         content_width=panel.width()-56;content_height=panel.height()-52
-        fit=min(1.0,content_height/max(1.0,document.size().height()))
-        p.save();p.setClipRect(panel.adjusted(20,18,-20,-18));p.translate(panel.left()+28,panel.top()+26);p.scale(fit,fit)
-        document.drawContents(p,QRectF(0,0,content_width,document.size().height()));p.restore()
+        # QTextDocument lays out each paragraph at the canvas width. Keep text
+        # at its authored size; never shrink the finished page to force a fit.
+        p.save();p.setClipRect(panel.adjusted(20,18,-20,-18));p.translate(panel.left()+28,panel.top()+26)
+        document.drawContents(p,QRectF(0,0,content_width,content_height));p.restore()
     if kind=="special":
         note=(setting(source,"special_footer_note",setting(source,"note",""))
               if setting(source,"special_show_footer","1")=="1" else "").strip()
@@ -426,7 +443,7 @@ def draw_menu(p,source,kind,target):
     if note:
         # Keep the footer close to the bottom edge of the A4 canvas. The old
         # fixed daily coordinate left a large, unused strip below the note.
-        note_y=H-76
+        note_y=(canvas_height if kind=="special" else H)-76
         if glass_enabled:glass(p,QRectF(40,note_y,W-80,58),195,8,primary,source)
         text(p,source,"footer_note",style_size(source,"footer_note",10),dark,60,note_y+10,W-120,38,note[:130],align=Qt.AlignmentFlag.AlignHCenter)
     p.restore()
@@ -707,12 +724,16 @@ def render_image(source,kind,target,width=None,height=None):
     image.setDotsPerMeterX(round(EXPORT_DPI/0.0254));image.setDotsPerMeterY(round(EXPORT_DPI/0.0254))
     p=QPainter(image)
     if kind=="special":
-        # Use the selected special-menu canvas directly instead of adding white frame margins.
-        p.scale(width/W,height/H)
+        # Scale both axes uniformly to the selected canvas width; let the page
+        # height change in logical coordinates so content can reflow naturally.
+        scale=width/W
+        p.scale(scale,scale)
+        draw_menu(p,source,kind,target,canvas_height=height/scale)
     else:
         scale=min(width/W,height/H)
         p.translate((width-W*scale)/2,(height-H*scale)/2);p.scale(scale,scale)
-    draw_menu(p,source,kind,target);p.end();return image
+        draw_menu(p,source,kind,target)
+    p.end();return image
 
 
 def export_png(path,source,kind,target,width=EXPORT_WIDTH,height=EXPORT_HEIGHT):
@@ -722,9 +743,28 @@ def export_png(path,source,kind,target,width=EXPORT_WIDTH,height=EXPORT_HEIGHT):
 def export_pdf(path,source,kind,target):
     from PyQt6.QtGui import QPageLayout
     writer=QPdfWriter(str(path))
-    writer.setPageLayout(QPageLayout(QPageSize(QPageSize.PageSizeId.A4),QPageLayout.Orientation.Portrait,
-                                    QMarginsF(0,0,0,0),QPageLayout.Unit.Millimeter))
+    if kind=="special":
+        try:width=int(setting(source,"special_canvas_width","1240") or "1240")
+        except (TypeError,ValueError):width=1240
+        try:height=int(setting(source,"special_canvas_height","1754") or "1754")
+        except (TypeError,ValueError):height=1754
+        short_mm=min(width,height)*25.4/EXPORT_DPI
+        long_mm=max(width,height)*25.4/EXPORT_DPI
+        page=QPageSize(QSizeF(short_mm,long_mm),QPageSize.Unit.Millimeter,"EtlapStudio special canvas")
+        orientation=QPageLayout.Orientation.Landscape if width>height else QPageLayout.Orientation.Portrait
+        layout=QPageLayout(page,orientation,QMarginsF(0,0,0,0),QPageLayout.Unit.Millimeter)
+    else:
+        width,height=EXPORT_WIDTH,EXPORT_HEIGHT
+        layout=QPageLayout(QPageSize(QPageSize.PageSizeId.A4),QPageLayout.Orientation.Portrait,
+                           QMarginsF(0,0,0,0),QPageLayout.Unit.Millimeter)
+    writer.setPageLayout(layout)
     writer.setResolution(EXPORT_DPI);writer.setTitle(("Napi étlap" if kind=="daily" else "Heti menü" if kind=="weekly" else "Különleges alkalom")+" – "+display_date(target))
     p=QPainter(writer);area=writer.pageLayout().paintRectPixels(writer.resolution())
-    p.translate(area.x(),area.y());p.scale(area.width()/W,area.height()/H);draw_menu(p,source,kind,target);p.end()
+    p.translate(area.x(),area.y())
+    if kind=="special":
+        scale=area.width()/W
+        p.scale(scale,scale);draw_menu(p,source,kind,target,canvas_height=height/scale)
+    else:
+        p.scale(area.width()/W,area.height()/H);draw_menu(p,source,kind,target)
+    p.end()
 

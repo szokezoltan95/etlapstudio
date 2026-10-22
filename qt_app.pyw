@@ -251,7 +251,6 @@ class SectionOrderDialog(QDialog):
             rows=QWidget();rows_layout=QVBoxLayout(rows);rows_layout.setContentsMargins(4,4,8,4);rows_layout.setSpacing(5)
             scroll.setWidget(rows);self.column_layouts[column]=rows_layout
             holder_layout.addWidget(title);holder_layout.addWidget(scroll,1);grid.addWidget(holder,0,column-1)
-        actions=QHBoxLayout();actions.addWidget(button("Automatikus elosztás",self.auto_distribute));actions.addStretch();layout.addLayout(actions)
         controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
         self.rebuild_sections()
@@ -296,12 +295,6 @@ class SectionOrderDialog(QDialog):
     def open_dish_order(self,category):
         dialog=SectionDishOrderDialog(self,category,self.dishes_by_category.get(category,[]),self.dish_order.get(category,[]))
         if dialog.exec()==QDialog.DialogCode.Accepted:self.dish_order[category]=dialog.ordered_ids()
-
-    def auto_distribute(self):
-        categories=self.ordered_categories()
-        self.section_columns={1:[],2:[]}
-        for index,category in enumerate(categories):self.section_columns[index%2+1].append(category)
-        self.rebuild_sections()
 
     def section_layout(self):return {str(column):list(self.section_columns[column]) for column in (1,2)}
 

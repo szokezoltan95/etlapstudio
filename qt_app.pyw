@@ -4,6 +4,12 @@ import sqlite3
 import json
 import csv
 import sys
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+from urllib.request import Request, urlopen
 from datetime import date, timedelta
 from pathlib import Path
 from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve, QSize
@@ -22,6 +28,8 @@ from menu_render import A4_WIDTH_PT, EXPORT_HEIGHT, EXPORT_WIDTH, H, W, asset_fi
 from themes import load_themes, import_theme, import_theme_images
 
 BASE=Path(__file__).resolve().parent
+APP_VERSION="1.0.2"
+GITHUB_LATEST_RELEASE="https://api.github.com/repos/szokezoltan95/etlapstudio/releases/latest"
 TEXT_STYLES=[
     ("header_title","Étterem neve · fejléc-adatmező","Segoe UI",11,"title"),
     ("header_date","Dátum a napi / heti panelben","Segoe UI",16,"special"),
@@ -432,10 +440,10 @@ class MainWindow(QMainWindow):
                                  "facebook_url":self.store.setting("facebook_url","facebook.com/megyehazaetteremmiskolc"),
                                  "note":self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"),
                                  "daily_menu_price":self.store.setting("daily_menu_price","2800")})
-        if self.store.setting("facebook_url") in {
-            "https://facebook.com/itcetterem", "https://facebook.com/ittetterem",
-            "https://www.facebook.com/share/1GQgCcNJXE/"
-        }:
+        old_facebook=(self.store.setting("facebook_url","") or "").strip().lower()
+        old_facebook=old_facebook.removeprefix("https://").removeprefix("http://").removeprefix("www.").rstrip("/")
+        if old_facebook in {"itcetterem","ittetterem","facebook.com/itcetterem","facebook.com/ittetterem",
+                            "facebook.com/share/1gqgcnjxe"}:
             self.store.set_settings({"facebook_url":"facebook.com/megyehazaetteremmiskolc"})
         if self.store.setting("guide_layout_version","0")!="9":
             layout_defaults={"guide_layout_version":"9"}
@@ -637,32 +645,26 @@ class MainWindow(QMainWindow):
         day_key=self.current_day().isoformat()
         order_key="daily_section_order_"+day_key;layout_key="daily_section_layout_"+day_key
         dish_order_key="daily_dish_order_"+day_key
-        priority_key="dish_order_priorities"
         try:order=json.loads(self.store.setting(order_key,""))
         except (TypeError,ValueError):order=categories
         try:layout_by_column=json.loads(self.store.setting(layout_key,""))
         except (TypeError,ValueError):layout_by_column=None
         try:dish_order=json.loads(self.store.setting(dish_order_key,""))
         except (TypeError,ValueError):dish_order={}
-        try:priorities=json.loads(self.store.setting(priority_key,""))
-        except (TypeError,ValueError):priorities={}
-        if not isinstance(priorities,dict):priorities={}
         catalog=self.store.db.execute(
-            "SELECT id,name,category FROM dishes ORDER BY name COLLATE HUNGARIAN,id").fetchall()
+            "SELECT id,name,category,priority FROM dishes ORDER BY name COLLATE HUNGARIAN,id").fetchall()
         catalog_by_category={category:[] for category in categories}
         for dish in catalog:
             if dish["category"] in catalog_by_category:catalog_by_category[dish["category"]].append(dish)
-        def priority_order(rows,codes):
+        def priority_order(rows):
             def rank(pair):
-                try:return int(codes[str(pair[1]["id"])])
-                except (KeyError,TypeError,ValueError):return 1_000_000_000+pair[0]
+                try:code=int(pair[1]["priority"] or 0)
+                except (KeyError,TypeError,ValueError):code=0
+                return (code if code>0 else 1_000_000_000+pair[0])
             return [row for _,row in sorted(enumerate(rows),key=rank)]
         if not dish_order:
-            dish_order={}
-            for category,rows in catalog_by_category.items():
-                codes=priorities.get(category,{})
-                codes=codes if isinstance(codes,dict) else {}
-                dish_order[category]=[row["id"] for row in priority_order(rows,codes)]
+            dish_order={category:[row["id"] for row in priority_order(rows)]
+                        for category,rows in catalog_by_category.items()}
         dialog=SectionOrderDialog(self,categories,order,layout_by_column,
                                   self.store.selection(self.current_day()),dish_order)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
@@ -670,18 +672,17 @@ class MainWindow(QMainWindow):
         visible_orders=dialog.dish_orders()
         for category,rows in catalog_by_category.items():
             visible=[int(value) for value in visible_orders.get(category,[]) if value is not None]
-            codes=priorities.get(category,{})
-            codes=codes if isinstance(codes,dict) else {}
-            base_order=[row["id"] for row in priority_order(rows,codes)]
+            base_order=[row["id"] for row in priority_order(rows)]
             if visible:
                 visible_set=set(visible)
                 slots=[index for index,dish_id in enumerate(base_order) if dish_id in visible_set]
                 for index,dish_id in zip(slots,visible):base_order[index]=dish_id
-            priorities[category]={str(dish_id):(index+1)*1000 for index,dish_id in enumerate(base_order)}
+            with self.store.db:
+                self.store.db.executemany("UPDATE dishes SET priority=? WHERE id=?",
+                    [((index+1)*1000,dish_id) for index,dish_id in enumerate(base_order)])
         self.store.set_settings({layout_key:json.dumps(layout,ensure_ascii=False),
                                  order_key:json.dumps(ordered,ensure_ascii=False),
-                                 dish_order_key:json.dumps(visible_orders,ensure_ascii=False),
-                                 priority_key:json.dumps(priorities,ensure_ascii=False)})
+                                 dish_order_key:json.dumps(visible_orders,ensure_ascii=False)})
         self.preview_archive=None;self.schedule_preview()
 
     def choose_category(self,category):
@@ -1007,8 +1008,10 @@ class MainWindow(QMainWindow):
         dishes_action.triggered.connect(lambda:self.database_manager(1));self.menuBar().addAction(dishes_action)
         data_action=QAction("Adatok",self)
         data_action.triggered.connect(lambda:self.database_manager(2));self.menuBar().addAction(data_action)
-        help_menu=self.menuBar().addMenu("Súgó")
-        action=help_menu.addAction("Névjegy…");action.triggered.connect(self.about_dialog)
+        program_menu=self.menuBar().addMenu("Program")
+        action=program_menu.addAction("Frissítések keresése…");action.triggered.connect(self.check_for_updates)
+        program_menu.addSeparator()
+        action=program_menu.addAction("Névjegy…");action.triggered.connect(self.about_dialog)
 
     def open_archive_window(self):
         self.refresh_archive();self.archive_dialog.show();self.archive_dialog.raise_();self.archive_dialog.activateWindow()
@@ -1026,10 +1029,65 @@ class MainWindow(QMainWindow):
                 if row and row["kind"]==self.preview_archive[1] and row["menu_date"]==archived_day.isoformat():self.preview_archive=None
             self.store.delete_saved_menu(menu_id);self.refresh_archive();self.schedule_preview()
 
+    def check_for_updates(self):
+        if sys.platform!="win32" or not getattr(sys,"frozen",False):
+            QMessageBox.information(self,APP_NAME,"Az automatikus frissítés a telepített Windows-verzióban érhető el.")
+            return
+        try:
+            request=Request(GITHUB_LATEST_RELEASE,headers={"Accept":"application/vnd.github+json",
+                                                          "User-Agent":"EtlapStudio-Updater"})
+            with urlopen(request,timeout=15) as response:release=json.loads(response.read().decode("utf-8"))
+            latest=str(release.get("tag_name","")).removeprefix("v")
+            parse_version=lambda value:tuple(int(part) for part in value.split(".") if part.isdigit())
+            if not latest or parse_version(latest)<=parse_version(APP_VERSION):
+                QMessageBox.information(self,APP_NAME,f"A program naprakész (v{APP_VERSION}).")
+                return
+            asset=next((item for item in release.get("assets",[])
+                        if item.get("name")==f"EtlapStudio-Setup-{latest}.exe"),None)
+            if not asset or not str(asset.get("browser_download_url","")).startswith(
+                    "https://github.com/szokezoltan95/etlapstudio/releases/download/"):
+                QMessageBox.warning(self,APP_NAME,"Ehhez a verzióhoz nem található biztonságos Windows-telepítő.")
+                return
+        except Exception as exc:
+            QMessageBox.warning(self,APP_NAME,"Nem sikerült ellenőrizni a frissítéseket. Ellenőrizd az internetkapcsolatot.\n\n"+str(exc))
+            return
+        notes=str(release.get("body","")).strip()
+        message=f"Elérhető az ÉtlapStúdió v{latest} verziója (jelenlegi: v{APP_VERSION})."
+        if notes:message+="\n\n"+notes[:1800]
+        message+="\n\nA frissítés telepítéséhez a program bezárul. A helyi ételadatbázis és éttermi beállítások megmaradnak."
+        answer=QMessageBox.question(self,"Frissítés érhető el",message,
+                                    QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+                                    QMessageBox.StandardButton.Yes)
+        if answer!=QMessageBox.StandardButton.Yes:return
+        helper_source=Path(getattr(sys,"_MEIPASS",BASE))/"EtlapStudioUpdater.exe"
+        if not helper_source.is_file():
+            QMessageBox.critical(self,APP_NAME,"A frissítőprogram hiányzik ebből a telepítésből. Telepítsd kézzel a legújabb verziót.")
+            return
+        update_dir=Path(tempfile.mkdtemp(prefix="EtlapStudio-Update-"))
+        helper_copy=update_dir/"EtlapStudioUpdater.exe";ready=update_dir/"ready"
+        try:
+            shutil.copy2(helper_source,helper_copy)
+            flags=(getattr(subprocess,"DETACHED_PROCESS",0)|getattr(subprocess,"CREATE_NEW_PROCESS_GROUP",0)|
+                   getattr(subprocess,"CREATE_NO_WINDOW",0))
+            process=subprocess.Popen([str(helper_copy),asset["browser_download_url"],str(os.getpid()),
+                                      str(Path(sys.executable).resolve().parent),str(Path(sys.executable).resolve()),
+                                      str(ready)],cwd=str(update_dir),creationflags=flags,close_fds=True)
+            deadline=time.monotonic()+12
+            while time.monotonic()<deadline and not ready.exists() and process.poll() is None:
+                time.sleep(0.05)
+            if not ready.exists():
+                if process.poll() is None:process.terminate()
+                raise RuntimeError("A frissítő nem tudott biztonságos várakozást indítani.")
+        except Exception as exc:
+            QMessageBox.critical(self,APP_NAME,"Nem sikerült elindítani a frissítést; a program nem zárult be.\n\n"+str(exc))
+            return
+        QMessageBox.information(self,APP_NAME,"A program bezárul, ezután a telepítő megvárja a teljes leállást, majd telepíti a frissítést.\n\nKérjük, várj az újraindulásig.")
+        QApplication.quit()
+
     def about_dialog(self):
         dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(760,760)
         layout=QVBoxLayout(dialog)
-        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> 1.0.1<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
+        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> {APP_VERSION}<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
         heading.setOpenExternalLinks(True);layout.addWidget(heading)
         license_text=QTextEdit();license_text.setReadOnly(True);license_text.setPlainText(MIT_LICENSE_TEXT);layout.addWidget(license_text,1)
         note=QLabel("A külső függőségek, betűkészletek és külön licencű mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek.");note.setWordWrap(True);layout.addWidget(note)
@@ -1853,7 +1911,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv);app.setApplicationName(APP_NAME)
-    app.setApplicationVersion("1.0.2")
+    app.setApplicationVersion(APP_VERSION)
     app.setWindowIcon(QIcon(str(app_asset("megyehaza_emblem.png"))))
     palette=QPalette()
     palette.setColor(QPalette.ColorRole.Window,QColor("#f8f3eb"));palette.setColor(QPalette.ColorRole.WindowText,QColor("#362f2b"))

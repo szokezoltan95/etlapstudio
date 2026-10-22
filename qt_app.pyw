@@ -600,12 +600,14 @@ class MainWindow(QMainWindow):
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
-        order_row=QHBoxLayout();order_row.setSpacing(7)
-        self.section_order_button=button("Szekciók rendezése…",self.edit_daily_section_order)
-        order_row.addStretch();order_row.addWidget(self.section_order_button);box.addLayout(order_row)
         self.copy_previous_button=button("Legutóbbi kész étlap másolása",self.copy_previous_daily_menu)
+        self.section_order_button=button("Ételek sorrendjének módosítása…",self.edit_daily_section_order)
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
-        action_row=QHBoxLayout();action_row.addWidget(self.copy_previous_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
+        action_row=QHBoxLayout();action_row.setSpacing(8)
+        action_row.addWidget(self.copy_previous_button,2)
+        action_row.addWidget(self.section_order_button,2)
+        action_row.addWidget(self.clear_daily_button,1)
+        box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
 
     def edit_daily_section_order(self):

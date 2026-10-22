@@ -887,6 +887,21 @@ class MainWindow(QMainWindow):
         self.special_title_edit.textChanged.connect(self.special_changed)
         self.special_show_title.toggled.connect(self.special_title_edit.setEnabled);self.special_show_title.toggled.connect(self.special_changed)
         row.addWidget(self.special_show_title);row.addWidget(self.special_title_edit,1);box.addLayout(row)
+        header_row=QHBoxLayout();header_row.addWidget(QLabel("Fejléc elrendezése"))
+        self.special_header_mode=QComboBox()
+        for label,mode,tip in (
+            ("Teljes fejléc","full","Logó, címsor, dátum és éttermi elérhetőségek."),
+            ("Fejléc nélkül","none","Csak a szöveges panel jelenik meg."),
+            ("Összevont panelek","merged","A logó és címsor a szöveggel egy közös panelbe kerül."),
+            ("Középre tett logó","logo","Csak a logó jelenik meg középen, cím és kontaktadatok nélkül."),
+        ):
+            self.special_header_mode.addItem(label,mode)
+            self.special_header_mode.setItemData(self.special_header_mode.count()-1,tip,Qt.ItemDataRole.ToolTipRole)
+        saved_header_mode=self.store.setting("special_header_mode","full")
+        header_index=self.special_header_mode.findData(saved_header_mode)
+        self.special_header_mode.setCurrentIndex(header_index if header_index>=0 else 0)
+        self.special_header_mode.currentIndexChanged.connect(self.special_changed)
+        header_row.addWidget(self.special_header_mode);header_row.addStretch();box.addLayout(header_row)
         footer_row=QHBoxLayout();self.special_show_footer=QCheckBox("Lábjegyzet megjelenítése")
         self.special_show_footer.setChecked(self.store.setting("special_show_footer","1")=="1")
         self.special_footer_note=QLineEdit(self.store.setting("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!")))
@@ -940,7 +955,8 @@ class MainWindow(QMainWindow):
             "special_show_title":"1" if self.special_show_title.isChecked() else "0",
             "special_show_date":"1" if self.special_show_date.isChecked() else "0",
             "special_show_footer":"1" if self.special_show_footer.isChecked() else "0",
-            "special_footer_note":self.special_footer_note.text().strip()})
+            "special_footer_note":self.special_footer_note.text().strip(),
+            "special_header_mode":str(self.special_header_mode.currentData() or "full")})
         self.preview_archive=None;self.schedule_preview()
 
     def special_apply_size_preset(self,index):
@@ -1532,11 +1548,16 @@ class MainWindow(QMainWindow):
             settings["special_footer_note"]=values.get("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"))
             settings["special_canvas_width"]=values.get("special_canvas_width",self.store.setting("special_canvas_width","1240"))
             settings["special_canvas_height"]=values.get("special_canvas_height",self.store.setting("special_canvas_height","1754"))
+            settings["special_header_mode"]=values.get("special_header_mode","full")
             self.store.set_settings(settings)
             self.special_title_edit.blockSignals(True);self.special_title_edit.setText(values.get("special_title",""));self.special_title_edit.blockSignals(False)
             self.special_show_title.setChecked(values.get("special_show_title","0")=="1")
             self.special_show_date.setChecked(values.get("special_show_date","0")=="1")
             self.special_show_footer.setChecked(values.get("special_show_footer","1")=="1")
+            self.special_header_mode.blockSignals(True)
+            header_index=self.special_header_mode.findData(values.get("special_header_mode","full"))
+            self.special_header_mode.setCurrentIndex(header_index if header_index>=0 else 0)
+            self.special_header_mode.blockSignals(False)
             self.special_footer_note.setText(values.get("special_footer_note",self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!")))
             self.special_text.blockSignals(True);self.special_text.setHtml(values.get("special_html",""));self.special_text.blockSignals(False)
             self._updating_special_size=True

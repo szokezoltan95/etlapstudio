@@ -1565,6 +1565,7 @@ class MainWindow(QMainWindow):
             self.special_size_height.setValue(int(settings["special_canvas_height"] or "1754"))
             self._updating_special_size=False
             self.special_size_changed()
+            self.special_changed()
             self.schedule_preview()
         else:self.tabs.setCurrentIndex(0);self.day.setDate(qdate(day))
 

@@ -341,7 +341,7 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
             p.drawImage(QRectF(box.x()+(box.width()-width)/2,box.y()+(box.height()-height)/2,width,height),image)
     if kind=="special" and header_mode in ("merged","logo"):
         title=(setting(source,"special_title","") or "").strip()
-        cursor=190
+        cursor=208
         if setting(source,"special_show_title","0")=="1" and title:
             title_size=style_size(source,"daily_title",22)
             title_width=QFontMetricsF(font(source,"daily_title",title_size,True)).horizontalAdvance(title)
@@ -452,7 +452,7 @@ def draw_menu(p,source,kind,target,canvas_height=None):
     else:
         if header_mode=="none":top=52
         elif header_mode in ("merged","logo"):
-            top=190
+            top=208
             if setting(source,"special_show_title","0")=="1" and (setting(source,"special_title","") or "").strip():
                 top+=46
             if setting(source,"special_show_date","0")=="1":top+=36

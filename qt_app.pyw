@@ -4,9 +4,15 @@ import sqlite3
 import json
 import csv
 import sys
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+from urllib.request import Request, urlopen
 from datetime import date, timedelta
 from pathlib import Path
-from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve, QSize
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
@@ -17,11 +23,13 @@ from PyQt6.QtWidgets import (
     QVBoxLayout, QWidget, QDoubleSpinBox, QGraphicsDropShadowEffect, QSpinBox, QSlider, QSplashScreen,
 )
 from menu_core import (APP_NAME, ArchivedMenu, CATEGORIES, WEEKDAYS, Store,
-                       data_dir, display_date, monday, price)
+                       data_dir, default_daily_section_columns, display_date, monday, price)
 from menu_render import A4_WIDTH_PT, EXPORT_HEIGHT, EXPORT_WIDTH, H, W, asset_file, export_pdf, export_png, render_image
 from themes import load_themes, import_theme, import_theme_images
+from version import APP_VERSION
 
 BASE=Path(__file__).resolve().parent
+GITHUB_LATEST_RELEASE="https://api.github.com/repos/szokezoltan95/etlapstudio/releases/latest"
 TEXT_STYLES=[
     ("header_title","Étterem neve · fejléc-adatmező","Segoe UI",11,"title"),
     ("header_date","Dátum a napi / heti panelben","Segoe UI",16,"special"),
@@ -32,7 +40,7 @@ TEXT_STYLES=[
     ("menu_price_label","Napi menü árának címkéje","Segoe UI",12,"special"),
     ("menu_price_value","Napi menü ára","Candara",20,"title"),
     ("category_title","À la carte kategóriacímek","Candara",14,"heading"),
-    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",12.5,"dish"),
+    ("dish_name","À la carte ételnevek · maximális méret","Segoe UI",14.5,"dish"),
     ("dish_price","À la carte normál árak","Segoe UI",12.5,"dish"),
     ("promo_old_price","Akciós étel régi ára","Segoe UI",7,"dish"),
     ("promo_new_price","Akciós étel új ára","Segoe UI",12.5,"dish"),
@@ -79,6 +87,36 @@ def app_asset(name):
 
 def button(label,callback):
     b=QPushButton(label);b.clicked.connect(callback);return b
+
+
+def two_way_arrow_icon():
+    pixmap=QPixmap(20,16);pixmap.fill(Qt.GlobalColor.transparent)
+    painter=QPainter(pixmap);painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor("#34483d"),2,Qt.PenStyle.SolidLine,Qt.PenCapStyle.RoundCap,Qt.PenJoinStyle.RoundJoin))
+    painter.drawLine(3,8,17,8)
+    painter.drawLine(3,8,7,4);painter.drawLine(3,8,7,12)
+    painter.drawLine(17,8,13,4);painter.drawLine(17,8,13,12)
+    painter.end()
+    return QIcon(pixmap)
+
+
+class OrderRow(QFrame):
+    """Whole flat order row responds to hover while keeping a recent-move tint."""
+    def __init__(self,recent=False):
+        super().__init__();self.setObjectName("orderRow");self.recent=recent;self.hovered=False
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover,True);self.setMouseTracking(True);self.apply_style()
+
+    def apply_style(self):
+        if self.recent:background,border=("#ffedb8","#c9a347") if self.hovered else ("#fff4d6","#c9a347")
+        elif self.hovered:background,border="#f0f6f1","#83a88c"
+        else:background,border="#ffffff","#e2d9ce"
+        self.setStyleSheet(f"QFrame#orderRow {{ background:{background}; border:1px solid {border}; border-radius:5px; }}")
+
+    def enterEvent(self,event):
+        self.hovered=True;self.apply_style();super().enterEvent(event)
+
+    def leaveEvent(self,event):
+        self.hovered=False;self.apply_style();super().leaveEvent(event)
 
 
 def price_edit(value=0):
@@ -138,26 +176,140 @@ class PromotionDialog(QDialog):
         self.accept()
 
 
-class SectionOrderDialog(QDialog):
-    def __init__(self,parent,categories,order):
-        super().__init__(parent);self.setWindowTitle("Szekciók sorrendje")
-        self.setMinimumSize(360,430)
+class SectionDishOrderDialog(QDialog):
+    """Arrow-only dish ordering for one section; changes stay in the parent dialog."""
+    def __init__(self,parent,category,dishes,initial_order):
+        super().__init__(parent);self.setWindowTitle(f"{category} · ételsorrend")
+        self.resize(540,600);self.category=category;self.last_moved_id=None
+        by_id={str(dish["id"]):dish for dish in dishes}
+        requested=[str(value) for value in initial_order]
+        self.items=[by_id.pop(key) for key in requested if key in by_id]
+        self.items.extend(sorted(by_id.values(),key=lambda dish:str(dish["name"]).casefold()))
         layout=QVBoxLayout(self)
-        hint=QLabel("Húzd a szekciókat a kívánt sorrendbe. Ez csak a kiválasztott nap étlapjára érvényes.")
+        hint=QLabel("Az ételek sorrendjét a sorok melletti nyilakkal állíthatod be.")
         hint.setWordWrap(True);layout.addWidget(hint)
-        self.items=QListWidget();self.items.setDragDropMode(QListWidget.DragDropMode.InternalMove)
-        self.items.setDefaultDropAction(Qt.DropAction.MoveAction)
-        self.items.setToolTip("Fogd meg és húzd a szekciókat az új sorrendhez.")
-        for category in order:
-            if category in categories:self.items.addItem(category)
-        for category in categories:
-            if category not in order:self.items.addItem(category)
-        layout.addWidget(self.items,1)
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        self.scroll=QScrollArea();self.scroll.setWidgetResizable(True)
+        self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.rows=QWidget();self.rows_layout=QVBoxLayout(self.rows);self.rows_layout.setContentsMargins(4,4,8,4);self.rows_layout.setSpacing(4)
+        self.scroll.setWidget(self.rows);layout.addWidget(self.scroll,1);self.rebuild_rows()
+        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
 
-    def ordered_categories(self):
-        return [self.items.item(i).text() for i in range(self.items.count())]
+    def rebuild_rows(self):
+        while self.rows_layout.count():
+            item=self.rows_layout.takeAt(0);widget=item.widget()
+            if widget:widget.deleteLater()
+        for index,dish in enumerate(self.items):
+            row=OrderRow(recent=str(dish["id"])==str(self.last_moved_id))
+            line=QHBoxLayout(row);line.setContentsMargins(10,3,5,3)
+            label=QLabel(str(dish["name"]));label.setMinimumWidth(0);line.addWidget(label,1)
+            up=QPushButton("↑");down=QPushButton("↓")
+            for control in (up,down):
+                control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            up.setEnabled(index>0);down.setEnabled(index<len(self.items)-1)
+            up.clicked.connect(lambda _=False,i=index:self.move_item(i,-1))
+            down.clicked.connect(lambda _=False,i=index:self.move_item(i,1))
+            line.addWidget(up);line.addWidget(down);self.rows_layout.addWidget(row)
+        self.rows_layout.addStretch(1)
+
+    def move_item(self,index,direction):
+        target=index+direction
+        if not 0<=target<len(self.items):return
+        self.items[index],self.items[target]=self.items[target],self.items[index]
+        self.last_moved_id=self.items[target]["id"]
+        self.rebuild_rows()
+
+    def ordered_ids(self):return [dish["id"] for dish in self.items]
+
+
+class SectionOrderDialog(QDialog):
+    def __init__(self,parent,categories,order,layout_by_column,dishes,dish_order):
+        super().__init__(parent);self.setWindowTitle("Napi étlap · szekciók rendezése")
+        self.setMinimumSize(850,560);self.resize(1050,650)
+        layout=QVBoxLayout(self)
+        hint=QLabel("A szekciókat a fel/le nyilakkal rendezheted. Az „Ételek rendezése…” külön ablakban nyitja meg az adott szekció ételsorrendjét.")
+        hint.setWordWrap(True);layout.addWidget(hint)
+        ordered=[category for category in order if category in categories]
+        ordered += [category for category in categories if category not in ordered]
+        self.section_columns={1:[],2:[]};assigned=set();legacy_third=[]
+        if isinstance(layout_by_column,dict):
+            for column in (1,2,3):
+                values=layout_by_column.get(str(column),layout_by_column.get(column,[]))
+                if isinstance(values,list):
+                    for category in values:
+                        if category in categories and category not in assigned:
+                            (legacy_third if column==3 else self.section_columns[column]).append(category);assigned.add(category)
+        if not assigned:self.section_columns=default_daily_section_columns(categories,dishes)
+        else:
+            for category in ordered:
+                if category not in assigned:self.section_columns[1].append(category)
+            for category in legacy_third:
+                target=1 if len(self.section_columns[1])<=len(self.section_columns[2]) else 2
+                self.section_columns[target].append(category)
+        self.dishes_by_category={category:[] for category in categories}
+        for dish in dishes:
+            if dish["category"] in self.dishes_by_category:self.dishes_by_category[dish["category"]].append(dish)
+        self.dish_order={category:list(dish_order.get(category,[])) for category in categories} if isinstance(dish_order,dict) else {category:[] for category in categories}
+        self.last_moved_category=None
+        self.column_layouts={}
+        grid=QGridLayout();grid.setHorizontalSpacing(12);layout.addLayout(grid,1)
+        for column in (1,2):
+            holder=QWidget();holder_layout=QVBoxLayout(holder);holder_layout.setContentsMargins(0,0,0,0)
+            title=QLabel(f"{column}. oszlop");title.setStyleSheet("font-weight:700;color:#285943")
+            scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            rows=QWidget();rows_layout=QVBoxLayout(rows);rows_layout.setContentsMargins(4,4,8,4);rows_layout.setSpacing(5)
+            scroll.setWidget(rows);self.column_layouts[column]=rows_layout
+            holder_layout.addWidget(title);holder_layout.addWidget(scroll,1);grid.addWidget(holder,0,column-1)
+        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
+        controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
+        self.rebuild_sections()
+
+    def rebuild_sections(self):
+        for column,row_layout in self.column_layouts.items():
+            while row_layout.count():
+                item=row_layout.takeAt(0);widget=item.widget()
+                if widget:widget.deleteLater()
+            for index,category in enumerate(self.section_columns[column]):
+                row=OrderRow(recent=category==self.last_moved_category)
+                line=QHBoxLayout(row);line.setContentsMargins(9,4,5,4)
+                label=QLabel(category);label.setMinimumWidth(0);line.addWidget(label,1)
+                up=QPushButton("↑");down=QPushButton("↓");transfer=QPushButton("→" if column==1 else "←")
+                for control in (up,down,transfer):
+                    control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                transfer.setText("");transfer.setIcon(two_way_arrow_icon());transfer.setIconSize(QSize(20,16))
+                up.setEnabled(index>0);down.setEnabled(index<len(self.section_columns[column])-1)
+                transfer.setToolTip(f"Áthelyezés a {2 if column==1 else 1}. oszlopba")
+                up.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,-1))
+                down.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,1))
+                transfer.clicked.connect(lambda _=False,c=category,target=2 if column==1 else 1:self.move_section_to(c,target))
+                dishes=QPushButton("Ételek rendezése…");dishes.clicked.connect(lambda _=False,c=category:self.open_dish_order(c))
+                line.addWidget(up);line.addWidget(down);line.addWidget(transfer);line.addWidget(dishes);row_layout.addWidget(row)
+            row_layout.addStretch(1)
+
+    def move_section(self,column,index,direction):
+        target=index+direction
+        if not 0<=target<len(self.section_columns[column]):return
+        values=self.section_columns[column];values[index],values[target]=values[target],values[index]
+        self.last_moved_category=values[target]
+        self.rebuild_sections()
+
+    def move_section_to(self,category,target_column):
+        source_column=next((column for column in (1,2) if category in self.section_columns[column]),None)
+        if source_column is None or source_column==target_column:return
+        self.section_columns[source_column].remove(category)
+        self.section_columns[target_column].append(category)
+        self.last_moved_category=category
+        self.rebuild_sections()
+
+    def open_dish_order(self,category):
+        dialog=SectionDishOrderDialog(self,category,self.dishes_by_category.get(category,[]),self.dish_order.get(category,[]))
+        if dialog.exec()==QDialog.DialogCode.Accepted:self.dish_order[category]=dialog.ordered_ids()
+
+    def section_layout(self):return {str(column):list(self.section_columns[column]) for column in (1,2)}
+
+    def ordered_categories(self):return self.section_columns[1]+self.section_columns[2]
+
+    def dish_orders(self):return {category:list(values) for category,values in self.dish_order.items()}
 
 
 class DailyDishDialog(QDialog):
@@ -285,13 +437,16 @@ class MainWindow(QMainWindow):
         self.store.set_settings({"restaurant_name":self.store.setting("restaurant_name","Megyeháza Étterem"),
                                  "address":self.store.setting("address","Miskolc, Városház tér 1."),
                                  "phone":self.store.setting("phone","+36 30 / 513 2605"),
-                                 "facebook_url":self.store.setting("facebook_url","https://facebook.com/itcetterem"),
+                                 "facebook_url":self.store.setting("facebook_url","facebook.com/megyehazaetteremmiskolc"),
                                  "note":self.store.setting("note","Az étlapváltoztatás jogát fenntartjuk!"),
                                  "daily_menu_price":self.store.setting("daily_menu_price","2800")})
-        if self.store.setting("facebook_url")=="https://facebook.com/ittetterem":
-            self.store.set_settings({"facebook_url":"https://facebook.com/itcetterem"})
-        if self.store.setting("guide_layout_version","0")!="8":
-            layout_defaults={"guide_layout_version":"8"}
+        old_facebook=(self.store.setting("facebook_url","") or "").strip().lower()
+        old_facebook=old_facebook.removeprefix("https://").removeprefix("http://").removeprefix("www.").rstrip("/")
+        if old_facebook in {"itcetterem","ittetterem","facebook.com/itcetterem","facebook.com/ittetterem",
+                            "facebook.com/share/1gqgcnjxe"}:
+            self.store.set_settings({"facebook_url":"facebook.com/megyehazaetteremmiskolc"})
+        if self.store.setting("guide_layout_version","0")!="9":
+            layout_defaults={"guide_layout_version":"9"}
             for key,value in {"guide_daily_header":"205","guide_daily_menu_end":"438",
                               "guide_weekly_header":"205","guide_weekly_days":"330"}.items():
                 if self.store.setting(key) is None:layout_defaults[key]=value
@@ -300,9 +455,13 @@ class MainWindow(QMainWindow):
                                  ("menu_price_label","7.5","12"),("menu_price_value","15","20"),
                                  ("weekday_title","13","16"),("weekly_label","10.5","15"),
                                  ("weekly_value","13","15"),("promo_new_price","8","12.5"),
+                                 ("dish_name","12.5","14.5"),
                                  ("footer_note","7","10")):
                 if self.store.setting("font_size_"+role)==old:
                     layout_defaults["font_size_"+role]=new
+            for kind in ("daily","weekly","special"):
+                key=kind+"_font_size_dish_name"
+                if self.store.setting(key)=="12.5":layout_defaults[key]="14.5"
             if self.store.setting("font_size_header_title")=="19.5":
                 layout_defaults["font_size_header_title"]="11"
                 if self.store.setting("font_header_title")=="Georgia":
@@ -471,38 +630,60 @@ class MainWindow(QMainWindow):
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
-        order_row=QHBoxLayout();order_row.setSpacing(7)
-        order_row.addWidget(QLabel("Sorrend a kész étlapon"))
-        self.menu_order=QComboBox();self.menu_order.addItem("Magyar ábécé szerint","name")
-        self.menu_order.addItem("Ár szerint növekvő","price_asc")
-        self.menu_order.addItem("Ár szerint csökkenő","price_desc")
-        saved_order=self.store.setting("daily_menu_sort","name")
-        saved_index=self.menu_order.findData(saved_order)
-        if saved_index>=0:self.menu_order.setCurrentIndex(saved_index)
-        self.menu_order.currentIndexChanged.connect(self.save_menu_order)
-        order_row.addWidget(self.menu_order,1)
-        self.section_order_button=button("Szekciók sorrendje…",self.edit_daily_section_order)
-        order_row.addWidget(self.section_order_button);box.addLayout(order_row)
         self.copy_previous_button=button("Legutóbbi kész étlap másolása",self.copy_previous_daily_menu)
+        self.section_order_button=button("Ételek sorrendjének módosítása…",self.edit_daily_section_order)
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
-        action_row=QHBoxLayout();action_row.addWidget(self.copy_previous_button,2);action_row.addWidget(self.clear_daily_button,1);box.addLayout(action_row)
+        action_row=QHBoxLayout();action_row.setSpacing(8)
+        action_row.addWidget(self.copy_previous_button,2)
+        action_row.addWidget(self.section_order_button,2)
+        action_row.addWidget(self.clear_daily_button,1)
+        box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
 
     def edit_daily_section_order(self):
         categories=[category for category in CATEGORIES if category!="Menü"]
-        key="daily_section_order_"+self.current_day().isoformat()
-        try:order=json.loads(self.store.setting(key,""))
+        day_key=self.current_day().isoformat()
+        order_key="daily_section_order_"+day_key;layout_key="daily_section_layout_"+day_key
+        dish_order_key="daily_dish_order_"+day_key
+        try:order=json.loads(self.store.setting(order_key,""))
         except (TypeError,ValueError):order=categories
-        dialog=SectionOrderDialog(self,categories,order)
+        try:layout_by_column=json.loads(self.store.setting(layout_key,""))
+        except (TypeError,ValueError):layout_by_column=None
+        try:dish_order=json.loads(self.store.setting(dish_order_key,""))
+        except (TypeError,ValueError):dish_order={}
+        catalog=self.store.db.execute(
+            "SELECT id,name,category,priority FROM dishes ORDER BY name COLLATE HUNGARIAN,id").fetchall()
+        catalog_by_category={category:[] for category in categories}
+        for dish in catalog:
+            if dish["category"] in catalog_by_category:catalog_by_category[dish["category"]].append(dish)
+        def priority_order(rows):
+            def rank(pair):
+                try:code=int(pair[1]["priority"] or 0)
+                except (KeyError,TypeError,ValueError):code=0
+                return (code if code>0 else 1_000_000_000+pair[0])
+            return [row for _,row in sorted(enumerate(rows),key=rank)]
+        if not dish_order:
+            dish_order={category:[row["id"] for row in priority_order(rows)]
+                        for category,rows in catalog_by_category.items()}
+        dialog=SectionOrderDialog(self,categories,order,layout_by_column,
+                                  self.store.selection(self.current_day()),dish_order)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
-        self.store.set_settings({key:json.dumps(dialog.ordered_categories(),ensure_ascii=False)})
+        layout=dialog.section_layout();ordered=dialog.ordered_categories()
+        visible_orders=dialog.dish_orders()
+        for category,rows in catalog_by_category.items():
+            visible=[int(value) for value in visible_orders.get(category,[]) if value is not None]
+            base_order=[row["id"] for row in priority_order(rows)]
+            if visible:
+                visible_set=set(visible)
+                slots=[index for index,dish_id in enumerate(base_order) if dish_id in visible_set]
+                for index,dish_id in zip(slots,visible):base_order[index]=dish_id
+            with self.store.db:
+                self.store.db.executemany("UPDATE dishes SET priority=? WHERE id=?",
+                    [((index+1)*1000,dish_id) for index,dish_id in enumerate(base_order)])
+        self.store.set_settings({layout_key:json.dumps(layout,ensure_ascii=False),
+                                 order_key:json.dumps(ordered,ensure_ascii=False),
+                                 dish_order_key:json.dumps(visible_orders,ensure_ascii=False)})
         self.preview_archive=None;self.schedule_preview()
-
-    def save_menu_order(self,*_):
-        if not hasattr(self,"menu_order"):return
-        self.store.set_settings({"daily_menu_sort":self.menu_order.currentData()})
-        self.preview_archive=None
-        self.schedule_preview()
 
     def choose_category(self,category):
         if hasattr(self,"category_filter"):
@@ -827,8 +1008,10 @@ class MainWindow(QMainWindow):
         dishes_action.triggered.connect(lambda:self.database_manager(1));self.menuBar().addAction(dishes_action)
         data_action=QAction("Adatok",self)
         data_action.triggered.connect(lambda:self.database_manager(2));self.menuBar().addAction(data_action)
-        help_menu=self.menuBar().addMenu("Súgó")
-        action=help_menu.addAction("Névjegy…");action.triggered.connect(self.about_dialog)
+        program_menu=self.menuBar().addMenu("Program")
+        action=program_menu.addAction("Frissítések keresése…");action.triggered.connect(self.check_for_updates)
+        program_menu.addSeparator()
+        action=program_menu.addAction("Névjegy…");action.triggered.connect(self.about_dialog)
 
     def open_archive_window(self):
         self.refresh_archive();self.archive_dialog.show();self.archive_dialog.raise_();self.archive_dialog.activateWindow()
@@ -846,10 +1029,65 @@ class MainWindow(QMainWindow):
                 if row and row["kind"]==self.preview_archive[1] and row["menu_date"]==archived_day.isoformat():self.preview_archive=None
             self.store.delete_saved_menu(menu_id);self.refresh_archive();self.schedule_preview()
 
+    def check_for_updates(self):
+        if sys.platform!="win32" or not getattr(sys,"frozen",False):
+            QMessageBox.information(self,APP_NAME,"Az automatikus frissítés a telepített Windows-verzióban érhető el.")
+            return
+        try:
+            request=Request(GITHUB_LATEST_RELEASE,headers={"Accept":"application/vnd.github+json",
+                                                          "User-Agent":"EtlapStudio-Updater"})
+            with urlopen(request,timeout=15) as response:release=json.loads(response.read().decode("utf-8"))
+            latest=str(release.get("tag_name","")).removeprefix("v")
+            parse_version=lambda value:tuple(int(part) for part in value.split(".") if part.isdigit())
+            if not latest or parse_version(latest)<=parse_version(APP_VERSION):
+                QMessageBox.information(self,APP_NAME,f"A program naprakész (v{APP_VERSION}).")
+                return
+            asset=next((item for item in release.get("assets",[])
+                        if item.get("name")==f"EtlapStudio-Setup-{latest}.exe"),None)
+            if not asset or not str(asset.get("browser_download_url","")).startswith(
+                    "https://github.com/szokezoltan95/etlapstudio/releases/download/"):
+                QMessageBox.warning(self,APP_NAME,"Ehhez a verzióhoz nem található biztonságos Windows-telepítő.")
+                return
+        except Exception as exc:
+            QMessageBox.warning(self,APP_NAME,"Nem sikerült ellenőrizni a frissítéseket. Ellenőrizd az internetkapcsolatot.\n\n"+str(exc))
+            return
+        notes=str(release.get("body","")).strip()
+        message=f"Elérhető az ÉtlapStúdió v{latest} verziója (jelenlegi: v{APP_VERSION})."
+        if notes:message+="\n\n"+notes[:1800]
+        message+="\n\nA frissítés telepítéséhez a program bezárul. A helyi ételadatbázis és éttermi beállítások megmaradnak."
+        answer=QMessageBox.question(self,"Frissítés érhető el",message,
+                                    QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+                                    QMessageBox.StandardButton.Yes)
+        if answer!=QMessageBox.StandardButton.Yes:return
+        helper_source=Path(getattr(sys,"_MEIPASS",BASE))/"EtlapStudioUpdater.exe"
+        if not helper_source.is_file():
+            QMessageBox.critical(self,APP_NAME,"A frissítőprogram hiányzik ebből a telepítésből. Telepítsd kézzel a legújabb verziót.")
+            return
+        update_dir=Path(tempfile.mkdtemp(prefix="EtlapStudio-Update-"))
+        helper_copy=update_dir/"EtlapStudioUpdater.exe";ready=update_dir/"ready"
+        try:
+            shutil.copy2(helper_source,helper_copy)
+            flags=(getattr(subprocess,"DETACHED_PROCESS",0)|getattr(subprocess,"CREATE_NEW_PROCESS_GROUP",0)|
+                   getattr(subprocess,"CREATE_NO_WINDOW",0))
+            process=subprocess.Popen([str(helper_copy),asset["browser_download_url"],str(os.getpid()),
+                                      str(Path(sys.executable).resolve().parent),str(Path(sys.executable).resolve()),
+                                      str(ready)],cwd=str(update_dir),creationflags=flags,close_fds=True)
+            deadline=time.monotonic()+12
+            while time.monotonic()<deadline and not ready.exists() and process.poll() is None:
+                time.sleep(0.05)
+            if not ready.exists():
+                if process.poll() is None:process.terminate()
+                raise RuntimeError("A frissítő nem tudott biztonságos várakozást indítani.")
+        except Exception as exc:
+            QMessageBox.critical(self,APP_NAME,"Nem sikerült elindítani a frissítést; a program nem zárult be.\n\n"+str(exc))
+            return
+        QMessageBox.information(self,APP_NAME,"A program bezárul, ezután a telepítő megvárja a teljes leállást, majd telepíti a frissítést.\n\nKérjük, várj az újraindulásig.")
+        self.close()
+
     def about_dialog(self):
         dialog=QDialog(self);dialog.setWindowTitle(f"Névjegy – {APP_NAME}");dialog.resize(760,760)
         layout=QVBoxLayout(dialog)
-        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> 1.0.1<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
+        heading=QLabel(f"<h2>{APP_NAME}</h2><p><b>Verzió:</b> {APP_VERSION}<br><b>Copyright:</b> © 2026 Szőke Zoltán<br><b>Cél:</b> A Megyeháza Étterem napi, heti és alkalmi étlapjainak szerkesztése, mentése és exportálása.</p><p><a href='https://github.com/szokezoltan95/etlapstudio'>GitHub-projektoldal</a> · Forráskód-licenc: MIT</p><hr><b>MIT licenc teljes szövege</b>")
         heading.setOpenExternalLinks(True);layout.addWidget(heading)
         license_text=QTextEdit();license_text.setReadOnly(True);license_text.setPlainText(MIT_LICENSE_TEXT);layout.addWidget(license_text,1)
         note=QLabel("A külső függőségek, betűkészletek és külön licencű mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek.");note.setWordWrap(True);layout.addWidget(note)
@@ -1139,7 +1377,7 @@ class MainWindow(QMainWindow):
             ("restaurant_name","Étterem neve","Megyeháza Étterem"),
             ("address","Cím","Miskolc, Városház tér 1."),
             ("phone","Telefonszám","+36 30 / 513 2605"),
-            ("facebook_url","Facebook link","https://facebook.com/itcetterem"),
+            ("facebook_url","Facebook link","facebook.com/megyehazaetteremmiskolc"),
             ("note","Alsó megjegyzés","Az étlapváltoztatás jogát fenntartjuk!"),
         )
         restaurant_fields={}
@@ -1331,7 +1569,7 @@ class MainWindow(QMainWindow):
                   "glass_color_mode":"white","glass_color":"#DDE7D8","glass_opacity":"80",
                   "background_path":"","leader":"none","theme_primary":"","theme_accent":"","font_size_unit":"pt_a4",
                   "font_title":"Candara","font_heading":"Candara","font_body":"Segoe UI","font_special":"Segoe UI","font_dish":"Segoe UI","advanced_typography":"0",
-                  "guide_layout_version":"8"}
+                  "guide_layout_version":"9"}
         for key,_,family,size,_legacy in TEXT_STYLES:
             defaults["font_"+key]=family;defaults["font_size_"+key]=str(size)
         for kind in ("daily","weekly","special"):
@@ -1673,7 +1911,7 @@ class MainWindow(QMainWindow):
 
 def main():
     app=QApplication(sys.argv);app.setApplicationName(APP_NAME)
-    app.setApplicationVersion("1.0.2")
+    app.setApplicationVersion(APP_VERSION)
     app.setWindowIcon(QIcon(str(app_asset("megyehaza_emblem.png"))))
     palette=QPalette()
     palette.setColor(QPalette.ColorRole.Window,QColor("#f8f3eb"));palette.setColor(QPalette.ColorRole.WindowText,QColor("#362f2b"))

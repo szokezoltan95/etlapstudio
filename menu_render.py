@@ -10,7 +10,8 @@ from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
                          QPageSize, QPdfWriter, QPainterPath, QPen, QTextDocument)
 from themes import HEX, load_themes
-from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, hungarian_sort_key, monday, price
+from menu_core import (CATEGORIES, WEEKDAYS, data_dir, default_daily_section_columns,
+                       display_date, hungarian_sort_key, monday, price)
 
 W=1440
 H=round(W*297/210)
@@ -98,6 +99,11 @@ def wrapped_lines(value,source,role,size,width,bold=False):
 def text_singleline(p,source,role,size,color,x,y,w,h,value,bold=False,align=Qt.AlignmentFlag.AlignLeft):
     p.setFont(font(source,role,size,bold));p.setPen(QColor(color))
     p.drawText(QRectF(x,y,w,h),align|Qt.AlignmentFlag.AlignVCenter,str(value))
+
+
+def category_heading_height(source,size):
+    metrics=QFontMetricsF(font(source,"category_title",size,True))
+    return max(size*1.3,metrics.height()+10)
 
 
 def _easter_sunday(year):
@@ -334,12 +340,12 @@ def draw_header(p,source,kind,target,primary,accent,dark,paper,decorated,glass_e
     name=setting(source,"restaurant_name","Megyeháza Étterem") or "Megyeháza Étterem"
     details=(setting(source,"address","Miskolc, Városház tér 1."),
              setting(source,"phone","+36 30 / 513 2605"),
-             setting(source,"facebook_url","https://www.facebook.com/share/1GQgCcNJXE/"))
+             setting(source,"facebook_url","facebook.com/megyehazaetteremmiskolc"))
     title=(setting(source,"special_title","") or "") if kind=="special" else ("Napi étlap" if kind=="daily" else "Heti menü")
     stamp=display_date(target) if kind in ("daily","special") else display_date(monday(target))+" – "+display_date(monday(target)+timedelta(days=4))
     title_size=style_size(source,"daily_title",22)
     if kind!="special" or setting(source,"special_show_title","0")=="1":
-        if title:text_singleline(p,source,"daily_title",title_size,primary,470,66,500,55,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        if title:text_singleline(p,source,"daily_title",title_size,primary,470,54,500,64,title,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     if kind!="special" or setting(source,"special_show_date","0")=="1":
         text_singleline(p,source,"header_date",style_size(source,"header_date",16),dark,470,122,500,42,stamp,True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     name_size=style_size(source,"header_title",11)
@@ -446,18 +452,26 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     except (TypeError,ValueError):menu_price=2800
     text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,1085,menu_y+58,260,34,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
     text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,1085,menu_y+92,260,58,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+    divider_height=60 if decorated else 0
+    divider_padding=8
     alacarte_shift=header_shift+menu_gap_shift
-    if decorated:divider(p,primary,accent,451+alacarte_shift,assets,target,60)
+    menu_panel_bottom=menu_y+205
+    divider_center=menu_panel_bottom+menu_gap_shift+divider_padding+divider_height/2
+    if decorated:divider(p,primary,accent,divider_center,assets,target,divider_height)
     dishes=sorted((dict(d) for d in source.selection(target)), key=lambda dish:hungarian_sort_key(dish["name"]))
+    # Local position after translating by alacarte_shift: panel + top padding,
+    # divider artwork, then bottom padding before the first category.
+    alacarte_top=220+205+divider_height+2*divider_padding
     if not dishes:
-        if glass_enabled:glass(p,QRectF(40,478+alacarte_shift,W-80,72),205,8,primary,source)
-        text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,494+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
-        return 550+alacarte_shift
+        if glass_enabled:glass(p,QRectF(40,alacarte_top+alacarte_shift,W-80,72),205,8,primary,source)
+        text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,alacarte_top+16+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)
+        return alacarte_top+72+alacarte_shift
     p.save();p.translate(0,alacarte_shift)
-    top=478
+    top=alacarte_top
     # Reserve a small gap above the footer and let the à la carte columns use
     # the remaining A4 height instead of stopping at the former fixed cutoff.
-    max_y=max(top+120,H-150-alacarte_shift)
+    footer_reserve=92 if (setting(source,"note") or "").strip() else 28
+    max_y=max(top+120,H-footer_reserve-alacarte_shift)
     section_categories=[category for category in CATEGORIES if category!="Menü"]
     try:
         requested_order=json.loads(setting(source,"daily_section_order_"+target.isoformat(),""))
@@ -465,7 +479,46 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     except (TypeError,ValueError):requested_order=[]
     section_categories=[category for category in requested_order if category in section_categories]+[
         category for category in section_categories if category not in requested_order]
-    dish_sort=setting(source,"daily_menu_sort","name")
+    manual_columns=None;category_column={}
+    try:
+        requested_layout=json.loads(setting(source,"daily_section_layout_"+target.isoformat(),""))
+        if isinstance(requested_layout,dict):
+            manual_columns={column:[] for column in (1,2)};legacy_third=[]
+            for column in (1,2,3):
+                values=requested_layout.get(str(column),requested_layout.get(column,[]))
+                if isinstance(values,list):
+                    for category in values:
+                        if category in section_categories and category not in category_column:
+                            if column==3:legacy_third.append(category)
+                            else:manual_columns[column].append(category);category_column[category]=column-1
+            for category in section_categories:
+                if category not in category_column:
+                    manual_columns[1].append(category);category_column[category]=0
+            for category in legacy_third:
+                column=1 if len(manual_columns[1])<=len(manual_columns[2]) else 2
+                manual_columns[column].append(category);category_column[category]=column-1
+            section_categories=[category for column in (1,2) for category in manual_columns[column]]
+        else:requested_layout=None
+    except (TypeError,ValueError):requested_layout=None
+    if requested_layout is None:
+        manual_columns=default_daily_section_columns(section_categories,dishes)
+        category_column={category:column-1 for column,values in manual_columns.items() for category in values}
+        section_categories=[category for column in (1,2) for category in manual_columns[column]]
+    try:
+        priority_codes=json.loads(setting(source,"dish_order_priorities",""))
+        if not isinstance(priority_codes,dict):priority_codes={}
+    except (TypeError,ValueError):priority_codes={}
+    saved_dish_order={}
+    for category,codes in priority_codes.items():
+        if not isinstance(codes,dict):continue
+        try:saved_dish_order[category]=[dish_id for dish_id,_ in sorted(codes.items(),key=lambda pair:int(pair[1]))]
+        except (TypeError,ValueError):continue
+    try:
+        day_dish_order=json.loads(setting(source,"daily_dish_order_"+target.isoformat(),""))
+        if isinstance(day_dish_order,dict):
+            saved_dish_order.update({category:order for category,order in day_dish_order.items()
+                                     if isinstance(order,list) and order})
+    except (TypeError,ValueError):pass
 
     def plan(size,columns):
         gap=16;column_width=(1360-gap*(columns-1))/columns
@@ -476,10 +529,13 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for category in section_categories:
             rows=[d for d in dishes if d["category"]==category]
             if not rows:continue
-            if dish_sort in ("price_asc","price_desc"):
-                rows.sort(key=lambda dish:int(dish.get("promo_price") if dish.get("promo_enabled") and dish.get("promo_price") is not None else dish.get("price",0)),
-                          reverse=dish_sort=="price_desc")
-            category_h=max(size*1.3,style_size(source,"category_title",14)*1.2)
+            requested_dishes=saved_dish_order.get(category,[])
+            if isinstance(requested_dishes,list) and requested_dishes:
+                requested_dishes=[str(value) for value in requested_dishes]
+                original_order={str(dish["id"]):index for index,dish in enumerate(rows)}
+                ranks={dish_id:index for index,dish_id in enumerate(requested_dishes)}
+                rows.sort(key=lambda dish:(ranks.get(str(dish["id"]),len(ranks)+original_order[str(dish["id"])])))
+            category_h=category_heading_height(source,style_size(source,"category_title",14))
             line_h=QFontMetricsF(font(source,"dish_name",size)).height()*1.05
             row_items=[]
             for dish in rows:
@@ -487,9 +543,14 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 row_h=max(line_h*len(lines)+size*.18,size*1.25)
                 row_items.append((dish,row_h))
             block_height=category_h+sum(row_h for _,row_h in row_items)
-            target_column=next((column for column in range(columns)
-                if column_heights[column]+(14 if column_sections[column] else 0)+block_height<=available_height),None)
-            if target_column is None:return None
+            if manual_columns is not None:
+                target_column=category_column.get(category,0)
+                if target_column>=columns:return None
+                if column_heights[target_column]+(14 if column_sections[target_column] else 0)+block_height>available_height:return None
+            else:
+                target_column=next((column for column in range(columns)
+                    if column_heights[column]+(14 if column_sections[column] else 0)+block_height<=available_height),None)
+                if target_column is None:return None
             section_gap=14 if column_sections[target_column] else 0
             column_sections[target_column].append((category,category_h,row_items,section_gap))
             column_heights[target_column]+=section_gap+block_height
@@ -502,9 +563,11 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 for dish,row_h in row_items:
                     result.append(("dish",column,y,dish,size,row_h));y+=row_h
         return result
-    chosen_columns=2;lo,hi=6.0,float(style_size(source,"dish_name",12.5))
-    if plan(8.0,2) is None:
-        chosen_columns=3;lo,hi=5.0,float(style_size(source,"dish_name",12.5))
+    requested_dish_size=float(style_size(source,"dish_name",14.5))
+    if manual_columns is not None:
+        chosen_columns=2;lo,hi=5.0,requested_dish_size
+    else:
+        chosen_columns=2;lo,hi=6.0,requested_dish_size
     for _ in range(24):
         mid=(lo+hi)/2
         if plan(mid,chosen_columns) is None:hi=mid
@@ -526,9 +589,9 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
         for col,sections in sections_by_column.items():
             x=col_x[col]
             for section in sections:
-                heading_height=max(section[0][4]*1.3,style_size(source,"category_title",14)*1.2)
+                heading_height=category_heading_height(source,style_size(source,"category_title",14))
                 start=section[0][2]+heading_height
-                end=max(item[2]+(max(item[4]*1.3,style_size(source,"category_title",14)*1.2)
+                end=max(item[2]+(category_heading_height(source,style_size(source,"category_title",14))
                                  if item[0]=="heading" else item[5]) for item in section)
                 if end>start:glass(p,QRectF(x-3,start,column_width+6,end-start),208,5,primary,source)
     for item in placements:
@@ -537,11 +600,11 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
             category_size=style_size(source,"category_title",14)
             heading_font=font(source,"category_title",category_size,True)
             heading_w=min(column_width-24,QFontMetricsF(heading_font).horizontalAdvance(value)+24)
-            heading_h=max(size*1.3,category_size*1.2)
+            heading_h=category_heading_height(source,category_size)
             heading_y=y
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(x-5,heading_y,heading_w+10,heading_h),7,7);p.restore()
             heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
-            text(p,source,"category_title",category_size,heading_text,x+10,heading_y+1,heading_w-20,heading_h-2,value,True,Qt.AlignmentFlag.AlignVCenter);continue
+            text(p,source,"category_title",category_size,heading_text,x+10,heading_y+4,heading_w-20,heading_h-8,value,True,Qt.AlignmentFlag.AlignVCenter);continue
         dish=value;row_h=rest[0];promo=bool(dish.get("promo_enabled") and dish.get("promo_price") is not None)
         price_width=column_width-name_width-16;price_x=x+name_width+8
         label_width=name_width-(62 if promo else 0)
@@ -595,7 +658,8 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 if mode=="dots":pen.setStyle(Qt.PenStyle.DotLine)
                 elif mode=="dashes":pen.setStyle(Qt.PenStyle.DashLine)
                 p.setPen(pen);p.drawLine(QPointF(leader_start,leader_y),QPointF(leader_end,leader_y))
-    content_end=max((item[2]+(item[4]*1.3 if item[0]=="heading" else item[5])
+    content_end=max((item[2]+(category_heading_height(source,style_size(source,"category_title",14))
+                              if item[0]=="heading" else item[5])
                      for item in placements),default=top)
     p.restore()
     return content_end+alacarte_shift

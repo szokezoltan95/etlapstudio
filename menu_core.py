@@ -12,6 +12,28 @@ CATEGORIES = [
     "Levesek", "Főzelékek", "Feltétek", "Köretek", "Savanyúságok",
     "Készételek", "Frissensültek", "Tészták, desszertek", "Mártások, öntetek", "Egyéb", "Menü",
 ]
+
+
+def default_daily_section_columns(categories, dishes):
+    """Return the standard two-column layout, balancing the flexible sections."""
+    allowed=set(categories)
+    left=[name for name in ("Levesek","Főzelékek","Feltétek","Köretek","Savanyúságok") if name in allowed]
+    right=[name for name in ("Készételek","Frissensültek","Tészták, desszertek","Mártások, öntetek") if name in allowed]
+    weights={name:1 for name in allowed}
+    for dish in dishes:
+        category=dish["category"]
+        if category in weights:
+            # Approximate wrapped rows so a long dish name weighs more than a short one.
+            weights[category]+=max(1,(len(str(dish["name"]))+31)//32)
+    columns={1:left,2:right}
+    totals={1:sum(weights[name] for name in left),2:sum(weights[name] for name in right)}
+    for category in categories:
+        if category in left or category in right or category not in allowed:continue
+        column=min((1,2),key=lambda number:(totals[number],number))
+        columns[column].append(category);totals[column]+=weights[category]
+    return columns
+
+
 WEEKDAYS = ["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek"]
 GREEN = "#1D6B50"
 DEEP = "#123F32"
@@ -129,6 +151,23 @@ class Store:
                     DROP TABLE saved_menus_old;
                 """)
             columns={row[1] for row in self.db.execute("PRAGMA table_info(dishes)")}
+            priority_added = "priority" not in columns
+            if priority_added:
+                self.db.execute("ALTER TABLE dishes ADD COLUMN priority INTEGER NOT NULL DEFAULT 0")
+            if priority_added:
+                legacy=self.db.execute("SELECT value FROM settings WHERE key='dish_order_priorities'").fetchone()
+                if legacy:
+                    try:groups=json.loads(legacy[0])
+                    except (TypeError,ValueError):groups={}
+                    if isinstance(groups,dict):
+                        for category,codes in groups.items():
+                            if not isinstance(codes,dict):continue
+                            for dish_id,code in codes.items():
+                                try:code=int(code);dish_id=int(dish_id)
+                                except (TypeError,ValueError):continue
+                                if code>0:
+                                    self.db.execute("UPDATE dishes SET priority=? WHERE id=? AND category=?",
+                                                    (code,dish_id,category))
             if "promo_enabled" not in columns:
                 self.db.execute("ALTER TABLE dishes ADD COLUMN promo_enabled INTEGER NOT NULL DEFAULT 0")
             if "promo_price" not in columns:
@@ -176,13 +215,20 @@ class Store:
         promo_price=promo_price if promo_enabled else None
         with self.db:
             if dish_id:
-                self.db.execute("UPDATE dishes SET name=?, category=?, price=?,promo_enabled=?,promo_price=? WHERE id=?",
-                                (name, category, amount, int(promo_enabled),promo_price,dish_id))
+                existing=self.db.execute("SELECT category,priority FROM dishes WHERE id=?",(dish_id,)).fetchone()
+                priority=existing["priority"] if existing else 0
+                if existing and existing["category"]!=category:
+                    row=self.db.execute("SELECT COALESCE(MAX(priority),0) FROM dishes WHERE category=?",(category,)).fetchone()
+                    priority=int(row[0] or 0)+1000
+                self.db.execute("UPDATE dishes SET name=?, category=?, price=?,promo_enabled=?,promo_price=?,priority=? WHERE id=?",
+                                (name, category, amount, int(promo_enabled),promo_price,priority,dish_id))
                 self.db.execute("DELETE FROM daily_promotions WHERE dish_id=? AND promo_price>=?",
                                 (dish_id,amount))
             else:
-                cursor=self.db.execute("INSERT INTO dishes(name,category,price,promo_enabled,promo_price) VALUES(?,?,?,?,?)",
-                                (name, category, amount,int(promo_enabled),promo_price))
+                row=self.db.execute("SELECT COALESCE(MAX(priority),0) FROM dishes WHERE category=?",(category,)).fetchone()
+                priority=int(row[0] or 0)+1000
+                cursor=self.db.execute("INSERT INTO dishes(name,category,price,promo_enabled,promo_price,priority) VALUES(?,?,?,?,?,?)",
+                                (name, category, amount,int(promo_enabled),promo_price,priority))
                 return cursor.lastrowid
         return dish_id
 

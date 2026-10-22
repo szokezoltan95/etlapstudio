@@ -1,5 +1,5 @@
 #ifndef AppVersion
-#define AppVersion "1.0.2"
+#define AppVersion "1.1.0"
 #endif
 
 #define AppName "ÉtlapStúdió"
@@ -19,6 +19,8 @@ UninstallDisplayIcon={app}\{#AppExe}
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=lowest
+CloseApplications=force
+RestartApplications=no
 WizardStyle=modern
 Compression=lzma2
 SolidCompression=yes

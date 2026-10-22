@@ -1,6 +1,6 @@
 # ÉtlapStúdió
 
-Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő**. A napi, heti és különleges étlapok szerkeszthetők, előnézetben ellenőrizhetők, menthetők, majd PDF-be vagy képként exportálhatók. A felső menüsorban érhető el az adatkezelő, a külön ablakos étlaparchívum, valamint a fájlműveletek és a névjegy.
+Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő**. A napi, heti és különleges étlapok szerkeszthetők, előnézetben ellenőrizhetők, menthetők, majd PDF-be vagy képként exportálhatók. A felső menüsorban érhető el az adatkezelő, a külön ablakos étlaparchívum, a fájlműveletek és a **Program** menü frissítés-ellenőrzése.
 
 ![A hét beépített téma](Temak_elonezete.png)
 
@@ -22,7 +22,7 @@ Windowsra szánt, helyi adatbázissal működő **Qt6 asztali étlapszerkesztő*
 2. Töltsd le a repót ZIP-ként, csomagold ki egy írható mappába, és indítsd az `Inditas_Windows.bat` fájlt.
 3. Az első indítás helyi `.venv` környezetet készít és telepíti a `requirements.txt` csomagjait. A következő indításokhoz használd ugyanezt a `.bat` fájlt.
 
-A Python telepítése nélkül használható Windows telepítőt a [GitHub Releases](https://github.com/szokezoltan95/etlapstudio/releases/latest) oldalról töltheted le. A 64 bites `EtlapStudio-Setup-1.0.1.exe` telepíti az alkalmazást, létrehozza a Start menü parancsikont, és opcionálisan asztali ikont is készít. Az új Megyeháza Étterem logó jelenik meg programikonként és az indulóképernyőn; a splash képen az „ÉtlapStúdió indítása” szöveg is szerepel.
+A Python telepítése nélkül használható Windows telepítőt a [GitHub Releases](https://github.com/szokezoltan95/etlapstudio/releases/latest) oldalról töltheted le. A 64 bites `EtlapStudio-Setup-1.1.0.exe` telepíti az alkalmazást, létrehozza a Start menü parancsikont, és opcionálisan asztali ikont is készít. Az új Megyeháza Étterem logó jelenik meg programikonként és az indulóképernyőn; a splash képen az „ÉtlapStúdió indítása” szöveg is szerepel. A frissítővel ellátott verzióra egyszer kézzel kell telepíteni, mert a korábbi kiadások még nem tartalmazzák az önfrissítőt. Ezután a telepített Windows-verzióban a **Program → Frissítések keresése…** menüponttal ellenőrizheted az új kiadásokat. Jóváhagyás után az alkalmazás szabályosan bezárja az adatbázist, a külön frissítő pedig Windows-folyamatkezelőn várja meg a tényleges leállást, mielőtt elindítja a telepítőt.
 
 ### Fejlesztői indítás
 
@@ -42,7 +42,7 @@ python qt_app.pyw
 4. A **Dizájn** fülön válassz évszakot, betűtípust, színeket és háttér-erősséget.
 5. Mentsd az étlapot, majd exportáld PDF-be vagy Facebook-képként. A korábbi mentéseket a **Fájl → Megnyitás…** ablakban nyithatod meg, szerkesztheted vagy törölheted.
 
-Az adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlban van. Az importált témacsomagok a `themes` almappába kerülnek. A biztonsági másolat az adatbázist menti; a témacsomagokat is másold le, ha új gépre költözöl. A régi napi választások és heti menük első indításkor mentett bejegyzéssé is válnak.
+Az adatbázis Windows alatt a `Dokumentumok\EtlapStudio\etlapstudio.sqlite3` fájlban van, az alkalmazás telepítési mappájától külön. A kézi újratelepítő és az automatikus frissítő csak a programfájlokat cseréli. Az új verzió induláskor, tranzakcióban bővíti a régi adatbázissémát az étel-prioritás mezővel; megőrzi az ételneveket, kategóriákat, árakat, napi/heti étlapokat, egyedi sorrendeket és éttermi beállításokat. A korábban mentett sorrendkódokat átviszi az új mezőbe. A korábbi `itcetterem` Facebook-címet automatikusan a jelenlegi oldalra javítja, de más, egyedi címet érintetlenül hagy. Az importált témacsomagok a `themes` almappába kerülnek. A biztonsági másolat az adatbázist menti; a témacsomagokat is másold le, ha új gépre költözöl. A régi napi választások és heti menük első indításkor mentett bejegyzéssé is válnak.
 
 A telepített rendszerfontok megjelennek a választókban. Egy font tényleges PDF-megjelenése a font és a Qt PDF motorjának támogatásától függ; a végleges exportot a PDF-ben is érdemes ellenőrizni. A választott saját betűtípus másik gépen csak akkor lesz ugyanolyan, ha azon is telepítve van.
 
@@ -71,7 +71,9 @@ A külső függőségek, betűkészletek és más, külön licenccel rendelkező
 | Fájl | Szerep |
 | --- | --- |
 | `qt_app.pyw` | Qt6 szerkesztő és élő előnézet |
-| `menu_core.py` | SQLite adatbázis, napi akciók, mentett étlapok |
+| `menu_core.py` | SQLite adatbázis, sémamigráció, étel-prioritások, napi akciók és mentett étlapok |
+| `updater.py` | Windows-frissítő, amely natív folyamatfogantyúval vár a program bezárására |
+| `version.py` | Alkalmazásverzió, amelyet a kiadási build a git tag alapján állít be |
 | `data/alap_eteladatbazis.csv` | A felismert ételnevek és legutóbbi olvasható normál árak |
 | `catalog_seed.py` | A CSV betöltése új vagy meglévő adatbázisba |
 | `menu_render.py` | Közös Qt előnézet, A4 PDF és Facebook PNG rajzolás |

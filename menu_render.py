@@ -469,22 +469,37 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     try:
         requested_layout=json.loads(setting(source,"daily_section_layout_"+target.isoformat(),""))
         if isinstance(requested_layout,dict):
-            manual_columns={column:[] for column in (1,2,3)}
+            manual_columns={column:[] for column in (1,2)};legacy_third=[]
             for column in (1,2,3):
                 values=requested_layout.get(str(column),requested_layout.get(column,[]))
                 if isinstance(values,list):
                     for category in values:
                         if category in section_categories and category not in category_column:
-                            manual_columns[column].append(category);category_column[category]=column-1
+                            if column==3:legacy_third.append(category)
+                            else:manual_columns[column].append(category);category_column[category]=column-1
             for category in section_categories:
                 if category not in category_column:
                     manual_columns[1].append(category);category_column[category]=0
-            section_categories=[category for column in (1,2,3) for category in manual_columns[column]]
+            for category in legacy_third:
+                column=1 if len(manual_columns[1])<=len(manual_columns[2]) else 2
+                manual_columns[column].append(category);category_column[category]=column-1
+            section_categories=[category for column in (1,2) for category in manual_columns[column]]
     except (TypeError,ValueError):manual_columns=None;category_column={}
     try:
-        saved_dish_order=json.loads(setting(source,"daily_dish_order_"+target.isoformat(),""))
-        if not isinstance(saved_dish_order,dict):saved_dish_order={}
-    except (TypeError,ValueError):saved_dish_order={}
+        priority_codes=json.loads(setting(source,"dish_order_priorities",""))
+        if not isinstance(priority_codes,dict):priority_codes={}
+    except (TypeError,ValueError):priority_codes={}
+    saved_dish_order={}
+    for category,codes in priority_codes.items():
+        if not isinstance(codes,dict):continue
+        try:saved_dish_order[category]=[dish_id for dish_id,_ in sorted(codes.items(),key=lambda pair:int(pair[1]))]
+        except (TypeError,ValueError):continue
+    try:
+        day_dish_order=json.loads(setting(source,"daily_dish_order_"+target.isoformat(),""))
+        if isinstance(day_dish_order,dict):
+            saved_dish_order.update({category:order for category,order in day_dish_order.items()
+                                     if isinstance(order,list) and order})
+    except (TypeError,ValueError):pass
 
     def plan(size,columns):
         gap=16;column_width=(1360-gap*(columns-1))/columns

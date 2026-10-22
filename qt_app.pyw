@@ -166,7 +166,9 @@ class SectionDishOrderDialog(QDialog):
             line=QHBoxLayout(row);line.setContentsMargins(10,3,5,3)
             label=QLabel(str(dish["name"]));label.setMinimumWidth(0);line.addWidget(label,1)
             up=QPushButton("↑");down=QPushButton("↓")
-            for control in (up,down):control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            for control in (up,down):
+                control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                control.setStyleSheet("QPushButton { background:#f1eee9; color:#34483d; border:1px solid #d5cdc2; border-radius:5px; font-size:16px; font-weight:600; } QPushButton:hover { background:#dcebe0; border-color:#82a88a; } QPushButton:pressed { background:#c8dfcf; } QPushButton:disabled { color:#aaa49d; background:#f7f5f2; }")
             up.setEnabled(index>0);down.setEnabled(index<len(self.items)-1)
             up.clicked.connect(lambda _=False,i=index:self.move_item(i,-1))
             down.clicked.connect(lambda _=False,i=index:self.move_item(i,1))
@@ -210,6 +212,7 @@ class SectionOrderDialog(QDialog):
         for dish in dishes:
             if dish["category"] in self.dishes_by_category:self.dishes_by_category[dish["category"]].append(dish)
         self.dish_order={category:list(dish_order.get(category,[])) for category in categories} if isinstance(dish_order,dict) else {category:[] for category in categories}
+        self.last_moved_category=None
         self.column_layouts={}
         grid=QGridLayout();grid.setHorizontalSpacing(12);layout.addLayout(grid,1)
         for column in (1,2):
@@ -230,22 +233,39 @@ class SectionOrderDialog(QDialog):
                 item=row_layout.takeAt(0);widget=item.widget()
                 if widget:widget.deleteLater()
             for index,category in enumerate(self.section_columns[column]):
-                row=QFrame();row.setStyleSheet("QFrame { background:#fff; border:1px solid #e2d9ce; border-radius:5px; }")
+                row=QFrame()
+                if category==self.last_moved_category:
+                    row.setStyleSheet("QFrame { background:#e8f3e9; border:1px solid #83ad8c; border-radius:5px; }")
+                else:row.setStyleSheet("QFrame { background:#fff; border:1px solid #e2d9ce; border-radius:5px; }")
                 line=QHBoxLayout(row);line.setContentsMargins(9,4,5,4)
                 label=QLabel(category);label.setMinimumWidth(0);line.addWidget(label,1)
-                up=QPushButton("↑");down=QPushButton("↓")
-                for control in (up,down):control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                up=QPushButton("↑");down=QPushButton("↓");transfer=QPushButton("→" if column==1 else "←")
+                for control in (up,down,transfer):
+                    control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                    control.setStyleSheet("QPushButton { background:#f1eee9; color:#34483d; border:1px solid #d5cdc2; border-radius:5px; font-size:16px; font-weight:600; } QPushButton:hover { background:#dcebe0; border-color:#82a88a; } QPushButton:pressed { background:#c8dfcf; } QPushButton:disabled { color:#aaa49d; background:#f7f5f2; }")
                 up.setEnabled(index>0);down.setEnabled(index<len(self.section_columns[column])-1)
+                transfer.setToolTip(f"Áthelyezés a {2 if column==1 else 1}. oszlopba")
                 up.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,-1))
                 down.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,1))
+                transfer.clicked.connect(lambda _=False,c=category,target=2 if column==1 else 1:self.move_section_to(c,target))
                 dishes=QPushButton("Ételek rendezése…");dishes.clicked.connect(lambda _=False,c=category:self.open_dish_order(c))
-                line.addWidget(up);line.addWidget(down);line.addWidget(dishes);row_layout.addWidget(row)
+                dishes.setStyleSheet("QPushButton { background:#f1eee9; color:#34483d; border:1px solid #d5cdc2; border-radius:5px; padding:5px 9px; } QPushButton:hover { background:#dcebe0; border-color:#82a88a; } QPushButton:pressed { background:#c8dfcf; }")
+                line.addWidget(up);line.addWidget(down);line.addWidget(transfer);line.addWidget(dishes);row_layout.addWidget(row)
             row_layout.addStretch(1)
 
     def move_section(self,column,index,direction):
         target=index+direction
         if not 0<=target<len(self.section_columns[column]):return
         values=self.section_columns[column];values[index],values[target]=values[target],values[index]
+        self.last_moved_category=values[target]
+        self.rebuild_sections()
+
+    def move_section_to(self,category,target_column):
+        source_column=next((column for column in (1,2) if category in self.section_columns[column]),None)
+        if source_column is None or source_column==target_column:return
+        self.section_columns[source_column].remove(category)
+        self.section_columns[target_column].append(category)
+        self.last_moved_category=category
         self.rebuild_sections()
 
     def open_dish_order(self,category):

@@ -10,7 +10,8 @@ from PyQt6.QtCore import QMarginsF, QPointF, QRectF, Qt
 from PyQt6.QtGui import (QColor, QFont, QFontMetricsF, QImage, QPainter,
                          QPageSize, QPdfWriter, QPainterPath, QPen, QTextDocument)
 from themes import HEX, load_themes
-from menu_core import CATEGORIES, WEEKDAYS, data_dir, display_date, hungarian_sort_key, monday, price
+from menu_core import (CATEGORIES, WEEKDAYS, data_dir, default_daily_section_columns,
+                       display_date, hungarian_sort_key, monday, price)
 
 W=1440
 H=round(W*297/210)
@@ -484,7 +485,12 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
                 column=1 if len(manual_columns[1])<=len(manual_columns[2]) else 2
                 manual_columns[column].append(category);category_column[category]=column-1
             section_categories=[category for column in (1,2) for category in manual_columns[column]]
-    except (TypeError,ValueError):manual_columns=None;category_column={}
+        else:requested_layout=None
+    except (TypeError,ValueError):requested_layout=None
+    if requested_layout is None:
+        manual_columns=default_daily_section_columns(section_categories,dishes)
+        category_column={category:column-1 for column,values in manual_columns.items() for category in values}
+        section_categories=[category for column in (1,2) for category in manual_columns[column]]
     try:
         priority_codes=json.loads(setting(source,"dish_order_priorities",""))
         if not isinstance(priority_codes,dict):priority_codes={}

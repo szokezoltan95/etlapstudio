@@ -461,7 +461,7 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     dishes=sorted((dict(d) for d in source.selection(target)), key=lambda dish:hungarian_sort_key(dish["name"]))
     # Local position after translating by alacarte_shift: panel + top padding,
     # divider artwork, then bottom padding before the first category.
-    alacarte_top=205+divider_height+2*divider_padding
+    alacarte_top=220+205+divider_height+2*divider_padding
     if not dishes:
         if glass_enabled:glass(p,QRectF(40,alacarte_top+alacarte_shift,W-80,72),205,8,primary,source)
         text(p,source,"dish_name",style_size(source,"dish_name",11),dark,60,alacarte_top+16+alacarte_shift,W-120,45,"Még nincs à la carte étel kiválasztva.",align=Qt.AlignmentFlag.AlignHCenter)

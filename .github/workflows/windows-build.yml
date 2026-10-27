@@ -82,7 +82,7 @@ jobs:
 
   publish-release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.0]')))
+    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.1]')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,17 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
         run: |
-          if [[ "$RELEASE_VERSION" == "1.3.0" ]]; then
+          if [[ "$RELEASE_VERSION" == "1.3.1" ]]; then
+            cat > release-notes.md <<'EOF'
+          ÉtlapStúdió 1.3.1
+          • Hozzáadva a Ctrl+görgetéses nagyítás az előnézet Kézi módjához; a normál görgetés továbbra is függőleges görgetést végez.
+
+          ÉtlapStúdió 1.3.0
+          • Javítva a hosszú napi ételszövegek megjelenítése: csak az érintett sor betűmérete csökken.
+          • Javítva a heti menü hosszú fogásainak tördelése és lapon belüli elhelyezése; szükség esetén a betűméret és a függőleges térköz igazodik.
+          • Hozzáadva az előnézet Kézi módja, pásztázással és plusz/mínusz gombos nagyítással.
+          EOF
+          elif [[ "$RELEASE_VERSION" == "1.3.0" ]]; then
             cat > release-notes.md <<'EOF'
           ## Újdonságok
           - Az előnézetben megjelent a **Kézi** mód, amelyben szabadon pásztázható és nagyítható az étlap; a + és − gombok kizárólag ebben a módban láthatók.

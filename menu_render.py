@@ -757,7 +757,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     natural_height=max(1,natural_bottom-start_y)
     scale=min(1.0,available/natural_height)
     p.save()
-    p.translate(W/2,start_y);p.scale(scale,scale);p.translate(-W/2,-330)
+    p.translate(0,start_y);p.scale(1,scale);p.translate(0,-330)
     y=330
     for i,day in enumerate(layout):
         content_height=day["content_height"]

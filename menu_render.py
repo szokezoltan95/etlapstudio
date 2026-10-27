@@ -494,12 +494,12 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     label_size=style_size(source,"daily_label",13)
     value_size=style_size(source,"daily_value",13)
     label_size=min(label_size,max(6,int(label_size*150/max(1,max(QFontMetricsF(font(source,"daily_label",label_size)).horizontalAdvance(label) for label,_ in fields)))))
-    value_size=min(value_size,max(6,int(value_size*760/max(1,max(QFontMetricsF(font(source,"daily_value",value_size)).horizontalAdvance(value) for _,value in fields)))))
     y=menu_y+38
     for label,value in fields:
         height=42
+        row_value_size=min(value_size,max(6,value_size*760/max(1,QFontMetricsF(font(source,"daily_value",value_size)).horizontalAdvance(value))))
         text_singleline(p,source,"daily_label",label_size,primary,80,y,150,height,label,True)
-        text_singleline(p,source,"daily_value",value_size,dark,245,y,760,height,value)
+        text_singleline(p,source,"daily_value",row_value_size,dark,245,y,760,height,value)
         y+=44
     try:menu_price=int(setting(source,"daily_menu_price","2800") or "0")
     except (TypeError,ValueError):menu_price=2800
@@ -722,29 +722,39 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
     mon=monday(target)
     p.save();p.translate(0,days_shift)
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
+    y=330
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
-        y=330+i*310
-        if glass_enabled:glass(p,QRectF(40,y-8,W-80,278),205,6,primary,source)
-        if decorated and i<4:divider(p,primary,accent,y+286,assets,mon+timedelta(days=i),40)
         closed,closure_note=source.week_entry_state(mon+timedelta(days=i)) if hasattr(source,"week_entry_state") else (False,"")
-        if closed:
-            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+18,W-184,230,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
-            continue
         weekday_size=style_size(source,"weekday_title",16)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
-        p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
         heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
-        text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
-        values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
-        label_size=style_size(source,"weekly_label",15)
-        value_size=style_size(source,"weekly_value",15)
-        yy=y+78
-        for field,value in values:
-            height=max(56,measure(value or "—",source,"weekly_value",value_size,1040)+8,
-                       measure(field,source,"weekly_label",label_size,190,True)+4)
-            text(p,source,"weekly_label",label_size,primary,92,yy,190,height,field,True)
-            text(p,source,"weekly_value",value_size,dark,292,yy,1040,height,value or "—")
-            yy+=height+3
+        if closed:
+            content_height=max(278,72+measure(closure_note.strip() or "Zárva",source,"weekly_value",style_size(source,"weekly_value",15),W-184)+24)
+            if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
+            p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
+            text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
+            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+70,W-184,content_height-82,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+        else:
+            values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
+            label_size=style_size(source,"weekly_label",15)
+            value_size=style_size(source,"weekly_value",15)
+            rows=[]
+            for field,value in values:
+                display_value=value or "—"
+                height=max(56,measure(display_value,source,"weekly_value",value_size,1040)+18,
+                           measure(field,source,"weekly_label",label_size,190,True)+8)
+                rows.append((field,display_value,height))
+            content_height=max(278,78+sum(height+3 for _,_,height in rows)+8)
+            if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
+            p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
+            text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
+            yy=y+78
+            for field,display_value,height in rows:
+                text(p,source,"weekly_label",label_size,primary,92,yy,190,height,field,True)
+                text(p,source,"weekly_value",value_size,dark,292,yy,1040,height,display_value)
+                yy+=height+3
+        if decorated and i<4:divider(p,primary,accent,y+content_height+8,assets,mon+timedelta(days=i),40)
+        y+=content_height+32
     p.restore()
 
 

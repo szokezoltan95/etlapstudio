@@ -737,19 +737,24 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
             label_size=style_size(source,"weekly_label",15)
             value_size=style_size(source,"weekly_value",15)
             rows=[]
+            value_metrics=QFontMetricsF(font(source,"weekly_value",value_size))
+            line_height=value_metrics.height()
             for field,value in values:
                 display_value=value or "—"
-                height=max(56,measure(display_value,source,"weekly_value",value_size,1040)+18,
+                lines=wrapped_lines(display_value,source,"weekly_value",value_size,1040)
+                wrapped_height=line_height*len(lines)+2
+                height=max(56 if len(lines)==1 else wrapped_height,
                            measure(field,source,"weekly_label",label_size,190,True)+8)
-                rows.append((field,display_value,height))
+                rows.append((field,lines,height))
             content_height=max(278,78+sum(height+3 for _,_,height in rows)+8)
             if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
             text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
             yy=y+78
-            for field,display_value,height in rows:
+            for field,lines,height in rows:
                 text(p,source,"weekly_label",label_size,primary,92,yy,190,height,field,True)
-                text(p,source,"weekly_value",value_size,dark,292,yy,1040,height,display_value)
+                for line_index,line in enumerate(lines):
+                    text_singleline(p,source,"weekly_value",value_size,dark,292,yy+line_index*line_height,1040,line_height,line)
                 yy+=height+3
         if decorated and i<4:divider(p,primary,accent,y+content_height+8,assets,mon+timedelta(days=i),40)
         y+=content_height+32

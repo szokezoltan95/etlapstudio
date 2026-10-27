@@ -742,8 +742,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
             for field,value in values:
                 display_value=value or "—"
                 lines=wrapped_lines(display_value,source,"weekly_value",value_size,1040)
-                wrapped_height=line_height*len(lines)+2
-                height=max(56 if len(lines)==1 else wrapped_height,
+                height=max(56+max(0,len(lines)-1)*8,
                            measure(field,source,"weekly_label",label_size,190,True)+8)
                 rows.append((field,lines,height))
             content_height=max(278,78+sum(height+3 for _,_,height in rows)+8)
@@ -753,8 +752,10 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
             yy=y+78
             for field,lines,height in rows:
                 text(p,source,"weekly_label",label_size,primary,92,yy,190,height,field,True)
+                text_height=line_height*len(lines)
+                text_top=yy+max(0,(height-text_height)/2)
                 for line_index,line in enumerate(lines):
-                    text_singleline(p,source,"weekly_value",value_size,dark,292,yy+line_index*line_height,1040,line_height,line)
+                    text_singleline(p,source,"weekly_value",value_size,dark,292,text_top+line_index*line_height,1040,line_height,line)
                 yy+=height+3
         if decorated and i<4:divider(p,primary,accent,y+content_height+8,assets,mon+timedelta(days=i),40)
         y+=content_height+32

@@ -13,7 +13,7 @@ import time
 from urllib.request import Request, urlopen
 from datetime import date, timedelta
 from pathlib import Path
-from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve, QSize
+from PyQt6.QtCore import QDate, QTimer, Qt, QEvent, QPropertyAnimation, QEasingCurve, QSize, QPoint
 from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QIntValidator, QPainter, QPen, QPixmap, QPalette, QTextCharFormat
 from PyQt6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QCompleter, QDateEdit, QDialog,
@@ -395,9 +395,15 @@ class PreviewLabel(QLabel):
     """Preview canvas with draggable guides for the printed sections."""
     from PyQt6.QtCore import pyqtSignal
     regionChanged = pyqtSignal(str, object)
+    zoomRequested = pyqtSignal(int, object)
+    panRequested = pyqtSignal(object)
     def __init__(self,parent=None):
         super().__init__(parent);self.guides=False;self.regions={};self._drag=None
+        self.manual_pan_zoom=False;self._pan_position=None
         self.setMouseTracking(True)
+    def set_manual_pan_zoom(self,enabled):
+        self.manual_pan_zoom=bool(enabled)
+        self.setCursor(Qt.CursorShape.OpenHandCursor if enabled else Qt.CursorShape.ArrowCursor)
     def set_guides(self,enabled,regions):
         self.guides=enabled;self.regions=regions;self.update()
     def paintEvent(self,event):
@@ -418,6 +424,9 @@ class PreviewLabel(QLabel):
                 for name,guide_y in reversed(list(self.regions.items())):
                     if abs(guide_y-y)<=16:
                         self._drag=(name,y,guide_y);self.setCursor(Qt.CursorShape.SizeVerCursor);event.accept();return
+        if self.manual_pan_zoom and event.button()==Qt.MouseButton.LeftButton:
+            self._pan_position=event.position().toPoint()
+            self.setCursor(Qt.CursorShape.ClosedHandCursor);event.accept();return
         super().mousePressEvent(event)
     def mouseMoveEvent(self,event):
         if self._drag:
@@ -428,11 +437,26 @@ class PreviewLabel(QLabel):
             low,high=limits.get(name,(100,1700))
             y=round(max(low,min(high,event.position().y()/scale)))
             self.regions[name]=y;self.regionChanged.emit(name,y);self.update();event.accept();return
+        if self._pan_position is not None:
+            position=event.position().toPoint()
+            delta=position-self._pan_position;self._pan_position=position
+            self.panRequested.emit(delta);event.accept();return
         super().mouseMoveEvent(event)
     def mouseReleaseEvent(self,event):
         if self._drag and event.button()==Qt.MouseButton.LeftButton:
-            self._drag=None;self.unsetCursor();event.accept();return
+            self._drag=None;self.unsetCursor()
+            if self.manual_pan_zoom:self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.accept();return
+        if self._pan_position is not None and event.button()==Qt.MouseButton.LeftButton:
+            self._pan_position=None
+            self.setCursor(Qt.CursorShape.OpenHandCursor if self.manual_pan_zoom else Qt.CursorShape.ArrowCursor)
+            event.accept();return
         super().mouseReleaseEvent(event)
+    def wheelEvent(self,event):
+        if self.manual_pan_zoom and event.angleDelta().y():
+            self.zoomRequested.emit(event.angleDelta().y(),event.position().toPoint())
+            event.accept();return
+        super().wheelEvent(event)
 
 
 class DishCatalogItem(QTreeWidgetItem):
@@ -507,6 +531,7 @@ class MainWindow(QMainWindow):
         if available:self.resize(min(1500,max(760,available.width()-48)),min(900,max(540,available.height()-72)))
         else:self.resize(1280,780)
         self._loading=False;self._image=None;self._date_change_old=None;self.preview_archive=None;self._manual_week_preview=False
+        self.manual_preview_zoom=1.0
         self._initial_splitter_layout_done=False
         self.timer=QTimer(self);self.timer.setSingleShot(True);self.timer.timeout.connect(self.refresh_preview)
         self._responsive_timer=QTimer(self);self._responsive_timer.setSingleShot(True);self._responsive_timer.setInterval(180)
@@ -528,14 +553,16 @@ class MainWindow(QMainWindow):
         toolbar.addStretch();right_layout.addLayout(toolbar)
         controls=QHBoxLayout();controls.setSpacing(6)
         controls.addStretch()
-        self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség"])
-        self.zoom.setMaximumWidth(120);self.zoom.currentIndexChanged.connect(self.fit_preview);controls.addWidget(self.zoom)
+        self.zoom_hint=QLabel("Görgő: nagyítás · húzás: pásztázás");self.zoom_hint.hide();controls.addWidget(self.zoom_hint)
+        self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség","Kézi pan/zoom"])
+        self.zoom.setMaximumWidth(170);self.zoom.currentIndexChanged.connect(self.preview_zoom_mode_changed);controls.addWidget(self.zoom)
         right_layout.addLayout(controls)
         self.scroll=QScrollArea();self.scroll.setWidgetResizable(False);self.scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.viewport().installEventFilter(self)
         self.zoom.setCurrentIndex(0)
         self.preview=PreviewLabel();self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter);self.preview.regionChanged.connect(self.save_layout_region)
+        self.preview.zoomRequested.connect(self.zoom_preview_at);self.preview.panRequested.connect(self.pan_preview_by)
         self.scroll.setWidget(self.preview);right_layout.addWidget(self.scroll,1)
         self.status=QLabel();right_layout.addWidget(self.status)
         splitter.addWidget(right);self.preview_panel=right;splitter.setSizes([570,850]);splitter.setChildrenCollapsible(False)
@@ -1932,15 +1959,47 @@ class MainWindow(QMainWindow):
             self.preview_title.setText(("Napi étlap" if kind=="daily" else "Heti menü" if kind=="weekly" else "Különleges étlap")+" · "+display_date(target)+(" · mentett előnézet" if self.preview_archive else ""))
             self.fit_preview();self.status.setText("A4 álló · 150 dpi · PDF és Facebook PNG")
         except Exception as exc:self.status.setText("Előnézeti hiba: "+str(exc))
+    def preview_zoom_mode_changed(self,index):
+        manual=index==2
+        self.manual_preview_zoom=1.0
+        if hasattr(self,"zoom_hint"):self.zoom_hint.setVisible(manual)
+        if hasattr(self,"scroll"):
+            self.scroll.setHorizontalScrollBarPolicy(
+                Qt.ScrollBarPolicy.ScrollBarAsNeeded if manual else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        if hasattr(self,"preview"):self.preview.set_manual_pan_zoom(manual)
+        self.fit_preview()
     def fit_preview(self):
         if self._image is None:return
         viewport=self.scroll.viewport()
         available_width=viewport.width()-24
-        if self.zoom.currentIndex()==0:
+        mode=self.zoom.currentIndex()
+        if mode==0:
             available_width=min(available_width,(viewport.height()-24)*self._image.width()/max(1,self._image.height()))
-        width=max(180,min(1000,int(available_width)))
+        base_width=max(180,min(1000,int(available_width)))
+        if mode==2:
+            width=max(180,min(4000,round(base_width*self.manual_preview_zoom)))
+        else:width=base_width
         self.preview.setPixmap(QPixmap.fromImage(self._image).scaledToWidth(width,Qt.TransformationMode.SmoothTransformation))
         self.preview.adjustSize()
+    def zoom_preview_at(self,delta,position):
+        if self.zoom.currentIndex()!=2 or self._image is None:return
+        old_width=max(1,self.preview.width())
+        viewport_position=self.preview.mapTo(self.scroll.viewport(),position)
+        self.manual_preview_zoom=max(.2,min(5.0,self.manual_preview_zoom*(1.15**(delta/120))))
+        self.fit_preview()
+        ratio=self.preview.width()/old_width
+        QTimer.singleShot(0,lambda:self._restore_preview_zoom_anchor(position,viewport_position,ratio))
+    def _restore_preview_zoom_anchor(self,local_position,viewport_position,ratio):
+        if self.zoom.currentIndex()!=2:return
+        origin=self.preview.mapTo(self.scroll.viewport(),QPoint(0,0))
+        horizontal=self.scroll.horizontalScrollBar()
+        vertical=self.scroll.verticalScrollBar()
+        horizontal.setValue(horizontal.value()+origin.x()+round(local_position.x()*ratio)-viewport_position.x())
+        vertical.setValue(vertical.value()+origin.y()+round(local_position.y()*ratio)-viewport_position.y())
+    def pan_preview_by(self,delta):
+        if self.zoom.currentIndex()!=2:return
+        self.scroll.horizontalScrollBar().setValue(self.scroll.horizontalScrollBar().value()-delta.x())
+        self.scroll.verticalScrollBar().setValue(self.scroll.verticalScrollBar().value()-delta.y())
     def eventFilter(self,watched,event):
         if watched is getattr(self,"scroll",None) and event.type()==QEvent.Type.Resize:
             QTimer.singleShot(0,self.fit_preview)

@@ -82,7 +82,7 @@ jobs:
 
   publish-release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.2]')))
+    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.0]')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,21 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
         run: |
-          if [[ "$RELEASE_VERSION" == "1.2.2" ]]; then
+          if [[ "$RELEASE_VERSION" == "1.3.0" ]]; then
+            cat > release-notes.md <<'EOF'
+          ## Újdonságok
+          - Az előnézetben megjelent a **Kézi** mód, amelyben szabadon pásztázható és nagyítható az étlap; a + és − gombok kizárólag ebben a módban láthatók.
+          - A heti menü hosszú ételszövegei soronként tördelődnek, és csak az érintett napblokk igazodik a szükséges magassághoz.
+
+          ## Javítások
+          - A napi étlapon hosszú szövegnél csak az érintett sor betűmérete csökken.
+          - A heti menü végső illesztése szükség esetén a betűméretet és a függőleges térközöket csökkenti; a blokkok szélességét és arányait nem torzítja, a fejlécet és az árat nem méretezi át.
+
+          ## Telepítés és frissítés
+          - A Windows telepítő EtlapStudio-Setup-1.3.0.exe új telepítéshez használható.
+          - Az alkalmazáson belüli frissítéshez a hordozható EtlapStudio-Windows-1.3.0.zip készül el.
+          EOF
+          elif [[ "$RELEASE_VERSION" == "1.2.2" ]]; then
             cat > release-notes.md <<'EOF'
           - Az egyes napi étlapok saját sorrendje külön, dátumhoz kötötten mentődik.
           - Az új ételek a napi sorrend alapján, a következő meglévő étel elé kerülnek a globális sorrendben.
@@ -103,7 +117,7 @@ jobs:
           - A globális sorrend a következő napi étlap kiindulópontjaként szolgál.
           EOF
           else
-            printf '%s\n' "Az ÉtlapStúdió ${{ needs.build.outputs.version }} Windows-kiadása. A frissítőcsomag ZIP-ben tartalmazza az alkalmazást; az alkalmazás a Program → Frissítések keresése… menüpontból, telepítőprogram nélkül frissíthető." > release-notes.md
+            printf '%s\\n' "Az ÉtlapStúdió ${{ needs.build.outputs.version }} Windows-kiadása. A frissítőcsomag ZIP-ben tartalmazza az alkalmazást; az alkalmazás a Program → Frissítések keresése… menüpontból, telepítőprogram nélkül frissíthető." > release-notes.md
           fi
       - uses: softprops/action-gh-release@v2
         with:

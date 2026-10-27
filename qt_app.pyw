@@ -553,8 +553,12 @@ class MainWindow(QMainWindow):
         toolbar.addStretch();right_layout.addLayout(toolbar)
         controls=QHBoxLayout();controls.setSpacing(6)
         controls.addStretch()
-        self.zoom_hint=QLabel("Görgő: nagyítás · húzás: pásztázás");self.zoom_hint.hide();controls.addWidget(self.zoom_hint)
-        self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség","Kézi pan/zoom"])
+        self.zoom_out_button=QPushButton("−");self.zoom_out_button.setFixedWidth(30);self.zoom_out_button.setAccessibleName("Kicsinyítés")
+        self.zoom_in_button=QPushButton("+");self.zoom_in_button.setFixedWidth(30);self.zoom_in_button.setAccessibleName("Nagyítás")
+        self.zoom_out_button.clicked.connect(lambda:self.zoom_preview_step(1/1.2))
+        self.zoom_in_button.clicked.connect(lambda:self.zoom_preview_step(1.2))
+        controls.addWidget(self.zoom_out_button);controls.addWidget(self.zoom_in_button)
+        self.zoom=QComboBox();self.zoom.addItems(["Teljes oldal","Szélesség","Kézi pan-zoom"])
         self.zoom.setMaximumWidth(170);self.zoom.currentIndexChanged.connect(self.preview_zoom_mode_changed);controls.addWidget(self.zoom)
         right_layout.addLayout(controls)
         self.scroll=QScrollArea();self.scroll.setWidgetResizable(False);self.scroll.setAlignment(Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignTop)
@@ -1962,7 +1966,8 @@ class MainWindow(QMainWindow):
     def preview_zoom_mode_changed(self,index):
         manual=index==2
         self.manual_preview_zoom=1.0
-        if hasattr(self,"zoom_hint"):self.zoom_hint.setVisible(manual)
+        if hasattr(self,"zoom_out_button"):
+            self.zoom_out_button.setVisible(manual);self.zoom_in_button.setVisible(manual)
         if hasattr(self,"scroll"):
             self.scroll.setHorizontalScrollBarPolicy(
                 Qt.ScrollBarPolicy.ScrollBarAsNeeded if manual else Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -1982,10 +1987,22 @@ class MainWindow(QMainWindow):
         self.preview.setPixmap(QPixmap.fromImage(self._image).scaledToWidth(width,Qt.TransformationMode.SmoothTransformation))
         self.preview.adjustSize()
     def zoom_preview_at(self,delta,position):
+        if self.zoom.currentIndex()!=2:return
+        self._apply_preview_zoom(1.15**(delta/120),position)
+    def zoom_preview_step(self,multiplier):
+        if self.zoom.currentIndex()!=2 or self._image is None:return
+        viewport=self.scroll.viewport()
+        anchor=QPoint(viewport.width()//2,viewport.height()//2)
+        position=self.preview.mapFrom(viewport,anchor)
+        position.setX(max(0,min(self.preview.width(),position.x())))
+        position.setY(max(0,min(self.preview.height(),position.y())))
+        self._apply_preview_zoom(multiplier,position,anchor)
+    def _apply_preview_zoom(self,multiplier,position,viewport_position=None):
         if self.zoom.currentIndex()!=2 or self._image is None:return
         old_width=max(1,self.preview.width())
-        viewport_position=self.preview.mapTo(self.scroll.viewport(),position)
-        self.manual_preview_zoom=max(.2,min(5.0,self.manual_preview_zoom*(1.15**(delta/120))))
+        if viewport_position is None:
+            viewport_position=self.preview.mapTo(self.scroll.viewport(),position)
+        self.manual_preview_zoom=max(.2,min(5.0,self.manual_preview_zoom*multiplier))
         self.fit_preview()
         ratio=self.preview.width()/old_width
         QTimer.singleShot(0,lambda:self._restore_preview_zoom_anchor(position,viewport_position,ratio))

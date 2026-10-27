@@ -117,7 +117,7 @@ jobs:
           - A globális sorrend a következő napi étlap kiindulópontjaként szolgál.
           EOF
           else
-            printf '%s\\n' "Az ÉtlapStúdió ${{ needs.build.outputs.version }} Windows-kiadása. A frissítőcsomag ZIP-ben tartalmazza az alkalmazást; az alkalmazás a Program → Frissítések keresése… menüpontból, telepítőprogram nélkül frissíthető." > release-notes.md
+            printf '%s\n' "Az ÉtlapStúdió ${{ needs.build.outputs.version }} Windows-kiadása. A frissítőcsomag ZIP-ben tartalmazza az alkalmazást; az alkalmazás a Program → Frissítések keresése… menüpontból, telepítőprogram nélkül frissíthető." > release-notes.md
           fi
       - uses: softprops/action-gh-release@v2
         with:

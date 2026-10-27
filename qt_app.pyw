@@ -396,6 +396,7 @@ class PreviewLabel(QLabel):
     from PyQt6.QtCore import pyqtSignal
     regionChanged = pyqtSignal(str, object)
     zoomRequested = pyqtSignal(int, object)
+    pinchZoomRequested = pyqtSignal(float, object)
     panRequested = pyqtSignal(object)
     def __init__(self,parent=None):
         super().__init__(parent);self.guides=False;self.regions={};self._drag=None
@@ -453,10 +454,19 @@ class PreviewLabel(QLabel):
             event.accept();return
         super().mouseReleaseEvent(event)
     def wheelEvent(self,event):
-        if self.manual_pan_zoom and event.angleDelta().y():
+        if (self.manual_pan_zoom and event.angleDelta().y()
+                and event.modifiers()&Qt.KeyboardModifier.ControlModifier):
             self.zoomRequested.emit(event.angleDelta().y(),event.position().toPoint())
             event.accept();return
         super().wheelEvent(event)
+    def event(self,event):
+        if (self.manual_pan_zoom and event.type()==QEvent.Type.NativeGesture
+                and event.gestureType()==Qt.NativeGestureType.ZoomNativeGesture):
+            factor=1.0+event.value()
+            if factor>0:
+                self.pinchZoomRequested.emit(factor,event.position().toPoint())
+                event.accept();return True
+        return super().event(event)
 
 
 class DishCatalogItem(QTreeWidgetItem):
@@ -566,7 +576,8 @@ class MainWindow(QMainWindow):
         self.scroll.viewport().installEventFilter(self)
         self.zoom.setCurrentIndex(0)
         self.preview=PreviewLabel();self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter);self.preview.regionChanged.connect(self.save_layout_region)
-        self.preview.zoomRequested.connect(self.zoom_preview_at);self.preview.panRequested.connect(self.pan_preview_by)
+        self.preview.zoomRequested.connect(self.zoom_preview_at);self.preview.pinchZoomRequested.connect(self.zoom_preview_factor_at)
+        self.preview.panRequested.connect(self.pan_preview_by)
         self.scroll.setWidget(self.preview);right_layout.addWidget(self.scroll,1)
         self.status=QLabel();right_layout.addWidget(self.status)
         splitter.addWidget(right);self.preview_panel=right;splitter.setSizes([570,850]);splitter.setChildrenCollapsible(False)
@@ -1989,6 +2000,9 @@ class MainWindow(QMainWindow):
     def zoom_preview_at(self,delta,position):
         if self.zoom.currentIndex()!=2:return
         self._apply_preview_zoom(1.15**(delta/120),position)
+    def zoom_preview_factor_at(self,multiplier,position):
+        if self.zoom.currentIndex()!=2:return
+        self._apply_preview_zoom(multiplier,position)
     def zoom_preview_step(self,multiplier):
         if self.zoom.currentIndex()!=2 or self._image is None:return
         viewport=self.scroll.viewport()

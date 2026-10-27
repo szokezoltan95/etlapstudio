@@ -742,7 +742,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
             for field,value in values:
                 display_value=value or "—"
                 lines=wrapped_lines(display_value,source,"weekly_value",value_size,1040)
-                height=max(56+max(0,len(lines)-1)*8,
+                height=max(56,line_height*len(lines)+8,
                            measure(field,source,"weekly_label",label_size,190,True)+8)
                 rows.append((field,lines,height))
             content_height=max(278,78+sum(height+3 for _,_,height in rows)+8)

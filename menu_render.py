@@ -731,9 +731,7 @@ def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,asse
         if closed:
             content_height=max(278,72+measure(closure_note.strip() or "Zárva",source,"weekly_value",style_size(source,"weekly_value",15),W-184)+24)
             if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
-            p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
-            text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
-            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+70,W-184,content_height-82,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+18,W-184,content_height-36,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
         else:
             values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
             label_size=style_size(source,"weekly_label",15)

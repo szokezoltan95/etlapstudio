@@ -447,8 +447,9 @@ def draw_menu(p,source,kind,target,canvas_height=None):
         text_singleline(p,source,"menu_price_label",style_size(source,"menu_price_label",12),primary,470,222+panel_shift,500,30,"Napi menü ára",True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
         text_singleline(p,source,"menu_price_value",style_size(source,"menu_price_value",20),dark,470,252+panel_shift,500,52,price(menu_price),True,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
         days_y=guide(source,kind,"days",330)
+        weekly_footer_reserve=86 if setting(source,"note").strip() else 28
         draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,
-                    days_y-330+panel_shift)
+                    days_y-330+panel_shift,H-weekly_footer_reserve)
     else:
         if header_mode=="none":top=52
         elif header_mode in ("merged","logo"):
@@ -718,49 +719,70 @@ def draw_daily(p,source,target,primary,accent,dark,decorated,glass_enabled,asset
     return content_end+alacarte_shift
 
 
-def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,days_shift=0):
+def draw_weekly(p,source,target,primary,accent,dark,decorated,glass_enabled,assets,days_shift=0,max_bottom=None):
     mon=monday(target)
-    p.save();p.translate(0,days_shift)
     entries=[source.week_entry(mon+timedelta(days=i)) for i in range(5)]
-    y=330
+    layout=[]
     for i,(label,entry) in enumerate(zip(WEEKDAYS,entries)):
         closed,closure_note=source.week_entry_state(mon+timedelta(days=i)) if hasattr(source,"week_entry_state") else (False,"")
         weekday_size=style_size(source,"weekday_title",16)
         heading_width=QFontMetricsF(font(source,"weekday_title",weekday_size,True)).horizontalAdvance(label)+28
         heading_text="#FFFFFF" if QColor(primary).lightness()<155 else dark
         if closed:
-            content_height=max(278,72+measure(closure_note.strip() or "Zárva",source,"weekly_value",style_size(source,"weekly_value",15),W-184)+24)
-            if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
-            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+18,W-184,content_height-36,closure_note.strip() or "Zárva",False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
+            value=closure_note.strip() or "Zárva"
+            content_height=max(278,72+measure(value,source,"weekly_value",style_size(source,"weekly_value",15),W-184)+24)
+            layout.append({"label":label,"closed":True,"value":value,"content_height":content_height,
+                           "weekday_size":weekday_size,"heading_width":heading_width,"heading_text":heading_text})
+            continue
+        values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
+        label_size=style_size(source,"weekly_label",15)
+        value_size=style_size(source,"weekly_value",15)
+        value_metrics=QFontMetricsF(font(source,"weekly_value",value_size))
+        line_height=value_metrics.height()
+        rows=[]
+        for field,value in values:
+            display_value=value or "—"
+            lines=wrapped_lines(display_value,source,"weekly_value",value_size,1040)
+            height=max(56,line_height*len(lines)+8,
+                       measure(field,source,"weekly_label",label_size,190,True)+8)
+            rows.append((field,lines,height))
+        content_height=max(278,78+sum(height+3 for _,_,height in rows)+8)
+        layout.append({"label":label,"closed":False,"content_height":content_height,"weekday_size":weekday_size,
+                       "heading_width":heading_width,"heading_text":heading_text,"label_size":label_size,
+                       "value_size":value_size,"line_height":line_height,"rows":rows})
+    start_y=330+days_shift
+    natural_bottom=start_y+sum(day["content_height"]+32 for day in layout)-32
+    if max_bottom is None:max_bottom=H-28
+    available=max(1,max_bottom-start_y)
+    natural_height=max(1,natural_bottom-start_y)
+    scale=min(1.0,available/natural_height)
+    p.save()
+    p.translate(W/2,start_y);p.scale(scale,scale);p.translate(-W/2,-330)
+    y=330
+    for i,day in enumerate(layout):
+        content_height=day["content_height"]
+        if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
+        if day["closed"]:
+            text(p,source,"weekly_value",style_size(source,"weekly_value",15),dark,92,y+18,W-184,content_height-36,
+                 day["value"],False,Qt.AlignmentFlag.AlignHCenter|Qt.AlignmentFlag.AlignVCenter)
         else:
-            values=[("Leves",entry[0]),("A menü",entry[1]),("B menü",entry[2])]
-            label_size=style_size(source,"weekly_label",15)
-            value_size=style_size(source,"weekly_value",15)
-            rows=[]
-            value_metrics=QFontMetricsF(font(source,"weekly_value",value_size))
-            line_height=value_metrics.height()
-            for field,value in values:
-                display_value=value or "—"
-                lines=wrapped_lines(display_value,source,"weekly_value",value_size,1040)
-                height=max(56,line_height*len(lines)+8,
-                           measure(field,source,"weekly_label",label_size,190,True)+8)
-                rows.append((field,lines,height))
-            content_height=max(278,78+sum(height+3 for _,_,height in rows)+8)
-            if glass_enabled:glass(p,QRectF(40,y-8,W-80,content_height),205,6,primary,source)
+            heading_width=day["heading_width"]
             p.save();p.setPen(Qt.PenStyle.NoPen);p.setBrush(QColor(primary));p.drawRoundedRect(QRectF(72,y+10,heading_width,52),5,5);p.restore()
-            text(p,source,"weekday_title",weekday_size,heading_text,86,y+11,heading_width-28,48,label,True,Qt.AlignmentFlag.AlignVCenter)
+            text(p,source,"weekday_title",day["weekday_size"],day["heading_text"],86,y+11,
+                 heading_width-28,48,day["label"],True,Qt.AlignmentFlag.AlignVCenter)
             yy=y+78
-            for field,lines,height in rows:
-                text(p,source,"weekly_label",label_size,primary,92,yy,190,height,field,True)
-                text_height=line_height*len(lines)
+            for field,lines,height in day["rows"]:
+                text(p,source,"weekly_label",day["label_size"],primary,92,yy,190,height,field,True)
+                text_height=day["line_height"]*len(lines)
                 text_top=yy+max(0,(height-text_height)/2)
                 for line_index,line in enumerate(lines):
-                    text_singleline(p,source,"weekly_value",value_size,dark,292,text_top+line_index*line_height,1040,line_height,line)
+                    text_singleline(p,source,"weekly_value",day["value_size"],dark,292,
+                                    text_top+line_index*day["line_height"],1040,day["line_height"],line)
                 yy+=height+3
-        if decorated and i<4:divider(p,primary,accent,y+content_height+8,assets,mon+timedelta(days=i),40)
+        if decorated and i<4:
+            divider(p,primary,accent,y+content_height+8,assets,mon+timedelta(days=i),40)
         y+=content_height+32
     p.restore()
-
 
 def render_image(source,kind,target,width=None,height=None):
     if width is None or height is None:

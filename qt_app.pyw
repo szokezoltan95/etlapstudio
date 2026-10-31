@@ -772,16 +772,57 @@ class MainWindow(QMainWindow):
 
     def clear_daily_menu(self):
         day=self.current_day()
-        selected=self.store.selection(day)
-        if not selected:
-            QMessageBox.information(self,APP_NAME,"A kiválasztott nap étlapja már üres.");return
-        answer=QMessageBox.question(self,"Napi étlap kiürítése",
-            f"Biztosan eltávolítod mind a {len(selected)} ételt a(z) {display_date(day)} napi étlapról?\n\n"
-            "Ez csak az adott napi étlapot üríti ki; az ételadatbázisban az ételek megmaradnak.",
-            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
-        if answer!=QMessageBox.StandardButton.Yes:return
-        self.store.set_selected(day,[]);self.preview_archive=None
-        self.refresh_daily();self.refresh_archive();self.status.setText("A napi étlap kiürült.")
+        dialog=QDialog(self);dialog.setWindowTitle("Étlap kiürítése")
+        dialog.setMinimumWidth(460)
+        layout=QVBoxLayout(dialog)
+        layout.addWidget(QLabel(f"Kiválasztott nap: {display_date(day)}"))
+        hint=QLabel("Válaszd ki a kiürítendő szakaszt, vagy ürítsd ki a teljes napi étlapot. "
+                    "Az ételek az ételadatbázisban megmaradnak.")
+        hint.setWordWrap(True);layout.addWidget(hint)
+        grid=QGridLayout();layout.addLayout(grid)
+        categories=[category for category in CATEGORIES if category!="Menü"]
+        for dish in self.store.selection(day):
+            if dish["category"] not in categories:categories.append(dish["category"])
+        section_controls={}
+
+        def refresh_controls():
+            selected=self.store.selection(day)
+            for category,(label,clear_button) in section_controls.items():
+                count=sum(dish["category"]==category for dish in selected)
+                label.setText(f"{category} · {count} étel")
+                clear_button.setEnabled(count>0)
+            clear_all.setText(f"Teljes étlap kiürítése… ({len(selected)} étel)")
+            clear_all.setEnabled(bool(selected))
+
+        def clear_section(category=None):
+            selected=self.store.selection(day)
+            removed=[dish for dish in selected if category is None or dish["category"]==category]
+            if not removed:return
+            target=f'a(z) „{category}” szakaszból' if category is not None else "a teljes napi étlapról"
+            answer=QMessageBox.question(dialog,"Szakasz kiürítése" if category is not None else "Teljes étlap kiürítése",
+                f"Biztosan eltávolítod mind a {len(removed)} ételt {target}?\n"
+                f"Kiválasztott nap: {display_date(day)}\n\n"
+                "Az ételek az ételadatbázisban megmaradnak.",
+                QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
+            if answer!=QMessageBox.StandardButton.Yes:return
+            remaining=[dish["id"] for dish in selected if category is not None and dish["category"]!=category]
+            self.store.set_selected(day,remaining);self.preview_archive=None
+            self.refresh_daily();self.refresh_archive();refresh_controls()
+            self.status.setText(f"A(z) {category} szakasz kiürült." if category is not None else "A napi étlap kiürült.")
+
+        for row,category in enumerate(categories):
+            label=QLabel()
+            clear_button=button("Kiürítés…",lambda checked=False,category=category:clear_section(category))
+            clear_button.setProperty("role","destructive")
+            section_controls[category]=(label,clear_button)
+            grid.addWidget(label,row,0);grid.addWidget(clear_button,row,1)
+        layout.addSpacing(10)
+        clear_all=button("",lambda:clear_section())
+        clear_all.setProperty("role","destructive");layout.addWidget(clear_all)
+        close_buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close_buttons.button(QDialogButtonBox.StandardButton.Close).setText("Bezárás")
+        close_buttons.rejected.connect(dialog.reject);layout.addWidget(close_buttons)
+        refresh_controls();dialog.exec()
 
     def copy_previous_daily_menu(self):
         target=self.current_day();source=self.store.latest_daily_menu_date(target)

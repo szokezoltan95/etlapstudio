@@ -608,6 +608,12 @@ class MainWindow(QMainWindow):
             QPushButton:disabled { background:#e8e1d8; color:#999087; }
             QPushButton[role="category"] { padding:4px 6px; min-height:25px; background:#f0e3d1; color:#66503f; font-size:12px; font-weight:650; border:0; border-radius:8px; }
             QPushButton[role="category"][active="true"] { background:#b85a4a; color:#ffffff; }
+            QPushButton[role="copyMenu"] { background:#dce9d8; color:#31553b; border:1px solid #bdd0b8; }
+            QPushButton[role="copyMenu"]:hover { background:#c7ddc0; color:#23452d; }
+            QPushButton[role="copyMenu"]:pressed { background:#aac9a2; }
+            QPushButton[role="orderMenu"] { background:#dce7f2; color:#345875; border:1px solid #b5cadd; }
+            QPushButton[role="orderMenu"]:hover { background:#c5d9eb; color:#26455f; }
+            QPushButton[role="orderMenu"]:pressed { background:#abc5de; }
             QPushButton[role="destructive"] { background:#f1dfdc; color:#923d34; border:1px solid #d8aaa3; }
             QPushButton[role="destructive"]:hover { background:#e9cbc5; color:#762f28; }
             QPushButton[role="food"] { padding:8px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
@@ -701,13 +707,18 @@ class MainWindow(QMainWindow):
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
-        self.copy_previous_button=button("Legutóbbi kész étlap másolása",self.copy_previous_daily_menu)
-        self.section_order_button=button("Ételek sorrendjének módosítása…",self.edit_daily_section_order)
+        self.copy_previous_button=button("Előző étlap másolása",self.copy_previous_daily_menu)
+        self.copy_previous_button.setProperty("role","copyMenu")
+        self.copy_previous_button.setToolTip("Legutóbbi kész étlap másolása")
+        self.section_order_button=button("Sorrend módosítása…",self.edit_daily_section_order)
+        self.section_order_button.setProperty("role","orderMenu")
+        self.section_order_button.setToolTip("Ételek sorrendjének módosítása")
         self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
         action_row=QHBoxLayout();action_row.setSpacing(8)
-        action_row.addWidget(self.copy_previous_button,2)
-        action_row.addWidget(self.section_order_button,2)
-        action_row.addWidget(self.clear_daily_button,1)
+        for control in (self.copy_previous_button,self.section_order_button,self.clear_daily_button):
+            control.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Fixed)
+            control.setMinimumWidth(0);control.setFixedHeight(40)
+            action_row.addWidget(control,1)
         box.addLayout(action_row)
         self.daily_count=QLabel();box.addWidget(self.daily_count)
 

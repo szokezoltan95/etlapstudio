@@ -82,7 +82,7 @@ jobs:
 
   publish-release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.1]')))
+    if: startsWith(github.ref, 'refs/tags/') || (github.ref == 'refs/heads/main' && (contains(github.event.head_commit.message, '[release EtlapStudio 1.0.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.1.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.2.2]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.0]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.3.1]') || contains(github.event.head_commit.message, '[release EtlapStudio 1.4.0]')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -95,7 +95,15 @@ jobs:
         env:
           RELEASE_VERSION: ${{ needs.build.outputs.version }}
         run: |
-          if [[ "$RELEASE_VERSION" == "1.3.1" ]]; then
+          if [[ "$RELEASE_VERSION" == "1.4.0" ]]; then
+            cat > release-notes.md <<'EOF'
+          ÉtlapStúdió 1.4.0
+          • Hozzáadva az étlap szakaszonkénti kiürítése külön ablakban, szakaszonkénti ételszámmal és minden törlés előtti megerősítéssel.
+          • Áthelyezve a teljes napi étlap kiürítése az új ablakba; az üres szakaszok kiürítési gombjai letiltva.
+          • Egységesítve a napi étlap három alsó műveleti gombjának mérete.
+          • Hozzáadva az egységes, funkció szerinti gombszínezés a programban és a párbeszédablakokban: zöld hozzáadás és mentés, sárga szerkesztés és rendezés, türkiz másolás és import/export, narancssárga visszaállítás, piros törlés, bézs navigáció és bezárás.
+          EOF
+          elif [[ "$RELEASE_VERSION" == "1.3.1" ]]; then
             cat > release-notes.md <<'EOF'
           ÉtlapStúdió 1.3.1
           • Hozzáadva a Ctrl+görgetéses nagyítás az előnézet Kézi módjához; a normál görgetés továbbra is függőleges görgetést végez.

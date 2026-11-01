@@ -86,8 +86,28 @@ def app_asset(name):
     return next((path for path in candidates if path.is_file()),candidates[0])
 
 
-def button(label,callback):
-    b=QPushButton(label);b.clicked.connect(callback);return b
+def button(label,callback,action="neutral"):
+    b=QPushButton(label);b.setProperty("action",action);b.clicked.connect(callback);return b
+
+
+def dialog_buttons(standards):
+    controls=QDialogButtonBox(standards)
+    for control in controls.buttons():
+        role=controls.buttonRole(control)
+        action="positive" if role in (QDialogButtonBox.ButtonRole.AcceptRole,QDialogButtonBox.ButtonRole.ApplyRole,QDialogButtonBox.ButtonRole.YesRole) else "neutral"
+        if role==QDialogButtonBox.ButtonRole.DestructiveRole:action="destructive"
+        if role==QDialogButtonBox.ButtonRole.ResetRole:action="warning"
+        control.setProperty("action",action)
+    return controls
+
+
+def question(parent,title,text,buttons=QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
+             default=QMessageBox.StandardButton.NoButton,action="destructive"):
+    box=QMessageBox(QMessageBox.Icon.Question,title,text,buttons,parent)
+    if default!=QMessageBox.StandardButton.NoButton:box.setDefaultButton(default)
+    for control in box.buttons():
+        control.setProperty("action",action if box.buttonRole(control)==QMessageBox.ButtonRole.YesRole else "neutral")
+    return QMessageBox.StandardButton(box.exec())
 
 
 def two_way_arrow_icon():
@@ -168,7 +188,7 @@ class DishDialog(QDialog):
         self.amount_label.setWordWrap(True);layout.addWidget(self.amount_label)
         hint=QLabel("A napi akciós árat a Napi étlap fülön, az adott dátumhoz állíthatod be.")
         hint.setWordWrap(True);layout.addWidget(hint)
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls=dialog_buttons(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.validate_accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
         self.setMinimumWidth(440)
 
@@ -192,7 +212,7 @@ class PromotionDialog(QDialog):
         self.enabled.toggled.connect(self.amount.setEnabled)
         row=QFormLayout();row.addRow("Akciós ár",self.amount);layout.addLayout(row)
         layout.addWidget(QLabel("A kedvezmény csak a kiválasztott napi étlapon jelenik meg."))
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls=dialog_buttons(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.validate_accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
 
     def validate_accept(self):
@@ -221,7 +241,7 @@ class SectionDishOrderDialog(QDialog):
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.rows=QWidget();self.rows_layout=QVBoxLayout(self.rows);self.rows_layout.setContentsMargins(4,4,8,4);self.rows_layout.setSpacing(4)
         self.scroll.setWidget(self.rows);layout.addWidget(self.scroll,1);self.rebuild_rows()
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
+        controls=dialog_buttons(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
 
     def rebuild_rows(self):
@@ -234,7 +254,7 @@ class SectionDishOrderDialog(QDialog):
             label=QLabel(str(dish["name"]));label.setMinimumWidth(0);line.addWidget(label,1)
             up=QPushButton("↑");down=QPushButton("↓")
             for control in (up,down):
-                control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                control.setProperty("action","edit");control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
             up.setEnabled(index>0);down.setEnabled(index<len(self.items)-1)
             up.clicked.connect(lambda _=False,i=index:self.move_item(i,-1))
             down.clicked.connect(lambda _=False,i=index:self.move_item(i,1))
@@ -289,7 +309,7 @@ class SectionOrderDialog(QDialog):
             rows=QWidget();rows_layout=QVBoxLayout(rows);rows_layout.setContentsMargins(4,4,8,4);rows_layout.setSpacing(5)
             scroll.setWidget(rows);self.column_layouts[column]=rows_layout
             holder_layout.addWidget(title);holder_layout.addWidget(scroll,1);grid.addWidget(holder,0,column-1)
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
+        controls=dialog_buttons(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
         self.rebuild_sections()
 
@@ -304,14 +324,14 @@ class SectionOrderDialog(QDialog):
                 label=QLabel(category);label.setMinimumWidth(0);line.addWidget(label,1)
                 up=QPushButton("↑");down=QPushButton("↓");transfer=QPushButton("→" if column==1 else "←")
                 for control in (up,down,transfer):
-                    control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+                    control.setProperty("action","edit");control.setFixedSize(34,30);control.setFocusPolicy(Qt.FocusPolicy.NoFocus)
                 transfer.setText("");transfer.setIcon(two_way_arrow_icon());transfer.setIconSize(QSize(20,16))
                 up.setEnabled(index>0);down.setEnabled(index<len(self.section_columns[column])-1)
                 transfer.setToolTip(f"Áthelyezés a {2 if column==1 else 1}. oszlopba")
                 up.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,-1))
                 down.clicked.connect(lambda _=False,c=column,i=index:self.move_section(c,i,1))
                 transfer.clicked.connect(lambda _=False,c=category,target=2 if column==1 else 1:self.move_section_to(c,target))
-                dishes=QPushButton("Ételek rendezése…");dishes.clicked.connect(lambda _=False,c=category:self.open_dish_order(c))
+                dishes=QPushButton("Ételek rendezése…");dishes.setProperty("action","edit");dishes.clicked.connect(lambda _=False,c=category:self.open_dish_order(c))
                 line.addWidget(up);line.addWidget(down);line.addWidget(transfer);line.addWidget(dishes);row_layout.addWidget(row)
             row_layout.addStretch(1)
 
@@ -357,7 +377,7 @@ class DailyDishDialog(QDialog):
         self.promo_amount.setEnabled(self.promo.isChecked());self.promo.toggled.connect(self.promo_amount.setEnabled)
         form.addRow("Akciós ár",self.promo_amount)
         layout.addWidget(QLabel("Az új normál ár az étel adatlapján is frissül."))
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
+        controls=dialog_buttons(QDialogButtonBox.StandardButton.Save|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(self.validate_accept);controls.rejected.connect(self.reject);layout.addWidget(controls)
 
     def validate_accept(self):
@@ -557,9 +577,9 @@ class MainWindow(QMainWindow):
         self.preview_title=QLabel("Élő előnézet");self.preview_title.setObjectName("previewTitle")
         title_row=QHBoxLayout();title_row.addWidget(self.preview_title);title_row.addStretch();right_layout.addLayout(title_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(6)
-        toolbar.addWidget(button("Mentés",self.save_current))
-        toolbar.addWidget(button("PDF",lambda:self.export("pdf")))
-        toolbar.addWidget(button("Facebook-kép",lambda:self.export("png")))
+        toolbar.addWidget(button("Mentés",self.save_current,action="positive"))
+        toolbar.addWidget(button("PDF",lambda:self.export("pdf"),action="transfer"))
+        toolbar.addWidget(button("Facebook-kép",lambda:self.export("png"),action="transfer"))
         toolbar.addStretch();right_layout.addLayout(toolbar)
         controls=QHBoxLayout();controls.setSpacing(6)
         controls.addStretch()
@@ -602,18 +622,12 @@ class MainWindow(QMainWindow):
             QTabBar::tab { padding:8px 12px; margin-right:3px; background:#e6d8c8; color:#604c42; border-radius:10px 10px 0 0; font-weight:600; }
             QTabBar::tab:selected { background:#fffaf2; color:#963f36; }
             QTabBar::tab:hover { background:#f1e4d6; color:#793c32; }
-            QPushButton { padding:9px 13px; background:#d9e5d8; color:#344b3a; border:0; border-radius:10px; font-weight:600; }
-            QPushButton:hover { background:#c2d5c1; color:#263e2e; }
-            QPushButton:pressed { background:#a8c1a9; color:#203b2a; }
+            QPushButton { padding:9px 13px; background:#ebe4da; color:#5b5046; border:0; border-radius:10px; font-weight:600; }
+            QPushButton:hover { background:#ded3c5; color:#40372f; }
+            QPushButton:pressed { background:#cdbfac; color:#40372f; }
             QPushButton:disabled { background:#e8e1d8; color:#999087; }
             QPushButton[role="category"] { padding:4px 6px; min-height:25px; background:#f0e3d1; color:#66503f; font-size:12px; font-weight:650; border:0; border-radius:8px; }
             QPushButton[role="category"][active="true"] { background:#b85a4a; color:#ffffff; }
-            QPushButton[role="copyMenu"] { background:#dce9d8; color:#31553b; border:1px solid #bdd0b8; }
-            QPushButton[role="copyMenu"]:hover { background:#c7ddc0; color:#23452d; }
-            QPushButton[role="copyMenu"]:pressed { background:#aac9a2; }
-            QPushButton[role="orderMenu"] { background:#dce7f2; color:#345875; border:1px solid #b5cadd; }
-            QPushButton[role="orderMenu"]:hover { background:#c5d9eb; color:#26455f; }
-            QPushButton[role="orderMenu"]:pressed { background:#abc5de; }
             QPushButton[role="destructive"] { background:#f1dfdc; color:#923d34; border:1px solid #d8aaa3; }
             QPushButton[role="destructive"]:hover { background:#e9cbc5; color:#762f28; }
             QPushButton[role="food"] { padding:8px; min-height:54px; min-width:0; text-align:left; background:#fffdf8; color:#38332f; border:1px solid #eadfce; border-radius:12px; }
@@ -628,6 +642,28 @@ class MainWindow(QMainWindow):
             QPushButton[role="foodRemove"] { padding:3px; min-width:42px; min-height:30px; background:#ffffff; color:#98463d; border:1px solid #e0c9c4; border-radius:8px; font-size:17px; }
             QPushButton[role="foodRemove"]:hover { background:#fff8f6; color:#7f332d; border:1px solid #ce8e82; }
             QPushButton[role="foodRemove"]:pressed { background:#f5e8e5; }
+            QPushButton[action="positive"] { background:#dce9d8; color:#31553b; border:1px solid #bdd0b8; }
+            QPushButton[action="positive"]:hover { background:#c7ddc0; color:#31553b; }
+            QPushButton[action="positive"]:pressed { background:#aac9a2; color:#31553b; }
+            QPushButton[action="edit"] { background:#dce7f2; color:#345875; border:1px solid #b5cadd; }
+            QPushButton[action="edit"]:hover { background:#c5d9eb; color:#345875; }
+            QPushButton[action="edit"]:pressed { background:#abc5de; color:#345875; }
+            QPushButton[action="transfer"] { background:#d7eceb; color:#245e60; border:1px solid #a5cecc; }
+            QPushButton[action="transfer"]:hover { background:#bee0de; color:#245e60; }
+            QPushButton[action="transfer"]:pressed { background:#a0cecb; color:#245e60; }
+            QPushButton[action="warning"] { background:#f6e5cc; color:#80501d; border:1px solid #dfbe8f; }
+            QPushButton[action="warning"]:hover { background:#efd5af; color:#80501d; }
+            QPushButton[action="warning"]:pressed { background:#e4bf88; color:#80501d; }
+            QPushButton[action="destructive"] { background:#f1dfdc; color:#923d34; border:1px solid #d8aaa3; }
+            QPushButton[action="destructive"]:hover { background:#e9cbc5; color:#923d34; }
+            QPushButton[action="destructive"]:pressed { background:#dcaea6; color:#923d34; }
+            QPushButton[action="neutral"] { background:#ebe4da; color:#5b5046; border:1px solid #d4c7b6; }
+            QPushButton[action="neutral"]:hover { background:#ded3c5; color:#5b5046; }
+            QPushButton[action="neutral"]:pressed { background:#cdbfac; color:#5b5046; }
+            QPushButton[action="positive"]:default { background:#397249; color:#ffffff; border:1px solid #2f603c; }
+            QPushButton[action="positive"]:default:hover { background:#2f603c; }
+            QPushButton[action="edit"]:checked { background:#abc5de; color:#26455f; }
+            QPushButton[action]:disabled { background:#e8e1d8; color:#999087; border:1px solid #d8d0c5; }
             QSlider::groove:horizontal { height:6px; background:#e1d5c8; border-radius:3px; }
             QSlider::sub-page:horizontal { background:#a94e41; border-radius:3px; }
             QSlider::handle:horizontal { width:18px; margin:-6px 0; background:#fffaf2; border:2px solid #a94e41; border-radius:9px; }
@@ -691,7 +727,7 @@ class MainWindow(QMainWindow):
         self.day=CalendarDateEdit(qdate(date.today()));self.day.setCalendarPopup(True);self.day.setMaximumWidth(132)
         self.day.setDisplayFormat("yyyy.MM.dd.");self.day.dateChanged.connect(self.daily_date_changed)
         date_row.addWidget(QLabel("Dátum"));date_row.addWidget(self.day)
-        date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today()))))
+        date_row.addWidget(button("Ma",lambda:self.day.setDate(qdate(date.today())),action="neutral"))
         self.active_category="Összes"
         category_row=QHBoxLayout();category_row.addWidget(QLabel("Ételkategória:"))
         self.category_filter=QComboBox();self.category_filter.addItem("Összes kategória","Összes")
@@ -707,13 +743,13 @@ class MainWindow(QMainWindow):
         self.food_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         foods_wrap=QWidget();self.food_grid=QGridLayout(foods_wrap);self.food_grid.setContentsMargins(2,3,8,3);self.food_grid.setSpacing(8)
         self.food_scroll.setWidget(foods_wrap);box.addWidget(self.food_scroll,1)
-        self.copy_previous_button=button("Előző étlap másolása",self.copy_previous_daily_menu)
-        self.copy_previous_button.setProperty("role","copyMenu")
+        self.copy_previous_button=button("Előző étlap másolása",self.copy_previous_daily_menu,action="transfer")
+        self.copy_previous_button.setProperty("action","transfer")
         self.copy_previous_button.setToolTip("Legutóbbi kész étlap másolása")
-        self.section_order_button=button("Sorrend módosítása…",self.edit_daily_section_order)
-        self.section_order_button.setProperty("role","orderMenu")
+        self.section_order_button=button("Sorrend módosítása…",self.edit_daily_section_order,action="edit")
+        self.section_order_button.setProperty("action","edit")
         self.section_order_button.setToolTip("Ételek sorrendjének módosítása")
-        self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu);self.clear_daily_button.setProperty("role","destructive")
+        self.clear_daily_button=button("Étlap kiürítése…",self.clear_daily_menu,action="destructive");self.clear_daily_button.setProperty("role","destructive")
         action_row=QHBoxLayout();action_row.setSpacing(8)
         for control in (self.copy_previous_button,self.section_order_button,self.clear_daily_button):
             control.setSizePolicy(QSizePolicy.Policy.Ignored,QSizePolicy.Policy.Fixed)
@@ -810,7 +846,7 @@ class MainWindow(QMainWindow):
             removed=[dish for dish in selected if category is None or dish["category"]==category]
             if not removed:return
             target=f'a(z) „{category}” szakaszból' if category is not None else "a teljes napi étlapról"
-            answer=QMessageBox.question(dialog,"Szakasz kiürítése" if category is not None else "Teljes étlap kiürítése",
+            answer=question(dialog,"Szakasz kiürítése" if category is not None else "Teljes étlap kiürítése",
                 f"Biztosan eltávolítod mind a {len(removed)} ételt {target}?\n"
                 f"Kiválasztott nap: {display_date(day)}\n\n"
                 "Az ételek az ételadatbázisban megmaradnak.",
@@ -823,14 +859,14 @@ class MainWindow(QMainWindow):
 
         for row,category in enumerate(categories):
             label=QLabel()
-            clear_button=button("Kiürítés…",lambda checked=False,category=category:clear_section(category))
+            clear_button=button("Kiürítés…",lambda checked=False,category=category:clear_section(category),action="destructive")
             clear_button.setProperty("role","destructive")
             section_controls[category]=(label,clear_button)
             grid.addWidget(label,row,0);grid.addWidget(clear_button,row,1)
         layout.addSpacing(10)
-        clear_all=button("",lambda:clear_section())
+        clear_all=button("",lambda:clear_section(),action="destructive")
         clear_all.setProperty("role","destructive");layout.addWidget(clear_all)
-        close_buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close_buttons=dialog_buttons(QDialogButtonBox.StandardButton.Close)
         close_buttons.button(QDialogButtonBox.StandardButton.Close).setText("Bezárás")
         close_buttons.rejected.connect(dialog.reject);layout.addWidget(close_buttons)
         refresh_controls();dialog.exec()
@@ -839,10 +875,10 @@ class MainWindow(QMainWindow):
         target=self.current_day();source=self.store.latest_daily_menu_date(target)
         if source is None:
             QMessageBox.information(self,APP_NAME,"A kiválasztott nap előtt nem található kész napi étlap.");return
-        answer=QMessageBox.question(self,"Legutóbbi étlap másolása",
+        answer=question(self,"Legutóbbi étlap másolása",
             f"A legutóbbi kész étlap ({display_date(source)}) másolódik erre a napra: {display_date(target)}.\n\n"
             "A jelenlegi napi étlap tartalma lecserélődik.",
-            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No)
+            QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,QMessageBox.StandardButton.No,action="transfer")
         if answer!=QMessageBox.StandardButton.Yes:return
         copied=self.store.copy_latest_daily_menu(target)
         if not copied:
@@ -867,7 +903,7 @@ class MainWindow(QMainWindow):
         self._food_action_buttons={}
         cols=max(1,min(3,self.food_scroll.viewport().width()//235))
         new_category=None if self.active_category=="Összes" else self.active_category
-        new_food=button("＋\nÚj étel",lambda checked=False,category=new_category:self.add_catalogue_dish(initial_category=category))
+        new_food=button("＋\nÚj étel",lambda checked=False,category=new_category:self.add_catalogue_dish(initial_category=category),action="positive")
         new_food.setProperty("role","newFoodCard");new_food.setToolTip("Új étel felvétele"+(" · válaszd ki a kategóriát" if self.active_category=="Összes" else f" · kategória: {self.active_category}"))
         self.food_grid.addWidget(new_food,0,0)
         for n,dish in enumerate(foods):
@@ -894,8 +930,9 @@ class MainWindow(QMainWindow):
             toggle.setToolTip(action_name+" "+("a kiválasztott napi étlapról" if is_selected else "a kiválasztott napi étlaphoz"))
             toggle.setAccessibleName(action_name+": "+dish["name"])
             toggle.setProperty("role","foodRemove" if is_selected else "foodAction")
+            toggle.setProperty("action","destructive" if is_selected else "positive")
             self._food_action_buttons[dish["id"]]=(toggle,is_selected)
-            edit=button("Szerk.",lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id))
+            edit=button("Szerk.",lambda checked=False,dish_id=dish["id"]:self.edit_daily_dish(dish_id),action="edit")
             edit.setProperty("role","foodEdit");edit.setToolTip("Étel, ár és napi akció szerkesztése")
             edit.setAccessibleName("Szerkesztés: "+dish["name"])
             for action in (toggle,edit):
@@ -993,7 +1030,7 @@ class MainWindow(QMainWindow):
         note_row=QHBoxLayout()
         note=QLabel("Az előnézet csak a frissítés gombbal készül el. A menüt a jobb felső Mentés gomb rögzíti.")
         note.setWordWrap(True);note_row.addWidget(note,1)
-        note_row.addWidget(button("Előnézet frissítése",self.refresh_week_preview));box.addLayout(note_row)
+        note_row.addWidget(button("Előnézet frissítése",self.refresh_week_preview,action="neutral"));box.addLayout(note_row)
 
     def build_special(self):
         page,box=self.pane("Különleges alkalom · egyedi címsor és szabadon formázható, nagy szövegmező")
@@ -1055,23 +1092,23 @@ class MainWindow(QMainWindow):
         self.special_size_preset.currentIndexChanged.connect(self.special_apply_size_preset)
         self.special_size_preset.setMinimumWidth(220);self.special_header_mode.setMinimumWidth(190)
         layout_row.addWidget(self.special_header_mode);layout_row.addWidget(self.special_size_preset)
-        layout_row.addWidget(button("Egyedi méret…",self.special_edit_custom_size));layout_row.addStretch();box.addLayout(layout_row)
+        layout_row.addWidget(button("Egyedi méret…",self.special_edit_custom_size,action="edit"));layout_row.addStretch();box.addLayout(layout_row)
         toolbar=QHBoxLayout();toolbar.setSpacing(5)
         self.special_font=QFontComboBox();self.special_font.setCurrentFont(QFont(self.store.setting("special_font","Segoe UI")))
         self.special_font.currentFontChanged.connect(self.special_set_font);toolbar.addWidget(self.special_font)
         self.special_size=QDoubleSpinBox();self.special_size.setRange(6,60);self.special_size.setValue(16);self.special_size.setSuffix(" pt")
         self.special_size.valueChanged.connect(self.special_set_size);toolbar.addWidget(self.special_size)
         for label,attribute in (("B","bold"),("I","italic"),("U","underline")):
-            control=QPushButton(label);control.setCheckable(True);control.setFixedWidth(38)
+            control=QPushButton(label);control.setProperty("action","edit");control.setCheckable(True);control.setFixedWidth(38)
             if label=="B":control.setStyleSheet("font-weight:bold")
             if label=="I":control.setStyleSheet("font-style:italic")
             if label=="U":control.setStyleSheet("text-decoration:underline")
             control.clicked.connect(lambda checked,a=attribute:self.special_set_decoration(a,checked))
             toolbar.addWidget(control)
-        toolbar.addWidget(button("Szín",self.special_choose_color))
-        toolbar.addWidget(button("Balra",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignLeft)))
-        toolbar.addWidget(button("Középre",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignHCenter)))
-        toolbar.addWidget(button("Jobbra",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignRight)))
+        toolbar.addWidget(button("Szín",self.special_choose_color,action="edit"))
+        toolbar.addWidget(button("Balra",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignLeft),action="edit"))
+        toolbar.addWidget(button("Középre",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignHCenter),action="edit"))
+        toolbar.addWidget(button("Jobbra",lambda:self.special_text.setAlignment(Qt.AlignmentFlag.AlignRight),action="edit"))
         toolbar.addStretch();box.addLayout(toolbar)
         self.special_text=QTextEdit();self.special_text.setAcceptRichText(True)
         self.special_text.setPlaceholderText("Írd ide a különleges menü vagy esemény szövegét. Jelöld ki a szöveget, majd használd a formázó gombokat.")
@@ -1104,7 +1141,7 @@ class MainWindow(QMainWindow):
         width=QSpinBox();width.setRange(200,8000);width.setSuffix(" px");width.setValue(self.special_size_width.value())
         height=QSpinBox();height.setRange(200,8000);height.setSuffix(" px");height.setValue(self.special_size_height.value())
         form.addRow("Szélesség",width);form.addRow("Magasság",height)
-        controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
+        controls=dialog_buttons(QDialogButtonBox.StandardButton.Ok|QDialogButtonBox.StandardButton.Cancel)
         controls.accepted.connect(dialog.accept);controls.rejected.connect(dialog.reject);form.addRow(controls)
         if dialog.exec()!=QDialog.DialogCode.Accepted:return
         self._updating_special_size=True
@@ -1157,9 +1194,9 @@ class MainWindow(QMainWindow):
         info.setStyleSheet("color:#60747d;padding:5px")
         body_layout.addWidget(info);body_layout.addWidget(self.archive,1)
         buttons=QHBoxLayout()
-        open_button=button("Megnyitás szerkesztésre",lambda:self.edit_saved_menu(self.archive.currentItem(),0))
-        delete_button=button("Törlés",self.delete_saved_menu)
-        close_button=button("Bezárás",dialog.close)
+        open_button=button("Megnyitás szerkesztésre",lambda:self.edit_saved_menu(self.archive.currentItem(),0),action="edit")
+        delete_button=button("Törlés",self.delete_saved_menu,action="destructive")
+        close_button=button("Bezárás",dialog.close,action="neutral")
         buttons.addWidget(open_button);buttons.addWidget(delete_button);buttons.addStretch();buttons.addWidget(close_button)
         body_layout.addLayout(buttons)
 
@@ -1190,7 +1227,7 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self,APP_NAME,"Válassz ki egy mentett étlapot a törléshez.");return
         menu_id=item.data(0,Qt.ItemDataRole.UserRole)
         label=item.text(0).strip()
-        if QMessageBox.question(self,"Étlap törlése",f"Biztosan törlöd ezt a mentett étlapot?\n\n{label}",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes:
+        if question(self,"Étlap törlése",f"Biztosan törlöd ezt a mentett étlapot?\n\n{label}",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No)==QMessageBox.StandardButton.Yes:
             if self.preview_archive is not None:
                 archived_day=self.preview_archive[2]
                 row=self.store.db.execute("SELECT kind,menu_date FROM saved_menus WHERE id=?",(menu_id,)).fetchone()
@@ -1225,9 +1262,9 @@ class MainWindow(QMainWindow):
         message=f"Elérhető az ÉtlapStúdió v{latest} verziója (jelenlegi: v{APP_VERSION})."
         if notes:message+="\n\n"+notes[:1800]
         message+="\n\nA frissítő letölti és kicsomagolja az új programfájlokat. A helyi ételadatbázis és éttermi beállítások megmaradnak."
-        answer=QMessageBox.question(self,"Frissítés érhető el",message,
+        answer=question(self,"Frissítés érhető el",message,
                                     QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No,
-                                    QMessageBox.StandardButton.Yes)
+                                    QMessageBox.StandardButton.Yes,action="transfer")
         if answer!=QMessageBox.StandardButton.Yes:return
         helper_source=Path(getattr(sys,"_MEIPASS",BASE))/"EtlapStudioUpdater.exe"
         if not helper_source.is_file():
@@ -1262,7 +1299,7 @@ class MainWindow(QMainWindow):
         heading.setOpenExternalLinks(True);layout.addWidget(heading)
         license_text=QTextEdit();license_text.setReadOnly(True);license_text.setPlainText(MIT_LICENSE_TEXT);layout.addWidget(license_text,1)
         note=QLabel("A külső függőségek, betűkészletek és külön licencű mellékelt fájlok saját licencfeltételei ettől függetlenül érvényesek.");note.setWordWrap(True);layout.addWidget(note)
-        buttons=QDialogButtonBox(QDialogButtonBox.StandardButton.Close);buttons.rejected.connect(dialog.close);layout.addWidget(buttons)
+        buttons=dialog_buttons(QDialogButtonBox.StandardButton.Close);buttons.rejected.connect(dialog.close);layout.addWidget(buttons)
         dialog.exec()
 
     def build_appearance(self):
@@ -1282,7 +1319,7 @@ class MainWindow(QMainWindow):
         self.body_font=QFontComboBox();self.body_font.setMinimumWidth(220)
         self.body_font.currentFontChanged.connect(self.save_appearance)
         form.addRow("Sima szöveg betűtípusa",self.body_font)
-        self.advanced_button=button("Haladó beállítások…",self.open_advanced_design)
+        self.advanced_button=button("Haladó beállítások…",self.open_advanced_design,action="edit")
         self.advanced_button.setToolTip("Külön ablakban módosíthatók az egyes szövegtípusok betűi és méretei.")
         form.addRow("Betűméretek",self.advanced_button)
         self.leader=QComboBox()
@@ -1301,7 +1338,7 @@ class MainWindow(QMainWindow):
         mode_index=self.glass_color_mode.findData(mode);self.glass_color_mode.setCurrentIndex(max(0,mode_index))
         self.glass_color_mode.currentIndexChanged.connect(self.glass_color_mode_changed)
         form.addRow("Üvegpanelek színe",self.glass_color_mode)
-        self.glass_color_button=button("Egyéni szín kiválasztása…",self.choose_glass_color)
+        self.glass_color_button=button("Egyéni szín kiválasztása…",self.choose_glass_color,action="edit")
         self.glass_color_button.setToolTip("Egyéni panelárnyalat. A finom áttetszőség megőrzi a szöveg olvashatóságát.")
         self._glass_custom_color=self.store.setting("glass_color","#DDE7D8")
         form.addRow("Egyéni panelárnyalat",self.glass_color_button)
@@ -1317,8 +1354,8 @@ class MainWindow(QMainWindow):
         self.decorations.setChecked(self.store.setting("decorations","1")=="1")
         self.decorations.toggled.connect(self.save_appearance);form.addRow("",self.decorations)
         self.glass_color_mode_changed()
-        form.addRow("",button("Dizájnkezelő…",self.new_design_dialog))
-        reset=button("Dizájn visszaállítása alapértékre",self.reset_design);reset.setObjectName("resetButton")
+        form.addRow("",button("Dizájnkezelő…",self.new_design_dialog,action="edit"))
+        reset=button("Dizájn visszaállítása alapértékre",self.reset_design,action="warning");reset.setObjectName("resetButton")
         form.addRow("",reset)
         self.design_type.currentIndexChanged.connect(self.change_design_kind)
         scroll.setWidget(inner);box.addWidget(scroll,1)
@@ -1408,7 +1445,7 @@ class MainWindow(QMainWindow):
                 row_layout.addWidget(combo,1);row_layout.addWidget(size);form.addRow(label,row)
                 self.advanced_font_widgets[key]=(combo,size)
             scroll.setWidget(inner);layout.addWidget(scroll,1)
-            controls=QDialogButtonBox(QDialogButtonBox.StandardButton.Close);controls.rejected.connect(self.advanced_dialog.reject);layout.addWidget(controls)
+            controls=dialog_buttons(QDialogButtonBox.StandardButton.Close);controls.rejected.connect(self.advanced_dialog.reject);layout.addWidget(controls)
         self.populate_advanced_design(self.design_kind);self.advanced_dialog.show();self.advanced_dialog.raise_();self.advanced_dialog.activateWindow()
 
     def populate_advanced_design(self,kind):
@@ -1577,9 +1614,9 @@ class MainWindow(QMainWindow):
 
         transfer_page=QWidget();transfer_layout=QVBoxLayout(transfer_page)
         transfer_layout.addWidget(QLabel("Étlapadatbázis biztonsági mentése és az étellista CSV-fájlos cseréje."))
-        transfer_layout.addWidget(button("Teljes adatbázis mentése…",self.backup))
-        transfer_layout.addWidget(button("Ételek exportálása CSV-be…",lambda:self.export_dishes_csv(dialog)))
-        transfer_layout.addWidget(button("Ételek importálása CSV-ből…",lambda:self.import_dishes_csv(dialog)))
+        transfer_layout.addWidget(button("Teljes adatbázis mentése…",self.backup,action="transfer"))
+        transfer_layout.addWidget(button("Ételek exportálása CSV-be…",lambda:self.export_dishes_csv(dialog),action="transfer"))
+        transfer_layout.addWidget(button("Ételek importálása CSV-ből…",lambda:self.import_dishes_csv(dialog),action="transfer"))
         format_hint=QLabel("CSV oszlopok: name, category, price. Az import az azonos nevű és kategóriájú ételek árát frissíti, az újakat hozzáadja.")
         format_hint.setWordWrap(True);transfer_layout.addWidget(format_hint);transfer_layout.addStretch(1)
         tabs.addTab(transfer_page,"Import / export")
@@ -1607,12 +1644,12 @@ class MainWindow(QMainWindow):
             reload();self.refresh_daily();self.refresh_menu_suggestions()
         def delete():
             row=selected_row()
-            if row and QMessageBox.question(dialog,APP_NAME,"Eltávolítsuk ezt az ételt az aktív ételadatbázisból?")==QMessageBox.StandardButton.Yes:
+            if row and question(dialog,APP_NAME,"Eltávolítsuk ezt az ételt az aktív ételadatbázisból?")==QMessageBox.StandardButton.Yes:
                 self.store.delete_dish(row["id"]);reload();self.refresh_daily();self.refresh_menu_suggestions()
-        actions.addWidget(button("Új étel",lambda:edit()))
-        actions.addWidget(button("Szerkesztés",lambda:edit(selected_row())))
-        actions.addWidget(button("Eltávolítás",delete));actions.addStretch()
-        actions.addWidget(button("Hiányzó alapételek betöltése",self.import_starter))
+        actions.addWidget(button("Új étel",lambda:edit(),action="positive"))
+        actions.addWidget(button("Szerkesztés",lambda:edit(selected_row()),action="edit"))
+        actions.addWidget(button("Eltávolítás",delete,action="destructive"));actions.addStretch()
+        actions.addWidget(button("Hiányzó alapételek betöltése",self.import_starter,action="transfer"))
         search.textChanged.connect(reload);category_filter.currentIndexChanged.connect(reload);tree.itemDoubleClicked.connect(lambda *_:edit(selected_row()))
         tabs.setCurrentIndex(max(0,min(2,int(initial_tab))));reload();dialog.exec()
 
@@ -1779,10 +1816,10 @@ class MainWindow(QMainWindow):
         occasion=QLineEdit();form.addRow("Alkalom",occasion)
         status=QLabel("Válassz egy dizájnt a listából.");status.setWordWrap(True);detail_layout.addWidget(status)
         controls=QHBoxLayout();detail_layout.addLayout(controls)
-        apply_button=button("Alkalmazás",lambda:None);controls.addWidget(apply_button)
-        save_button=button("Név és alkalom mentése",lambda:None);controls.addWidget(save_button)
-        replace_button=button("Grafikák cseréje…",lambda:None);controls.addWidget(replace_button)
-        delete_button=button("Törlés",lambda:None);controls.addWidget(delete_button)
+        apply_button=button("Alkalmazás",lambda:None,action="positive");controls.addWidget(apply_button)
+        save_button=button("Név és alkalom mentése",lambda:None,action="positive");controls.addWidget(save_button)
+        replace_button=button("Grafikák cseréje…",lambda:None,action="warning");controls.addWidget(replace_button)
+        delete_button=button("Törlés",lambda:None,action="destructive");controls.addWidget(delete_button)
 
         create=QWidget();create_layout=QVBoxLayout(create);tabs.addTab(create,"Új dizájn és import")
         create_form=QFormLayout();create_layout.addLayout(create_form)
@@ -1824,9 +1861,9 @@ class MainWindow(QMainWindow):
             )
         prompt_occasion.currentTextChanged.connect(make_prompt);prompt_name.textChanged.connect(make_prompt);make_prompt()
         actions=QHBoxLayout();create_layout.addLayout(actions)
-        copy=button("Prompt másolása",lambda:QApplication.clipboard().setText(prompt.toPlainText()));actions.addWidget(copy)
-        zip_button=button("Importálás ZIP-ből…",lambda:self.import_theme_from_dialog(dialog));actions.addWidget(zip_button)
-        image_button=button("Képek külön importálása…",lambda:self.import_theme_images_from_dialog(dialog,prompt_name.text().strip(),prompt_occasion.currentText().strip()));actions.addWidget(image_button)
+        copy=button("Prompt másolása",lambda:QApplication.clipboard().setText(prompt.toPlainText()),action="transfer");actions.addWidget(copy)
+        zip_button=button("Importálás ZIP-ből…",lambda:self.import_theme_from_dialog(dialog),action="transfer");actions.addWidget(zip_button)
+        image_button=button("Képek külön importálása…",lambda:self.import_theme_images_from_dialog(dialog,prompt_name.text().strip(),prompt_occasion.currentText().strip()),action="transfer");actions.addWidget(image_button)
 
         def refresh_designs(select=None):
             self.reload_themes();designs.clear()
@@ -1883,7 +1920,7 @@ class MainWindow(QMainWindow):
             key=selected_design()
             folder=data_dir()/"themes"/str(key)
             if key not in self.theme_packs or not folder.is_dir():return
-            if QMessageBox.question(dialog,"Dizájn törlése",f"Biztosan törlöd ezt a dizájnt: {name.text()}?")!=QMessageBox.StandardButton.Yes:return
+            if question(dialog,"Dizájn törlése",f"Biztosan törlöd ezt a dizájnt: {name.text()}?")!=QMessageBox.StandardButton.Yes:return
             import shutil
             shutil.rmtree(folder)
             for kind in ("daily","weekly","special"):
@@ -1896,7 +1933,7 @@ class MainWindow(QMainWindow):
             if key not in self.theme_packs or not target.is_dir():return
             from tempfile import TemporaryDirectory
             import shutil
-            mode=QMessageBox.question(dialog,"Grafikák cseréje", "ZIP-témacsomagot szeretnél választani?\n\nIgen: ZIP · Nem: külön képfájlok",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No|QMessageBox.StandardButton.Cancel)
+            mode=question(dialog,"Grafikák cseréje", "ZIP-témacsomagot szeretnél választani?\n\nIgen: ZIP · Nem: külön képfájlok",QMessageBox.StandardButton.Yes|QMessageBox.StandardButton.No|QMessageBox.StandardButton.Cancel,action="warning")
             if mode==QMessageBox.StandardButton.Cancel:return
             try:
                 with TemporaryDirectory(prefix="etlap-theme-edit-") as tmp:
@@ -1932,7 +1969,7 @@ class MainWindow(QMainWindow):
         delete_button.clicked.connect(delete_design);designs.currentRowChanged.connect(populate_design)
         refresh_designs();populate_design()
         dialog.refresh_designs=refresh_designs
-        close=button("Bezárás",dialog.accept);layout.addWidget(close)
+        close=button("Bezárás",dialog.accept,action="neutral");layout.addWidget(close)
         dialog.exec()
 
     def activate_imported_theme(self,slug):

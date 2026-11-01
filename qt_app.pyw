@@ -645,9 +645,9 @@ class MainWindow(QMainWindow):
             QPushButton[action="positive"] { background:#dce9d8; color:#31553b; border:1px solid #bdd0b8; }
             QPushButton[action="positive"]:hover { background:#c7ddc0; color:#31553b; }
             QPushButton[action="positive"]:pressed { background:#aac9a2; color:#31553b; }
-            QPushButton[action="edit"] { background:#dce7f2; color:#345875; border:1px solid #b5cadd; }
-            QPushButton[action="edit"]:hover { background:#c5d9eb; color:#345875; }
-            QPushButton[action="edit"]:pressed { background:#abc5de; color:#345875; }
+            QPushButton[action="edit"] { background:#f8edba; color:#705919; border:1px solid #d8c16b; }
+            QPushButton[action="edit"]:hover { background:#f2df91; color:#705919; }
+            QPushButton[action="edit"]:pressed { background:#e8ce68; color:#705919; }
             QPushButton[action="transfer"] { background:#d7eceb; color:#245e60; border:1px solid #a5cecc; }
             QPushButton[action="transfer"]:hover { background:#bee0de; color:#245e60; }
             QPushButton[action="transfer"]:pressed { background:#a0cecb; color:#245e60; }
@@ -662,7 +662,7 @@ class MainWindow(QMainWindow):
             QPushButton[action="neutral"]:pressed { background:#cdbfac; color:#5b5046; }
             QPushButton[action="positive"]:default { background:#397249; color:#ffffff; border:1px solid #2f603c; }
             QPushButton[action="positive"]:default:hover { background:#2f603c; }
-            QPushButton[action="edit"]:checked { background:#abc5de; color:#26455f; }
+            QPushButton[action="edit"]:checked { background:#e8ce68; color:#594511; }
             QPushButton[action]:disabled { background:#e8e1d8; color:#999087; border:1px solid #d8d0c5; }
             QSlider::groove:horizontal { height:6px; background:#e1d5c8; border-radius:3px; }
             QSlider::sub-page:horizontal { background:#a94e41; border-radius:3px; }
